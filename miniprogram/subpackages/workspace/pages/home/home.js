@@ -6,6 +6,7 @@ const authContext = require('../../../../utils/authContext');
 const deviceMetadataReport = require('../../../../utils/deviceMetadataReport');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const { home: copy } = require('../../../../locales/zh-CN/main');
+const { awardSelection: awardCopy } = require('../../../../locales/zh-CN/scoringPublication');
 const { describeProfile } = require('../../package-resources/utils/hrProfileStatusView');
 const publicationView = require('../../package-resources/utils/scoringPublicationView');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
@@ -128,10 +129,8 @@ function decorateScoringTarget(item) {
 function emptyPublicationState() {
   return {
     publicationMemberCount: 0,
-    publishedMeritList: [],
-    publishedMeritGroups: [],
     meritRuleGroups: [],
-    meritDeptCount: 0,
+    meritSummary: {},
     publicationAccessLoading: false,
     publicationResultsPending: false,
     publicationMeritPending: false,
@@ -140,7 +139,8 @@ function emptyPublicationState() {
     hasPublication: false,
     hasViewPerm: false,
     hasMeritPerm: false,
-    userMeritClauses: [],
+    canEditMerit: false,
+    savedMeritRefreshText: awardCopy.savedNotRefreshed,
     userDesigCandidates: [],
     statsData: { count: 0, maxScore: '--', avgScore: '--' },
     displayMode: 'score',
@@ -159,20 +159,15 @@ function emptyPublicationState() {
     expandedResultGroupClauseId: '',
     showUserDesigPopup: false,
     publicationPageLabels: { previous: calendarCopy.previous, next: calendarCopy.next },
-    userDesigPerms: [],
     userDesigHrList: [],
-    userDesigFilteredList: [],
-    userDesigSelectedIds: [],
     userDesigSelectedList: [],
-    userDesigGroups: [],
     userDesigPubId: '',
-    userDesigLoading: false,
     userDesigSaving: false,
-    userDesigFilterDept: copy.text.all,
-    userDesigFilterIdent: copy.text.all,
-    userDesigFilterDeptOptions: [copy.text.all],
-    userDesigFilterIdentOptions: [copy.text.all],
-    userDesigSearchKeyword: ''
+    userDesigQuota: '',
+    userDesigNotice: '',
+    userDesigError: '',
+    userDesigSaveUnknown: false,
+    savedMeritRefreshFailed: false
   };
 }
 
@@ -413,46 +408,7 @@ Page({
     activeTab: 'scoring',
     hrProfile: emptyHrProfileState(),
     accountSecurity: emptyAccountSecurityState(),
-    publicationMemberCount: 0,
-    publishedMeritList: [],
-    publishedMeritGroups: [],
-    meritRuleGroups: [],
-    publicationAccessLoading: false,
-    hasPublication: false,
-    hasViewPerm: false,
-    hasMeritPerm: false,
-    userMeritClauses: [],
-    userDesigCandidates: [],
-    statsData: { count: 0, maxScore: '--', avgScore: '--' },
-    displayMode: 'score',
-    gradeDistribution: [],
-    resultFilterIdentity: '',
-    resultFilterDepartment: '',
-    resultFilterWorkGroup: '',
-    resultFilterGrade: '',
-    resultSearchText: '',
-    resultIdentities: [],
-    resultDepartments: [],
-    resultWorkGroups: [],
-    filteredResults: [],
-    filteredGroups: [],
-    filteredStatsData: { count: 0, maxScore: '--', avgScore: '--' },
-    expandedResultGroupClauseId: '',
-    showUserDesigPopup: false,
-    userDesigPerms: [],
-    userDesigHrList: [],
-    userDesigFilteredList: [],
-    userDesigSelectedIds: [],
-    userDesigSelectedList: [],
-    userDesigGroups: [],
-    userDesigPubId: '',
-    userDesigLoading: false,
-    userDesigSaving: false,
-    userDesigFilterDept: copy.text.all,
-    userDesigFilterIdent: copy.text.all,
-    userDesigFilterDeptOptions: [copy.text.all],
-    userDesigFilterIdentOptions: [copy.text.all],
-    userDesigSearchKeyword: '',
+    ...emptyPublicationState(),
     // Audit badge counts
     auditPendingCount: 0,
     auditMyCount: 0,
@@ -479,6 +435,7 @@ Page({
     const preservedTab = this.data.activeTab;
     if (organizationChanged) {
       orgSession.invalidateRequests(this);
+      this._meritEditor = null;
       this._publicationRows = null;
       this._publicationLoaded = false;
       this._preferredOrgTab = preservedTab;
@@ -504,8 +461,11 @@ Page({
           this.loadLatestPublishedActivity();
         } else if (this._refreshPublicationOnShow && this.data.publicationActivity) {
           this.checkPublication();
+        } else if (this._refreshMeritOnShow && this.data.publicationActivity) {
+          this.refreshMeritAfterSave();
         }
         this._refreshPublicationOnShow = false;
+        this._refreshMeritOnShow = false;
       }
       if (firstEntry || organizationChanged) this.refreshUserFromCloud();
       if (this._subApp === 'hr') {
@@ -618,8 +578,11 @@ Page({
     this._restoreManagementTab = this.data.activeTab === 'management';
     this._managementGeneration = (this._managementGeneration || 0) + 1;
     this._refreshPublicationOnShow = this.data.publicationAccessLoading;
+    this._refreshMeritOnShow = this.data.userDesigSaving || this.data.publicationMeritPending;
+    this._meritEditor = null;
     this.setData({ canManageSubApp: false, managementDialogVisible: false, managementKeyboardHeight: 0,
-      publicationAccessLoading: false, publicationResultsPending: false, publicationMeritPending: false });
+      publicationAccessLoading: false, publicationResultsPending: false, publicationMeritPending: false,
+      showUserDesigPopup: false, userDesigSaving: false, userDesigHrList: [], userDesigSelectedList: [] });
     deviceMetadataReport.cancel(this);
     orgSession.invalidateRequests(this);
   },
@@ -675,7 +638,7 @@ Page({
 
   switchUserTab(e) {
     const tab = String(e.currentTarget.dataset.tab || '');
-    if (!this.data.userTabs.some(item => item.key === tab) || tab === this.data.activeTab) {
+    if (this.data.userDesigSaving || !this.data.userTabs.some(item => item.key === tab) || tab === this.data.activeTab) {
       return;
     }
     this._restoreManagementTab = false;
@@ -778,6 +741,7 @@ Page({
         if (previousId !== (activity || {}).id) {
           this._publicationLoaded = false;
           this._publicationRows = null;
+          this._meritEditor = null;
           this.setData(emptyPublicationState());
         }
         this.setData({ publicationActivity: activity });
@@ -1474,11 +1438,10 @@ Page({
     try {
       const mlRes = await readPublication('getPublicMeritList');
       if (!current()) return;
-      if (mlRes.status === 'success') {
+      if (mlRes.status === 'success' && Array.isArray(mlRes.meritList)) {
         this.showMeritList(mlRes);
       } else if (mlRes.status === 'not_published' || mlRes.status === 'no_permission') {
-        this.setData({ publishedMeritList: [], publishedMeritGroups: [], meritRuleGroups: [], meritDeptCount: 0,
-          hasMeritPerm: false, userMeritClauses: [], userDesigCandidates: [], userDesigPubId: '' });
+        this.showMeritList({});
       } else {
         this.setData({ publicationMeritFailed: true });
       }
@@ -1574,52 +1537,69 @@ Page({
           ...(reset ? { resultFilterIdentity: '', resultFilterDepartment: '', resultFilterWorkGroup: '', resultFilterGrade: '', resultSearchText: '' } : {}) });
   },
 
-  showMeritList(mlRes) {
-        const canDes = mlRes.canDesignate === true;
-        const canViewMeritList = mlRes.canViewMeritList === true || canDes;
-        const list = mlRes.meritList || [];
-        // 规则与名单均按稳定身份类别 ID 归组，名称只负责展示。
-        const groupMap = new Map();
-        list.forEach(m => {
-          const key = m.identityCategoryId || m.identityId || m.identity || copy.text.unclassified;
-          if (!groupMap.has(key)) groupMap.set(key, {
-            identity: m.identity || copy.text.unclassified,
-            identityId: m.identityCategoryId || m.identityId || '',
-            members: []
-          });
-          groupMap.get(key).members.push(m);
-        });
-        const deptSet = new Set(list.map(m => m.department).filter(Boolean));
-
-        // Build merit rule groups from user's clauses (per-identity display)
-        const userClauses = mlRes.clauses || [];
-        const ruleGroupMap = new Map();
-        for (const c of userClauses) {
-          const key = c.targetIdentityId || c.targetIdentity || copy.text.unclassified;
-          if (!ruleGroupMap.has(key)) {
-            ruleGroupMap.set(key, { key, targetIdentity: key, targetIdentityId: c.targetIdentityId || '', clauses: [], designatedMembers: [], quotaInfo: '' });
-          }
-          ruleGroupMap.get(key).targetIdentity = c.targetIdentity || copy.text.unclassified;
-          ruleGroupMap.get(key).clauses.push(c);
-        }
-        for (const [key, group] of ruleGroupMap) {
-          const quotas = group.clauses.map(c => c.quotaLimit || 0).filter(q => q > 0);
-          const hasExact = group.clauses.some(c => c.requireExactQuota);
-          if (hasExact && quotas.length > 0) {
-            group.quotaInfo = copy.format.exactQuota(quotas[0]);
-          } else if (quotas.length > 0) {
-            group.quotaInfo = copy.format.maximumQuota(Math.max(...quotas));
-          } else {
-            group.quotaInfo = copy.text.unlimitedPeople;
-          }
-          group.designatedMembers = list.filter(m => (
-            m.identityCategoryId || m.identityId || m.identity || copy.text.unclassified
-          ) === key);
-        }
-        const meritRuleGroups = Array.from(ruleGroupMap.values());
-
-        this.setData({ publishedMeritList: list, publishedMeritGroups: Array.from(groupMap.values()), meritDeptCount: deptSet.size, hasMeritPerm: canViewMeritList, userMeritClauses: userClauses, userDesigCandidates: mlRes.designationCandidates || [], userDesigPubId: mlRes.publicationId || '', meritRuleGroups });
+  showMeritList(response) {
+    const roster = response.meritList || [];
+    const groups = publicationView.awardGroups(response, copy, awardCopy);
+    const canEditMerit = response.canDesignate === true;
+    this.setData({
+      meritRuleGroups: groups,
+      meritSummary: publicationView.awardSummary(groups, roster, copy, awardCopy),
+      hasMeritPerm: response.canViewMeritList === true || canEditMerit,
+      canEditMerit,
+      userDesigCandidates: response.designationCandidates || [],
+      userDesigPubId: response.publicationId || '',
+      savedMeritRefreshFailed: false
+    });
   },
+
+  async refreshMeritAfterSave() {
+    const activityId = (this.data.publicationActivity || {}).id;
+    if (!activityId || this.data.publicationMeritPending) return;
+    const request = orgSession.beginRequest(this, 'meritAfterSave');
+    const unknown = this.data.userDesigSaveUnknown && this._meritEditor;
+    const current = () => orgSession.isRequestCurrent(this, request)
+      && activityId === (this.data.publicationActivity || {}).id;
+    this.setData({ publicationMeritPending: true });
+    try {
+      const response = await callFunction({ name: 'getPublicMeritList', data: { activityId } });
+      if (!current()) return;
+      if (response.status === 'success' && Array.isArray(response.meritList)) {
+        this.showMeritList(response);
+        if (unknown && unknown === this._meritEditor) {
+          const group = this.data.meritRuleGroups.find(item => item.key === unknown.group.key);
+          if (!group || !response.canDesignate || response.publicationId !== unknown.publicationId) {
+            this.closeUserDesignation();
+          } else if (publicationView.awardSavedMatches(group, unknown.unknownSelection)) {
+            this.closeUserDesignation();
+            wx.showToast({ title: copy.text.saved, icon: 'success' });
+          } else {
+            unknown.group = group;
+            unknown.clauseIds = group.clauses.map(clause => clause.id);
+            this.setData({ userDesigSaveUnknown: false, userDesigError: awardCopy.savedListDiffers, userDesigQuota: group.quota });
+          }
+        }
+      } else if (['no_permission', 'not_published', 'forbidden'].includes(response.status)) {
+        this.showMeritList({});
+        if (unknown) this.closeUserDesignation();
+        this.rebuildUserTabs(true);
+      } else if (!unknown) {
+        this.setData({ savedMeritRefreshFailed: true });
+      }
+    } catch (error) {
+      if (current()) {
+        if (['forbidden', 'no_permission'].includes(error.status)) {
+          this.showMeritList({});
+          if (unknown) this.closeUserDesignation();
+          this.rebuildUserTabs(true);
+        } else if (!unknown) {
+          this.setData({ savedMeritRefreshFailed: true });
+        }
+      }
+    } finally {
+      if (current()) this.setData({ publicationMeritPending: false });
+    }
+  },
+
 
   retryPublication() {
     if (this.data.publicationAccessLoading) return;
@@ -1744,170 +1724,80 @@ Page({
     this.applyResultFilters();
   },
 
-  async openUserDesignation(e) {
-    const filterIdentity = (e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.identity) || '';
-    this.setData({ userDesigLoading: true });
+  openUserDesignation(e) {
+    if (!this.data.canEditMerit || this.data.savedMeritRefreshFailed || this.data.publicationMeritPending || this.data.userDesigSaving) return;
+    const group = this.data.meritRuleGroups.find(item => item.key === e.currentTarget.dataset.groupKey);
+    if (!group || !group.clauses.length) return;
+    const picker = publicationView.awardPicker(group, this.data.userDesigCandidates);
+    this._meritEditor = { group, clauseIds: picker.clauseIds, publicationId: this.data.userDesigPubId };
+    this.setData({
+      showUserDesigPopup: true,
+      userDesigHrList: picker.options,
+      userDesigSelectedList: picker.selected,
+      userDesigQuota: group.quota,
+      userDesigNotice: publicationView.awardSelectionNotice(group, picker.selected.length, awardCopy),
+      userDesigError: '',
+      userDesigSaveUnknown: false
+    });
+  },
+
+  closeUserDesignation() {
+    if (this.data.userDesigSaving) return;
+    this._meritEditor = null;
+    this.setData({ showUserDesigPopup: false, userDesigSaveUnknown: false });
+  },
+
+  onUserDesignationChange(e) {
+    if (!this._meritEditor || this.data.userDesigSaving || this.data.userDesigSaveUnknown) return;
+    this.setData({
+      userDesigNotice: publicationView.awardSelectionNotice(this._meritEditor.group, e.detail.count, awardCopy),
+      userDesigError: ''
+    });
+  },
+
+  async confirmSharedUserDesignation(e) {
+    const editor = this._meritEditor;
+    if (!editor || !editor.publicationId || this.data.userDesigSaving || this.data.userDesigSaveUnknown) return;
+    const designationAssignmentIds = [...new Set(e.detail.keys || [])];
+    const selected = designationAssignmentIds.length;
+    const mismatch = publicationView.awardSelectionNotice(editor.group, selected, awardCopy);
+    if (mismatch) {
+      this.setData({ userDesigNotice: mismatch, userDesigError: '' });
+      return;
+    }
+    const activityId = (this.data.publicationActivity || {}).id;
+    const request = orgSession.beginRequest(this, 'meritSave');
+    const current = () => orgSession.isRequestCurrent(this, request)
+      && this._meritEditor === editor && activityId === (this.data.publicationActivity || {}).id;
+    this.setData({ userDesigSaving: true, userDesigError: '' });
     try {
-      const user = this.data.user || {};
-      // Use stored clauses from checkPublication (no admin auth needed)
-      let meritClauses = (this.data.userMeritClauses || []).filter(c => {
-        return c.granteeDepartmentId === (user.departmentId || '') && c.granteeIdentityId === (user.identityId || '');
+      const result = await callFunction({
+        name: 'submitMeritListDesignations',
+        data: { clauseIds: editor.clauseIds, clauseId: editor.clauseIds[0], publicationId: editor.publicationId, designationAssignmentIds }
       });
-      if (filterIdentity) {
-        meritClauses = meritClauses.filter(c => c.targetIdentity === filterIdentity);
-      }
-      if (!meritClauses.length) {
-        wx.showToast({ title: copy.text.noMeritList, icon: 'none' });
-        this.setData({ userDesigLoading: false });
+      if (!current()) return;
+      if (result.status !== 'success') {
+        this.setData({ userDesigError: publicationView.awardSaveNotice(result, editor.group, selected, awardCopy) });
         return;
       }
-
-      // Use pre-fetched designationCandidates from getPublicMeritList (no admin auth needed)
-      const allCandidates = this.data.userDesigCandidates || [];
-
-      // Filter candidates by the clause's merit clauses
-      const meritedTargetIds = new Set(meritClauses.map(c => c.targetIdentityId));
-      const hrList = allCandidates.filter(hr => meritedTargetIds.has(hr.targetIdentityId));
-
-      // Group by target identity
-      const groupMap = new Map();
-      hrList.forEach(hr => {
-        const key = hr.targetIdentityId;
-        if (!groupMap.has(key)) groupMap.set(key, { targetIdentityId: key, targetIdentity: hr.targetIdentity, members: [] });
-        groupMap.get(key).members.push(hr);
-      });
-      const desigGroups = Array.from(groupMap.values());
-
-      const depts = new Set(hrList.map(hr => hr.department).filter(Boolean));
-      const idents = new Set(hrList.map(hr => hr.identity).filter(Boolean));
-      const selectedList = hrList.filter(hr => hr.isSelected);
-      const selectedAssignmentIds = [...new Set(selectedList.map(hr => hr.id))];
-      const pubId = this.data.userDesigPubId
-        || (this.data.publicationForm ? this.data.publicationForm.id : '');
-      this.setData({
-        showUserDesigPopup: true,
-        userDesigClauses: meritClauses,
-        userDesigHrList: hrList,
-        userDesigFilteredList: hrList,
-        userDesigSelectedIds: selectedAssignmentIds,
-        userDesigSelectedList: selectedList,
-        userDesigGroups: desigGroups,
-        userDesigPubId: pubId,
-        userDesigFilterDept: copy.text.all,
-        userDesigFilterIdent: copy.text.all,
-        userDesigFilterDeptOptions: [copy.text.all, ...Array.from(depts).sort((a,b) => a.localeCompare(b, 'zh-CN'))],
-        userDesigFilterIdentOptions: [copy.text.all, ...Array.from(idents).sort((a,b) => a.localeCompare(b, 'zh-CN'))],
-        userDesigSearchKeyword: ''
-      });
-    } catch (e) {
-      wx.showToast({ title: getErrorText(e), icon: 'none' });
-    }
-    this.setData({ userDesigLoading: false });
-  },
-
-  closeUserDesignation() { this.setData({ showUserDesigPopup: false }); },
-
-  confirmSharedUserDesignation(e) {
-    const detail = e.detail || {};
-    this.setData({
-      userDesigSelectedIds: Array.isArray(detail.keys) ? detail.keys : [],
-      userDesigSelectedList: Array.isArray(detail.items) ? detail.items : []
-    }, () => this.saveUserDesignations());
-  },
-
-  onUserDesigToggle(e) {
-    const assignmentId = e.currentTarget.dataset.assignmentId;
-    if (!assignmentId) return;
-    const sel = [...this.data.userDesigSelectedIds];
-    const idx = sel.indexOf(assignmentId);
-    if (idx >= 0) sel.splice(idx, 1); else sel.push(assignmentId);
-    const hrList = this.data.userDesigHrList.map(hr => ({
-      ...hr,
-      isSelected: hr.id === assignmentId ? !hr.isSelected : hr.isSelected
-    }));
-    const selectedList = hrList.filter(hr => hr.isSelected);
-    const filteredList = this.applyUserDesigFilters(hrList);
-    this.setData({
-      userDesigSelectedIds: sel, userDesigHrList: hrList,
-      userDesigFilteredList: filteredList, userDesigSelectedList: selectedList
-    });
-  },
-
-  applyUserDesigFilters(list, overrides) {
-    let result = list || this.data.userDesigHrList;
-    const next = overrides || {};
-    const department = Object.prototype.hasOwnProperty.call(next, 'department') ? next.department : this.data.userDesigFilterDept;
-    const identity = Object.prototype.hasOwnProperty.call(next, 'identity') ? next.identity : this.data.userDesigFilterIdent;
-    const keyword = Object.prototype.hasOwnProperty.call(next, 'keyword') ? next.keyword : this.data.userDesigSearchKeyword;
-    if (department !== copy.text.all) {
-      result = result.filter(hr => hr.department === department);
-    }
-    if (identity !== copy.text.all) {
-      result = result.filter(hr => hr.identity === identity);
-    }
-    if (keyword) {
-      const kw = keyword.toLowerCase();
-      result = result.filter(hr => (hr.name || '').toLowerCase().includes(kw) || (hr.studentId || '').toLowerCase().includes(kw) || (hr.assignmentLabel || '').toLowerCase().includes(kw));
-    }
-    // Rebuild groups from filtered list
-    const groupMap = new Map();
-    result.forEach(hr => {
-      const key = hr.targetIdentityId;
-      if (!groupMap.has(key)) groupMap.set(key, { targetIdentityId: key, targetIdentity: hr.targetIdentity, members: [] });
-      groupMap.get(key).members.push(hr);
-    });
-    this.setData({ userDesigGroups: Array.from(groupMap.values()) });
-    return result;
-  },
-
-  onUserDesigFilterChange(e) {
-    const field = e.currentTarget.dataset.field;
-    const options = field === 'identity' ? this.data.userDesigFilterIdentOptions : this.data.userDesigFilterDeptOptions;
-    const value = options[Number(e.detail.value)] || copy.text.all;
-    const patch = {};
-    if (field === 'department') {
-      patch.userDesigFilterDept = value;
-      patch.userDesigFilteredList = this.applyUserDesigFilters(null, { department: value });
-    } else {
-      patch.userDesigFilterIdent = value;
-      patch.userDesigFilteredList = this.applyUserDesigFilters(null, { identity: value });
-    }
-    this.setData(patch);
-  },
-
-  onUserDesigSearchInput(e) {
-    const keyword = e.detail.value;
-    this.setData({ userDesigSearchKeyword: keyword, userDesigFilteredList: this.applyUserDesigFilters(null, { keyword }) });
-  },
-
-  async saveUserDesignations() {
-    const clauses = this.data.userDesigClauses || [];
-    if (!clauses.length) return;
-    const clauseIds = clauses.map(c => c.id);
-    // 评优指定始终提交岗位 ID，人员 ID 不参与岗位授权。
-    const uniqueAssignmentIds = [...new Set(this.data.userDesigSelectedIds)];
-    this.setData({ userDesigSaving: true });
-    try {
-      const res = await new Promise((r, j) => callFunction({
-        name: 'submitMeritListDesignations',
-        data: {
-          clauseIds,
-          clauseId: clauseIds[0],
-          publicationId: this.data.userDesigPubId,
-          designationAssignmentIds: uniqueAssignmentIds
-        },
-        success: (res) => r(res.result || {}), fail: j
-      }));
-      if (res.status === 'success') {
-        wx.showToast({ title: copy.text.saved, icon: 'success' });
-        this.closeUserDesignation();
-        this.checkPublication();
-      } else {
-        wx.showToast({ title: res.message || copy.text.saveFailed, icon: 'none' });
+      wx.showToast({ title: copy.text.saved, icon: 'success' });
+      this.setData({ showUserDesigPopup: false });
+      await this.refreshMeritAfterSave();
+    } catch (error) {
+      if (current() && !error.silent) {
+        if (publicationView.awardSaveIsUnknown(error)) {
+          editor.unknownSelection = designationAssignmentIds;
+          this.setData({ userDesigSaveUnknown: true, userDesigError: awardCopy.saveResultUnknown });
+        } else {
+          this.setData({ userDesigError: publicationView.awardSaveNotice(error, editor.group, selected, awardCopy) });
+        }
       }
-    } catch (e) {
-      wx.showToast({ title: copy.text.saveFailed, icon: 'none' });
+    } finally {
+      if (current()) {
+        if (!this.data.showUserDesigPopup) this._meritEditor = null;
+        this.setData({ userDesigSaving: false });
+      }
     }
-    this.setData({ userDesigSaving: false });
   }
+
 });

@@ -52,7 +52,7 @@ const sharedModule = Object.freeze({
     work_groups: '职能组',
     scoring_rules: '评分规则',
     scoring_history: '评分历史',
-    publication_rules: '结果公示规则',
+    publication_rules: '考核结果公示规则',
     audit_templates: '审核模板',
     directory_rules: '通讯录规则',
     authorization_rules: '授权规则',

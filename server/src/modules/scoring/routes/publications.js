@@ -1,5 +1,6 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/scoring/routes/publications');
 const scoringCopy = require('../../../locales/zh-CN/modules/scoring');
+const publicationCopy = require('../../../locales/zh-CN/scoringPublication');
 const retiredCopy = require('../../../locales/zh-CN/generated/core/routes/admin');
 const { format: localeFormat } = require('../../../locales/runtime');
 const express = require('express');
@@ -655,7 +656,7 @@ router.post('/getResultPublication', async (req, res) => {
       participantService.listParticipants(orgId, 'assignment')
     ]);
     const scopeLabelMap = {
-      own_results: scoringCopy.scopeOwnResults,
+      own_results: publicationCopy.ownScope,
       same_department_identity: scoringCopy.scopeViewSameDepartmentIdentity,
       same_department_all: scoringCopy.scopeViewSameDepartmentAll,
       same_work_group_identity: scoringCopy.scopeViewSameWorkGroupIdentity,
@@ -804,8 +805,8 @@ router.post('/saveResultPublication', async (req, res) => {
           eventKey: 'score-results-published:' + publicationId + ':' + now,
           payload: {
             type: 'score_results_published',
-            title: localeCopy.copy_a2fd08aa5b,
-            description: localeFormat(scoringCopy.publicationNotificationDescription, [
+            title: publicationCopy.notificationTitle,
+            description: localeFormat(publicationCopy.notificationDescription, [
               safeString(saved.name || localeCopy.copy_d8026f6068)
             ]),
             category: 'scoring',
@@ -822,7 +823,7 @@ router.post('/saveResultPublication', async (req, res) => {
     respondScoringResponse(res, {
       status: 'success',
       publication: { id: outcome.id, activityId, isPublished },
-      message: isPublished ? localeCopy.copy_912e2f8389 : localeCopy.copy_250c8669f1
+      message: isPublished ? publicationCopy.notificationTitle : localeCopy.copy_250c8669f1
     });
   } catch (e) {
     if (e.code === 'authorization_forbidden') return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
@@ -1048,7 +1049,7 @@ router.post('/getPublicResults', async (req, res) => {
       resolveCurrentActor(req),
       getCurrentOrgId()
     ]);
-    if (!publication || !publication.is_published) return respondScoringResponse(res, { status: 'not_published', message: localeCopy.copy_c390fbf5b7 });
+    if (!publication || !publication.is_published) return respondScoringResponse(res, { status: 'not_published', message: publicationCopy.notPublished });
     if (!activity) return respondScoringResponse(res, { status: 'activity_not_found', message: localeCopy.copy_939db6a08b });
     const granularity = participantService.normalizeGranularity();
     if (!actorResult.ok || actorResult.actor.type !== 'user') {
@@ -1068,7 +1069,7 @@ router.post('/getPublicResults', async (req, res) => {
     };
 
     const matchingClauses = clauses.filter(clause => publicationAssignments.matchesRuleGrantee(viewerRecord, clause));
-    if (!matchingClauses.length) return respondScoringResponse(res, { status: 'no_permission', message: localeCopy.copy_f4a11b6280 });
+    if (!matchingClauses.length) return respondScoringResponse(res, { status: 'no_permission', message: publicationCopy.noViewPermission });
 
     const gradeClauseIds = matchingClauses.filter(clause => clause.display_mode === 'grade').map(clause => clause.id);
     const [participantRows, lookups, prepared, [gradeBands]] = await Promise.all([
@@ -1236,7 +1237,7 @@ router.post('/getPublicMeritList', authorizedParticipationRead('scoring.meritSel
     if (!activityId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
 
     const publication = await publicationModel.getByActivity(activityId);
-    if (!publication || !publication.is_published) return respondScoringResponse(res, { status: 'not_published', message: localeCopy.copy_c390fbf5b7 });
+    if (!publication || !publication.is_published) return respondScoringResponse(res, { status: 'not_published', message: publicationCopy.notPublished });
 
     // 当前评优权限只认请求中明确选择的活动岗位，不得从 hr_info 猜测岗位。
     let canDesignate = false;
@@ -1277,6 +1278,7 @@ router.post('/getPublicMeritList', authorizedParticipationRead('scoring.meritSel
       const presentation = designationPresentations[index];
       result.push({
         id: d.id,
+        clauseId: presentation.clauseId,
         targetHrId: presentation.targetHrId,
         targetAssignmentId: presentation.targetAssignmentId,
         assignmentId: presentation.targetAssignmentId,
@@ -1390,7 +1392,7 @@ router.post('/submitMeritListDesignations', async (req, res) => {
     // Use merit rule's publication_id (reliable), fall back to frontend-supplied
     const pubId = safeString(clause.publication_id) || publicationId;
     const publication = await publicationModel.getById(pubId);
-    if (!publication || !publication.is_published) return respondScoringResponse(res, { status: 'not_published', message: localeCopy.copy_c390fbf5b7 });
+    if (!publication || !publication.is_published) return respondScoringResponse(res, { status: 'not_published', message: publicationCopy.notPublished });
 
     // Aggregate quota across all clauses in a single query
     let aggregatedQuotaLimit = 0, hasExactQuota = false;
@@ -1398,7 +1400,7 @@ router.post('/submitMeritListDesignations', async (req, res) => {
     if (clauseIds.length > 1) {
       const placeholders = clauseIds.map(() => '?').join(',');
       const [quotaRows] = await pool.query(
-        `SELECT id, scope_type, target_identity_id, quota_limit, require_exact_quota
+        `SELECT id, scope_type, target_identity_id, nature_ids, quota_limit, require_exact_quota
            FROM pub_merit_rule_clauses
           WHERE id IN (${placeholders}) AND rule_id = ? AND org_id = ?`,
         [...clauseIds, clause.rule_id, orgId]
@@ -1436,14 +1438,13 @@ router.post('/submitMeritListDesignations', async (req, res) => {
     }
     const designationTargets = targetValidation.targets;
     if (hasExactQuota && aggregatedQuotaLimit > 0 && designationTargets.length !== aggregatedQuotaLimit)
-      return respondScoringResponse(res, { status: 'quota_mismatch', message: localeFormat(localeCopy.copy_b947327844, [aggregatedQuotaLimit]) });
+      return respondScoringResponse(res, { status: 'quota_mismatch', quotaLimit: aggregatedQuotaLimit, message: localeFormat(localeCopy.copy_b947327844, [aggregatedQuotaLimit]) });
     if (!hasExactQuota && aggregatedQuotaLimit > 0 && designationTargets.length > aggregatedQuotaLimit)
-      return respondScoringResponse(res, { status: 'quota_exceeded', message: localeFormat(localeCopy.copy_7010de3cee, [aggregatedQuotaLimit]) });
+      return respondScoringResponse(res, { status: 'quota_exceeded', quotaLimit: aggregatedQuotaLimit, message: localeFormat(localeCopy.copy_7010de3cee, [aggregatedQuotaLimit]) });
 
     const designatorSnapshot = buildDesignatorSnapshot(req, actorResult.actor, viewerAssignment);
 
-    const { withTransaction } = require('../../../config/db');
-    await withTransaction(async (conn) => {
+    const designations = await withTransaction(async (conn) => {
       await participationAuthorization.checkPublication(req, conn, orgId, pubId, 'scoring.meritSelections', 'update');
       await unifiedIdentityModel.lockActiveBusinessSubjects(conn, [viewerAssignment]
         .concat(designationTargets)
@@ -1481,14 +1482,14 @@ router.post('/submitMeritListDesignations', async (req, res) => {
           ]
         );
       }
+      const [saved] = await conn.query(
+        `SELECT * FROM merit_list_designations WHERE clause_id IN (${delPh}) AND org_id = ?`,
+        [...clauseIds, orgId]
+      );
+      return saved;
     });
 
-    const savedClausePlaceholders = clauseIds.map(() => '?').join(',');
-    const [designations] = await pool.query(
-      `SELECT * FROM merit_list_designations WHERE clause_id IN (${savedClausePlaceholders}) AND org_id = ?`,
-      [...clauseIds, orgId]
-    );
-    const presentations = buildDesignationPresentations(designations, await fetchOrgLookups());
+    const presentations = buildDesignationPresentations(designations);
     const result = presentations.map((item) => ({
       ...item,
       clauseId: item.clauseId,
@@ -1498,8 +1499,11 @@ router.post('/submitMeritListDesignations', async (req, res) => {
     respondScoringResponse(res, { status: 'success', designations: result, message: localeFormat(localeCopy.copy_02f1651e0a, [result.length]) });
   } catch (e) {
     if (e.code === 'authorization_forbidden') return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_cfa6e136e4 });
+    if (e instanceof PublicationRuleRequestError) return respondPublicationRuleError(res, e);
+    if (e.code === 'work_context_required') return respondScoringResponse(res, { status: e.code });
     if (e.code === 'ER_DUP_ENTRY') return respondScoringResponse(res, { status: 'duplicate_hr', message: localeCopy.copy_6f354dd08e });
-    respondScoringResponse(res, { status: 'error', message: safeString(e.message) });
+    logger.warn('scoring.meritSelections.save_failed', { requestId: req.requestId, code: e.code || e.name });
+    respondScoringResponse(res, { status: 'error' });
   }
 });
 

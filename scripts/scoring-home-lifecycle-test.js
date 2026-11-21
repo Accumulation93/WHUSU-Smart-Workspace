@@ -5,6 +5,10 @@ const storage = {};
 const calls = [];
 let pendingTargets = null;
 let failPublication = false;
+let designatedRows = [];
+let designationOptions = [];
+let rejectedDesignation;
+const designationWrites = [];
 const snapshot = {
   token: 'token-user',
   role: 'user',
@@ -79,11 +83,17 @@ require.cache[apiPath] = {
           status: 'success',
           canDesignate: true,
           canViewMeritList: true,
-          meritList: [],
-          clauses: [],
-          designationCandidates: [],
+          meritList: designatedRows,
+          clauses: designationOptions.length ? [{ id: 'merit-clause', ruleId: 'merit-rule', targetIdentityId: 'target', quotaLimit: 2, requireExactQuota: true }] : [],
+          designationCandidates: designationOptions,
           publicationId: 'publication-1'
         });
+      }
+      if (options.name === 'submitMeritListDesignations') {
+        designationWrites.push(options.data);
+        if (rejectedDesignation) return Promise.reject(rejectedDesignation);
+        designatedRows = designatedRows.filter(row => options.data.designationAssignmentIds.includes(row.assignmentId));
+        return respond(options, { status: 'success' });
       }
       return respond(options, { status: 'success' });
     }
@@ -193,7 +203,39 @@ async function flush() {
   assert.equal(page.data.hasViewPerm, true, '公示临时失败不得删除已有页签');
   assert.equal(page.data.hasMeritPerm, true, '评优临时失败不得删除已有页签');
 
-  console.log('评分工作台返回加载与页签稳定性测试通过');
+  failPublication = false;
+  designationOptions = ['assignment-1', 'assignment-2', 'assignment-3'].map(id => ({ id, assignmentId: id, targetIdentityId: 'target', clauseIds: ['merit-clause'] }));
+  designatedRows = designationOptions.map(option => ({ ...option, clauseId: 'merit-clause' }));
+  await page.checkPublication();
+  const award = require(path.join(root, 'shared', 'locales', 'zh-CN', 'scoringPublication')).awardSelection;
+  assert.equal(page.data.meritRuleGroups[0].members.length, 3);
+  assert.equal(page.data.meritRuleGroups[0].overCount, award.savedOverCount.replace('{extra}', '1'));
+  page.openUserDesignation({ currentTarget: { dataset: { groupKey: 'merit-clause' } } });
+  assert.equal(page.data.showUserDesigPopup, true);
+  assert.equal(page.data.userDesigSelectedList.length, 3);
+  await page.confirmSharedUserDesignation({ detail: { keys: designationOptions.map(option => option.id) } });
+  assert.equal(designationWrites.length, 0);
+
+  const publicReadsBeforeSave = calls.filter(name => name === 'getPublicResults').length;
+  const validSelection = { detail: { keys: ['assignment-1', 'assignment-2'] } };
+  await page.confirmSharedUserDesignation(validSelection);
+  assert.deepEqual(designationWrites[0], { clauseIds: ['merit-clause'], clauseId: 'merit-clause', publicationId: 'publication-1', designationAssignmentIds: validSelection.detail.keys });
+  assert.equal(page.data.meritRuleGroups[0].members.length, 2);
+  assert.equal(page.data.showUserDesigPopup, false);
+  assert.equal(calls.filter(name => name === 'getPublicResults').length, publicReadsBeforeSave);
+
+  page.openUserDesignation({ currentTarget: { dataset: { groupKey: 'merit-clause' } } });
+  rejectedDesignation = new Error('backend transport detail');
+  await page.confirmSharedUserDesignation(validSelection);
+  await page.confirmSharedUserDesignation(validSelection);
+  assert.equal(designationWrites.length, 2);
+  assert.equal(page.data.showUserDesigPopup, true);
+  assert.equal(page.data.userDesigError, award.saveResultUnknown);
+  await page.refreshMeritAfterSave();
+  assert.equal(page.data.showUserDesigPopup, false);
+  assert.equal(designationWrites.length, 2);
+
+  console.log('评分工作台返回加载与页签稳定性、评优名额及保存核对测试通过');
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;

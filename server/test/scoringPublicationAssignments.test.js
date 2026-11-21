@@ -82,6 +82,13 @@ const departmentClause = {
 };
 assert.strictEqual(publicationAssignments.matchesMeritClause(assignments[0], departmentClause, viewer), true);
 assert.strictEqual(publicationAssignments.matchesMeritClause(assignments[1], departmentClause, viewer), false);
+const overlappingCandidates = publicationAssignments.buildDesignationCandidates(assignments,
+  [allPeopleClause, departmentClause], viewer, lookups).rows;
+assert.deepStrictEqual(overlappingCandidates.map(row => [row.assignmentId, row.clauseIds]), [
+  ['assignment-a', ['clause-all', 'clause-department']],
+  ['assignment-b', ['clause-all']],
+  ['assignment-c', ['clause-all', 'clause-department']]
+]);
 const assignmentValidation = publicationAssignments.validateDesignationTargets(
   ['assignment-c'], assignments, [departmentClause], viewer
 );
@@ -217,7 +224,8 @@ const homeSource = fs.readFileSync(
   path.resolve(__dirname, '../../miniprogram/subpackages/workspace/pages/home/home.js'),
   'utf8'
 );
-assert.match(homeSource, /designationAssignmentIds:\s*uniqueAssignmentIds/);
+assert.match(homeSource, /const designationAssignmentIds = \[\.\.\.new Set\(e\.detail\.keys/);
+assert.match(homeSource, /name: 'submitMeritListDesignations',[\s\S]*?publicationId: editor\.publicationId, designationAssignmentIds/);
 assert.doesNotMatch(homeSource, /designationHrIds/, '用户端指定名单不得把岗位 ID 伪装成人员 ID');
 
 const publicationBehaviorSource = fs.readFileSync(

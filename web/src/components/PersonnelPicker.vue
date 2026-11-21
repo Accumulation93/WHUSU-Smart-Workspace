@@ -1,6 +1,6 @@
 <template>
   <GlassDialog :title="title" :busy="busy" @close="$emit('cancel')">
-    <slot />
+    <slot :selected-count="selected.length" />
     <input v-model="query" class="field-input" :disabled="busy" :placeholder="ui.searchPlaceholder" :aria-label="ui.searchPlaceholder" />
     <div class="row row-wrap">
       <label v-for="filter in filterDefinitions" :key="filter.key" class="field">
@@ -21,7 +21,7 @@
     </button>
     <template #footer>
       <button type="button" class="btn btn-secondary" :disabled="busy" @click="$emit('cancel')">{{ ui.cancelSelection }}</button>
-      <button type="button" class="btn btn-primary" :disabled="busy" @click="$emit('confirm', options.filter(item => selected.includes(keyOf(item))))">{{ ui.confirm }}</button>
+      <button type="button" class="btn btn-primary" :disabled="busy || confirmDisabled" @click="$emit('confirm', options.filter(item => selected.includes(keyOf(item))))">{{ ui.confirm }}</button>
     </template>
   </GlassDialog>
 </template>
@@ -30,8 +30,8 @@ import { computed, reactive, ref, watch } from 'vue';
 import GlassDialog from './GlassDialog.vue';
 import ui from '@/locales/zh-CN/shared/personnelPicker.js';
 import relations from '@/locales/zh-CN/shared/identityNatureRelations.js';
-const props = defineProps({ title: String, busy: Boolean, multiple: {type:Boolean,default:true}, mode: { type: String, default: 'assignment' }, options: { type: Array, default: () => [] }, value: { type: Array, default: () => [] } });
-defineEmits(['cancel', 'confirm']);
+const props = defineProps({ title: String, busy: Boolean, confirmDisabled: Boolean, multiple: {type:Boolean,default:true}, mode: { type: String, default: 'assignment' }, options: { type: Array, default: () => [] }, value: { type: Array, default: () => [] } });
+const emit = defineEmits(['cancel', 'confirm', 'selectionchange']);
 const query = ref('');
 const keyOf = item => props.mode === 'person' ? item.id : item.assignmentId;
 const selected = ref(props.value.map(keyOf));
@@ -43,7 +43,10 @@ function choices(key) { return [...new Set(props.options.flatMap(item => tuples(
 watch(()=>filters.assignmentNatureLabel,()=>{if(!choices('identity').includes(filters.identity))filters.identity='';});
 const filtered = computed(() => props.options.filter(item => ((!Object.values(filters).some(Boolean)) || tuples(item).some(tuple => Object.entries(filters).every(([key, value]) => !value || tuple[key] === value)))
   && [item.name, ...tuples(item).map(tuple => tuple.assignmentLabel)].join(' ').toLowerCase().includes(query.value.trim().toLowerCase())));
-function toggle(id) { selected.value = selected.value.includes(id) ? selected.value.filter(value => value !== id) : props.multiple ? [...selected.value, id] : [id]; }
+function toggle(id) {
+  selected.value = selected.value.includes(id) ? selected.value.filter(value => value !== id) : props.multiple ? [...selected.value, id] : [id];
+  emit('selectionchange', { count: selected.value.length });
+}
 </script>
 <style scoped>
 .personnel-option { width: 100%; text-align: left; color: var(--ui-text); font: inherit; cursor: pointer; }

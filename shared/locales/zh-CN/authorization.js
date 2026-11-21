@@ -285,8 +285,8 @@ module.exports = Object.freeze({
   resources: Object.freeze({
     'files.tables': '表格文件转换',
     'scoring.activities': '评分活动', 'scoring.currentActivity': '当前评分活动', 'scoring.latestPublishedActivity': '最新公示活动', 'scoring.templates': '评分模板', 'scoring.rules': '评分规则',
-    'scoring.results': '评分结果', 'scoring.tasks': '评分完成情况', 'scoring.publications': '结果公示',
-    'scoring.participation': '参与评分', 'scoring.publishedResults': '查看公示成绩', 'scoring.meritSelections': '评优指定',
+    'scoring.results': '考核结果与评分明细', 'scoring.tasks': '评分完成情况', 'scoring.publications': '考核结果公示',
+    'scoring.participation': '参与评分', 'scoring.publishedResults': '已公示的考核结果', 'scoring.meritSelections': '评优指定',
     'hr.people': '成员资料', 'hr.assignments': '成员岗位', 'hr.import': '人事导入', 'hr.profileReview': '资料审核',
     'hr.profileTemplates': '资料模板', 'hr.profileSelection': '组织资料模板', 'hr.profileMigration': '跨组织资料迁移',
     'hr.departments': '部门', 'hr.identities': '身份类别', 'hr.workGroups': '职能组',

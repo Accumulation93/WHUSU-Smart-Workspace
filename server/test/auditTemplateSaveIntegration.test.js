@@ -35,6 +35,7 @@ const options = {
       await fixture.query(fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261111101000_business_rule_natures.sql'), 'utf8'));
       await fixture.query(fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261111102000_scoring_rule_natures.sql'), 'utf8'));
       await fixture.query(fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261111103000_publication_rule_natures.sql'), 'utf8'));
+      await fixture.query(fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261121200000_scoring_publication_materializations.sql'), 'utf8'));
       await fixture.query(fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261110190000_assignment_nature_description.sql'), 'utf8'));
       await fixture.query(fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261111010000_assignment_nature_initialization.sql'), 'utf8'));
       await fixture.query(fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261018230000_hr_contact_directory.sql'), 'utf8'));

@@ -13,6 +13,9 @@
     <section v-if="panelError" class="card row row-wrap">
       <p class="notice-line">{{ panelError }}</p><button type="button" class="btn-quiet" :disabled="loading || saving" @click="refresh">{{ home.reloadProfile }}</button>
     </section>
+    <section v-if="tab === 'meritList' && savedMeritRefreshFailed" class="card row row-wrap">
+      <p class="notice-line" role="status">{{ award.savedNotRefreshed }}</p><button type="button" class="btn-quiet" :disabled="meritReloading" @click="refreshMeritAfterSave">{{ home.reloadProfile }}</button>
+    </section>
     <section v-if="loading && !panelData" class="card empty-state"><AppLoading :text="home.loadingDots" /></section>
     <template v-if="tab === 'results' && results?.status === 'success'">
       <section v-if="!memberCount" class="card empty-state">{{ home.noVisibleResults }}</section>
@@ -69,14 +72,16 @@
       <section class="section-control-card stack">
         <div class="info-head"><span class="section-title">{{ home.meritList }}</span><span class="chip">{{ home.totalPrefix }} {{ meritGroups.length }} {{ home.groupSuffix }}</span></div>
         <div class="publication-stats">
-          <div class="publication-stat"><strong>{{ meritGroups.length }}</strong><span>{{ home.meritGroup }}</span></div>
-          <div class="publication-stat"><strong>{{ merit.meritList.length }}</strong><span>{{ home.designatedCount }}</span></div>
-          <div class="publication-stat"><strong>{{ departmentCount || meritGroups.length }}</strong><span>{{ home.involvedDepartments }}</span></div>
+          <div class="publication-stat"><strong>{{ meritSummary.savedCount }}</strong><span v-if="meritSummary.requiredCount">{{ meritSummary.requiredCount }}</span></div>
+          <div class="publication-stat"><strong>{{ meritSummary.departmentCount }}</strong><span>{{ home.involvedDepartments }}</span></div>
         </div>
       </section>
       <section v-for="group in meritGroups" :key="group.key" class="card stack merit-group">
-        <div class="row row-wrap merit-group-head"><span class="chip chip-blue">{{ group.label }}</span><span class="muted">{{ group.quota }}</span>
-          <button v-if="merit.canDesignate === true" type="button" class="btn-quiet" :disabled="saving || !!meritError || !!discoveryError" @click="openPicker(group)">{{ home.edit }}</button>
+        <div class="row row-wrap merit-group-head"><span class="chip chip-blue">{{ group.label }}</span>
+          <button v-if="merit.canDesignate === true && group.clauses.length" type="button" class="btn-quiet" :disabled="saving || meritReloading || savedMeritRefreshFailed || !!meritError || !!discoveryError" @click="openPicker(group)">{{ home.edit }}</button>
+        </div>
+        <div class="row row-wrap">
+          <span class="chip chip-blue">{{ group.savedCount }}</span><span v-if="group.quota" class="muted">{{ group.quota }}</span><span v-if="group.overCount" class="chip chip-orange">{{ group.overCount }}</span>
         </div>
         <div v-for="member in group.members" :key="member.id" class="list-row merit-member">
           <div class="info-head"><strong><PersonLink :name="member.name" :assignment-id="member.targetAssignmentId || member.assignmentId" :hr-id="member.targetHrId" /></strong><span class="chip chip-blue">{{ member.identity }}</span></div>
@@ -86,9 +91,10 @@
       </section>
     </template>
   </div>
-  <PersonnelPicker v-if="picker" :title="home.designateMeritList" :options="picker.options" :value="picker.selected" :busy="saving"
-    @cancel="picker = null" @confirm="saveDesignations">
-    <p>{{ picker.quota }}</p><p v-if="saveError" class="notice-line">{{ saveError }}</p>
+  <PersonnelPicker v-if="picker" v-slot="{ selectedCount }" :title="home.designateMeritList" :options="picker.options" :value="picker.selected" :busy="saving"
+    :confirm-disabled="saveUnknown !== null" @cancel="picker = null" @confirm="saveDesignations" @selectionchange="clearSaveError">
+    <p>{{ picker.quota }}</p><p v-if="saveError || selectionNotice(selectedCount)" class="notice-line" role="status">{{ saveError || selectionNotice(selectedCount) }}</p>
+    <button v-if="saveUnknown !== null" type="button" class="btn-quiet" :disabled="meritReloading" @click="refreshMeritAfterSave">{{ home.reloadProfile }}</button>
   </PersonnelPicker>
 </template>
 
@@ -98,6 +104,7 @@ import { onBeforeRouteLeave } from 'vue-router';
 import PersonnelPicker from './PersonnelPicker.vue';
 import ScoringResultRow from './ScoringResultRow.vue';
 import homeCopy from '@/locales/zh-CN/shared/home.js';
+import publicationCopy from '@/locales/zh-CN/shared/scoringPublication.js';
 import calendarCopy from '@/locales/zh-CN/shared/calendar.js';
 import publicationView from '@/shared/scoringPublicationView.js';
 import copy from '@/locales/zh-CN/index.js';
@@ -105,6 +112,7 @@ import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { session } from '@/runtime/session.js';
 import { showToast } from '@/runtime/notify.js';
 const home = homeCopy.text;
+const award = publicationCopy.awardSelection;
 const tab = ref('scoring');
 const activityId = ref('');
 const results = ref(null);
@@ -114,13 +122,18 @@ const discoveryError = ref('');
 const resultsError = ref('');
 const meritError = ref('');
 const saving = ref(false);
+const meritReloading = ref(false);
+const savedMeritRefreshFailed = ref(false);
 const picker = ref(null);
 const saveError = ref('');
+const saveUnknown = ref(null);
 const expanded = ref('');
 const filters = reactive({ search: '', identity: '', department: '', workGroup: '', grade: '' });
 const groupPages = ref({});
 let active = false;
 let generation = 0;
+let meritGeneration = 0;
+let meritReadGeneration = 0;
 const scope = () => [session.user?.id, session.context?.organizationId, session.context?.contextId].join('|');
 const hasMerit = computed(() => merit.value?.canDesignate === true || merit.value?.canViewMeritList === true);
 const tabs = computed(() => [
@@ -168,21 +181,8 @@ const publicationStats = computed(() => {
   if (stats && !Object.values(filters).some(Boolean)) return { count: stats.count, max: stats.maxScore, average: stats.avgScore };
   return { count: filteredMembers.value.length, ...scoreStats.value };
 });
-const meritGroups = computed(() => {
-  const map = new Map();
-  for (const clause of merit.value?.clauses || []) {
-    const key = clause.targetIdentityId || clause.targetIdentity;
-    if (!map.has(key)) map.set(key, { key, label: clause.targetIdentity || home.unclassified, clauses: [] });
-    map.get(key).clauses.push(clause);
-  }
-  return Array.from(map.values(), group => {
-    const quotas = group.clauses.map(clause => clause.quotaLimit || 0).filter(value => value > 0);
-    const exact = group.clauses.some(clause => clause.requireExactQuota);
-    return { ...group, quota: quotas.length ? (exact ? homeCopy.format.exactQuota(quotas[0]) : homeCopy.format.maximumQuota(Math.max(...quotas))) : home.unlimitedPeople,
-      members: (merit.value?.meritList || []).filter(member => (member.identityCategoryId || member.identityId || member.identity) === group.key) };
-  });
-});
-const departmentCount = computed(() => new Set((merit.value?.meritList || []).map(member => member.department).filter(Boolean)).size);
+const meritGroups = computed(() => publicationView.awardGroups(merit.value || {}, homeCopy, award));
+const meritSummary = computed(() => publicationView.awardSummary(meritGroups.value, merit.value?.meritList || [], homeCopy, award));
 function clearFilters() { for (const key of Object.keys(filters)) filters[key] = ''; }
 function toggleFilter(key, value) { filters[key] = filters[key] === value ? '' : value; }
 async function changeResultPage(group, step) {
@@ -202,7 +202,7 @@ async function discover() {
     if (!current()) return;
     if (!Object.hasOwn(response, 'activity')) throw new Error();
     const id = response.activity?.id || '';
-    if (id !== activityId.value) { results.value = null; merit.value = null; clearFilters(); expanded.value = ''; }
+    if (id !== activityId.value) { results.value = null; merit.value = null; savedMeritRefreshFailed.value = false; clearFilters(); expanded.value = ''; }
     activityId.value = id; discoveryError.value = ''; resultsError.value = ''; meritError.value = '';
     if (id) { await refresh(); return; }
   } catch (error) {
@@ -228,6 +228,7 @@ async function refresh() {
       if (!['no_permission', 'not_published'].includes(response.status)) requireSuccess(response);
       if (response.status === 'success' && (name === 'getPublicResults' ? !Array.isArray(response.groups) && !Array.isArray(response.results) : !Array.isArray(response.meritList))) throw new Error();
       value.value = response; notice.value = '';
+      if (!isResults) savedMeritRefreshFailed.value = false;
       if (isResults) groupPages.value = {};
       while (isResults && response.page?.next) {
         const next = await callApi(name, { activityId: id, batch: true, cursor: response.page.next });
@@ -251,30 +252,101 @@ async function refresh() {
   if (current()) { loading.value = false; normalizeTab(); }
 }
 function openPicker(group) {
-  if (saving.value || meritError.value || discoveryError.value || merit.value?.canDesignate !== true) return;
-  const ids = new Set(group.clauses.map(clause => clause.targetIdentityId));
-  const options = (merit.value.designationCandidates || []).filter(item => ids.has(item.targetIdentityId)).map(item => ({ ...item, assignmentId: item.assignmentId || item.id }));
-  picker.value = { ...group, options, selected: options.filter(item => item.isSelected), publicationId: merit.value.publicationId };
+  if (saving.value || meritReloading.value || savedMeritRefreshFailed.value || meritError.value || discoveryError.value || merit.value?.canDesignate !== true) return;
+  picker.value = { ...group, ...publicationView.awardPicker(group, merit.value.designationCandidates || []), publicationId: merit.value.publicationId };
   saveError.value = '';
+  saveUnknown.value = null;
+}
+function selectionNotice(count) { return publicationView.awardSelectionNotice(picker.value, count, award); }
+function clearSaveError() { if (saveUnknown.value === null) saveError.value = ''; }
+async function refreshMeritAfterSave() {
+  if (meritReloading.value || !activityId.value) return;
+  const expected = scope();
+  const id = activityId.value;
+  const request = ++meritReadGeneration;
+  const current = () => active && expected === scope() && id === activityId.value && request === meritReadGeneration;
+  const unknown = saveUnknown.value;
+  const editor = picker.value;
+  meritReloading.value = true;
+  try {
+    const response = await callApi('getPublicMeritList', { activityId: id });
+    if (!current()) return;
+    if (!['no_permission', 'not_published'].includes(response.status)) requireSuccess(response);
+    if (response.status === 'success' && !Array.isArray(response.meritList)) throw new Error();
+    merit.value = response;
+    meritError.value = '';
+    savedMeritRefreshFailed.value = false;
+    if (unknown && editor && editor === picker.value) {
+      const group = meritGroups.value.find(item => item.key === editor.key);
+      if (!group || response.canDesignate !== true || response.publicationId !== editor.publicationId) picker.value = null;
+      else if (publicationView.awardSavedMatches(group, unknown)) {
+        picker.value = null;
+        showToast(home.saved);
+      } else {
+        Object.assign(editor, group, { clauseIds: group.clauses.map(clause => clause.id) });
+        saveError.value = award.savedListDiffers;
+      }
+      saveUnknown.value = null;
+    }
+    normalizeTab();
+  } catch (error) {
+    if (!current()) return;
+    if (['forbidden', 'no_permission'].includes(error.status)) {
+      merit.value = { status: 'no_permission' };
+      savedMeritRefreshFailed.value = false;
+      picker.value = null;
+      saveUnknown.value = null;
+      normalizeTab();
+    } else if (!unknown) savedMeritRefreshFailed.value = true;
+  } finally { if (current()) meritReloading.value = false; }
 }
 async function saveDesignations(selected) {
-  if (saving.value || !picker.value) return;
+  const editor = picker.value;
+  if (saving.value || saveUnknown.value !== null || !editor?.publicationId) return;
+  const designationAssignmentIds = [...new Set(selected.map(item => item.assignmentId))];
+  if (selectionNotice(designationAssignmentIds.length)) return;
   const expected = scope();
-  const current = () => active && expected === scope();
-  const clauseIds = picker.value.clauses.map(clause => clause.id);
+  const id = activityId.value;
+  const request = ++meritGeneration;
+  const current = () => active && expected === scope() && id === activityId.value && request === meritGeneration;
+  const { clauseIds, publicationId } = editor;
   saving.value = true;
   try {
-    requireSuccess(await callApi('submitMeritListDesignations', { clauseIds, clauseId: clauseIds[0], publicationId: picker.value.publicationId,
-      designationAssignmentIds: [...new Set(selected.map(item => item.assignmentId))] }));
+    const result = await callApi('submitMeritListDesignations', { clauseIds, clauseId: clauseIds[0], publicationId, designationAssignmentIds });
     if (!current()) return;
-    picker.value = null; showToast(home.saved); await refresh();
-  } catch (error) { if (current()) saveError.value = errorText(error, home.saveFailed); }
+    if (result.status !== 'success') { saveError.value = publicationView.awardSaveNotice(result, editor, designationAssignmentIds.length, award); return; }
+    picker.value = null;
+    showToast(home.saved);
+    await refreshMeritAfterSave();
+  } catch (error) {
+    if (current() && !error.silent) {
+      if (publicationView.awardSaveIsUnknown(error)) {
+        saveUnknown.value = designationAssignmentIds;
+        saveError.value = award.saveResultUnknown;
+      } else saveError.value = publicationView.awardSaveNotice(error, editor, designationAssignmentIds.length, award);
+    }
+  }
   finally { if (current()) saving.value = false; }
 }
+function clearMeritEditor() {
+  meritGeneration++;
+  meritReadGeneration++;
+  picker.value = null;
+  saveUnknown.value = null;
+  saving.value = false;
+  meritReloading.value = false;
+}
+watch(scope, () => {
+  clearMeritEditor();
+  results.value = null;
+  merit.value = null;
+  activityId.value = '';
+  if (active) discover();
+});
 onBeforeRouteLeave(() => !saving.value);
 onActivated(() => { active = true; discover(); });
-onDeactivated(() => { active = false; generation++; picker.value = null; });
-onBeforeUnmount(() => { active = false; generation++; results.value = null; merit.value = null; });
+onDeactivated(() => { active = false; generation++; clearMeritEditor(); });
+onBeforeUnmount(() => { active = false; generation++; clearMeritEditor(); results.value = null; merit.value = null; });
 </script>
 
 <style scoped>

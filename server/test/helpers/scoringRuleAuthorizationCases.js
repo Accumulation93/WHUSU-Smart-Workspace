@@ -2,6 +2,9 @@
 
 const assert = require('node:assert/strict');
 const express = require('express');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
 
 module.exports = async function scoringRuleAuthorizationCases(pool, orgStorage, fixture) {
   const { reference, policy, model, guard, read } = fixture;
@@ -166,7 +169,53 @@ module.exports = async function scoringRuleAuthorizationCases(pool, orgStorage, 
         assert.equal(publicSaved.status, 'success', JSON.stringify(publicSaved));
         assert.equal((await post('getPublicMeritList', { activityId: 'rule-activity' })).meritList.length, 1);
         assert.equal((await pool.query('SELECT designated_by_assignment_id FROM merit_list_designations WHERE clause_id=?', [clause.id]))[0][0].designated_by_assignment_id, 'audit-assignment');
+        await pool.query("INSERT INTO persons(id,name,student_id,normalized_student_id) VALUES ('rule-second','第二位成员','rule-second','rule-second')");
+        await pool.query("INSERT INTO hr_info(id,name,student_id,org_id) VALUES ('rule-second-hr','第二位成员','rule-second','submit-a')");
+        await pool.query("INSERT INTO organization_memberships(id,person_id,org_id,legacy_hr_id) VALUES ('rule-second-member','rule-second','submit-a','rule-second-hr')");
+        await pool.query("INSERT INTO membership_assignments(id,membership_id,org_id,assignment_kind,department_id,identity_id) VALUES ('rule-second-assignment','rule-second-member','submit-a','staff','audit-department','audit-identity')");
+        const editForm = { ...designationForm, clauseId: clause.id, designationAssignmentIds: ['audit-assignment', 'rule-second-assignment'] };
+        await pool.query("UPDATE pub_merit_rule_clauses SET quota_limit=2, require_exact_quota=1 WHERE id=? AND org_id='submit-a'", [clause.id]);
+        assert.equal((await post('submitMeritListDesignations', editForm)).status, 'success');
+        await pool.query("UPDATE pub_merit_rule_clauses SET quota_limit=1 WHERE id=? AND org_id='submit-a'", [clause.id]);
+        const rejected = await post('submitMeritListDesignations', editForm);
+        assert.equal(rejected.status, 'quota_mismatch');
+        assert.equal(rejected.quotaLimit, 1);
+        const beforeCorrection = await post('getPublicMeritList', { activityId: 'rule-activity' });
+        assert.equal(beforeCorrection.meritList.length, 2);
+        assert(beforeCorrection.meritList.every(row => row.clauseId === clause.id));
+        const source = path.resolve(__dirname, '../../../miniprogram/subpackages/workspace/pages/home/home.js');
+        let pageDefinition;
+        let corrected;
+        vm.runInNewContext(fs.readFileSync(source, 'utf8'), {
+          Page(value) { pageDefinition = value; },
+          wx: { showToast() {} },
+          require(name) {
+            if (name.endsWith('/utils/api')) return { async callFunction({ name: endpoint, data }) {
+              const result = await post(endpoint, data);
+              if (endpoint === 'submitMeritListDesignations') corrected = result;
+              return result;
+            } };
+            if (name.endsWith('/utils/orgSession')) return {
+              beginRequest() { return {}; }, isRequestCurrent() { return true; }, getSnapshot() { return { role: 'user' }; }
+            };
+            if (name.includes('/locales/') || name.endsWith('/scoringPublicationView')) {
+              return require(path.resolve(path.dirname(source), name));
+            }
+            return {};
+          }
+        }, { filename: source });
+        const page = { ...pageDefinition, data: { ...pageDefinition.data, publicationActivity: { id: 'rule-activity' } },
+          setData(patch) { Object.assign(this.data, patch); }, rebuildUserTabs() {} };
+        page.showMeritList(beforeCorrection);
+        page.openUserDesignation({ currentTarget: { dataset: { groupKey: page.data.meritRuleGroups[0].key } } });
+        await page.confirmSharedUserDesignation({ detail: { keys: ['rule-second-assignment'] } });
+        assert.equal(corrected.status, 'success', JSON.stringify(corrected));
+        assert.deepEqual(corrected.designations.map(row => row.targetAssignmentId), ['rule-second-assignment']);
+        const correctedRead = await post('getPublicMeritList', { activityId: 'rule-activity' });
+        assert.deepEqual(correctedRead.meritList.map(row => row.assignmentId), ['rule-second-assignment']);
+        await pool.query("UPDATE pub_merit_rule_clauses SET require_exact_quota=0 WHERE id=? AND org_id='submit-a'", [clause.id]);
         assert.equal((await post('submitMeritListDesignations', { ...designationForm, designationAssignmentIds: [] })).status, 'success');
+        await pool.query("UPDATE membership_assignments SET status='inactive' WHERE id='rule-second-assignment' AND org_id='submit-a'");
         assert.equal((await post('saveResultPublication', { activityId: 'rule-activity', isPublished: false })).status, 'success');
         await pool.query(`INSERT INTO merit_list_designations
           (id,publication_id,clause_id,target_hr_id,target_assignment_id,target_context_snapshot,org_id,designated_by)

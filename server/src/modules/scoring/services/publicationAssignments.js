@@ -116,22 +116,27 @@ function buildDesignationCandidates(assignments, clauses, viewer, lookups, selec
   const ruleClauses = Array.isArray(clauses) ? clauses : [];
   const selected = selectedAssignmentIds instanceof Set ? selectedAssignmentIds : new Set();
   const candidates = [];
-  const seenAssignmentIds = new Set();
+  const candidatesByAssignment = new Map();
 
   for (const clause of ruleClauses) {
+    const clauseId = safeString(clause.id);
     const targetIdentityId = safeString(clause.target_identity_id || clause.targetIdentityId);
     const targetIdentity = lookups && lookups.identitiesById
       ? (lookups.identitiesById.get(targetIdentityId) || '')
       : '';
     for (const assignment of rows) {
       const assignmentId = assignmentIdOf(assignment);
-      if (!assignmentId || seenAssignmentIds.has(assignmentId)) continue;
+      if (!assignmentId) continue;
       if (!matchesMeritClause(assignment, clause, viewer)) continue;
       const legacyHrId = legacyHrIdOf(assignment);
       if (!legacyHrId) continue;
-      seenAssignmentIds.add(assignmentId);
+      const existing = candidatesByAssignment.get(assignmentId);
+      if (existing) {
+        if (clauseId) existing.clauseIds.push(clauseId);
+        continue;
+      }
       const assignmentLabel = buildAssignmentLabel(assignment, lookups);
-      candidates.push({
+      const candidate = {
         id: assignmentId,
         targetHrId: legacyHrId,
         targetAssignmentId: assignmentId,
@@ -150,9 +155,12 @@ function buildDesignationCandidates(assignments, clauses, viewer, lookups, selec
         workGroupId: safeString(assignment.work_group_id || assignment.workGroupId),
         workGroup: safeString(assignment.workGroup || assignment.work_group) || (lookups.workGroupsById.get(safeString(assignment.work_group_id || assignment.workGroupId)) || ''),
         isSelected: selected.has(assignmentId),
+        clauseIds: clauseId ? [clauseId] : [],
         targetIdentityId,
         targetIdentity
-      });
+      };
+      candidates.push(candidate);
+      candidatesByAssignment.set(assignmentId, candidate);
     }
   }
 

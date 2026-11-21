@@ -2,6 +2,7 @@
 'use strict';
 import home from './home.js';
 import calendar from './calendar.js';
+import scoringPublication from './scoringPublication.js';
 // 独立语言稿：docs/copy/message-facts-editorial-20261103.md。
 const sharedModule = Object.freeze({
   context: { superAdmin: home.text.superAdmin, admin: home.text.admin, noAssignment: home.text.unsetIdentity },
@@ -19,7 +20,7 @@ const sharedModule = Object.freeze({
     submission_approved: '审核申请已通过', submission_progress: '审核进展', submission_rejected: '审核申请被驳回',
     booking_approved: '场地借用已通过', booking_rejected: '场地借用被驳回', booking_cancelled: '场地借用已取消',
     hr_profile_approved: '资料审核已通过', hr_profile_rejected: '资料审核未通过', hr_profile_migration: '跨组织资料迁移',
-    score_activity_started: '评分活动已开始', score_deadline_24h: '评分截止提醒', score_results_published: '评分结果已发布',
+    score_activity_started: '评分活动已开始', score_deadline_24h: '评分截止提醒', score_results_published: scoringPublication.notificationTitle,
     calendar_reminder: '日程提醒', account_security: '账号安全提醒'
   },
   auditApproved: '全部审批步骤已完成',
@@ -51,7 +52,7 @@ const sharedModule = Object.freeze({
   scoringDeadline: time => `本次评分于 ${time} 截止，请及时完成。`,
   currentScoringDeadline: time => `本活动当前的评分截止时间为 ${time}。`,
   scoringDeadlineUnknown: '请查看本次评分的截止时间，及时完成待评分任务。',
-  scoringPublished: '评分结果已发布',
+  scoringPublished: scoringPublication.notificationTitle,
   calendarStartsAt: time => `日程开始时间为 ${time}。`,
   calendarTimeUnknown: '请查看日程的时间和安排',
   calendarAllDay: '日程按全天安排',

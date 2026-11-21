@@ -244,6 +244,10 @@
     <view class="card empty-state-card" wx:if="{{publicationMeritFailed}}">
       <button class="secondary-btn publication-retry-btn ui-motion-button" bindtap="retryPublication" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.reloadProfile}}</button>
     </view>
+    <view class="card empty-state-card" wx:if="{{savedMeritRefreshFailed}}">
+      <view>{{savedMeritRefreshText}}</view>
+      <button class="secondary-btn publication-retry-btn ui-motion-button" disabled="{{publicationMeritPending}}" bindtap="refreshMeritAfterSave" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.reloadProfile}}</button>
+    </view>
     <view class="card empty-state-card" wx:if="{{!publicationMeritPending && !publicationMeritFailed && !hasMeritPerm}}">
       <view class="empty-illustration"><view class="empty-icon-clock"><ui-icon name="clock" tone="primary" size="46" ariaLabel="{{copy.waitingPublication}}" /></view></view>
       <view class="empty-title">{{copy.noMeritList}}</view>
@@ -256,27 +260,27 @@
         </view>
         <view class="stats-bar">
           <view class="stat-item">
-            <view class="stat-value stat-value-gold">{{meritRuleGroups.length}}</view>
-            <view class="stat-label">{{copy.meritGroup}}</view>
+            <view class="stat-label">{{meritSummary.savedCount}}</view>
+            <view class="stat-label" wx:if="{{meritSummary.requiredCount}}">{{meritSummary.requiredCount}}</view>
           </view>
           <view class="stat-item">
-            <view class="stat-value">{{publishedMeritList.length}}</view>
-            <view class="stat-label">{{copy.designatedCount}}</view>
-          </view>
-          <view class="stat-item">
-            <view class="stat-value stat-value-blue">{{meritDeptCount || meritRuleGroups.length}}</view>
+            <view class="stat-value stat-value-blue">{{meritSummary.departmentCount}}</view>
             <view class="stat-label">{{copy.involvedDepartments}}</view>
           </view>
         </view>
       </view>
       <view class="card targets-card" wx:for="{{meritRuleGroups}}" wx:key="key">
         <view class="merit-rule-head">
-          <view class="target-group-label target-group-label--flush">{{item.targetIdentity}}</view>
-          <view class="merit-group-count">{{item.quotaInfo}}</view>
-          <text class="merit-edit-btn ui-motion-chip" bindtap="openUserDesignation" data-identity="{{item.targetIdentity}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.edit}}</text>
+          <view class="target-group-label target-group-label--flush">{{item.label}}</view>
+          <button wx:if="{{canEditMerit && item.clauses.length}}" class="secondary-btn publication-retry-btn ui-motion-button" disabled="{{userDesigSaving || publicationMeritPending || savedMeritRefreshFailed}}" bindtap="openUserDesignation" data-group-key="{{item.key}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.edit}}</button>
         </view>
-        <scroll-view class="target-scroll" scroll-y wx:if="{{item.designatedMembers.length}}">
-          <view class="target-card" wx:for="{{item.designatedMembers}}" wx:key="id" wx:for-item="m">
+        <view class="merit-rule-head">
+          <text class="merit-group-count">{{item.savedCount}}</text>
+          <text class="merit-group-count" wx:if="{{item.quota}}">{{item.quota}}</text>
+          <text class="merit-group-count merit-group-count--over" wx:if="{{item.overCount}}">{{item.overCount}}</text>
+        </view>
+        <scroll-view class="target-scroll" scroll-y wx:if="{{item.members.length}}">
+          <view class="target-card" wx:for="{{item.members}}" wx:key="id" wx:for-item="m">
             <view class="target-main">
               <view class="target-name"><person-link name="{{m.name}}" assignment-id="{{m.targetAssignmentId || m.assignmentId}}" hr-id="{{m.targetHrId}}" /></view>
               <view class="target-tags">
@@ -576,7 +580,10 @@
     <view class="footer-org">{{copy.organizationName}}</view>
   </view>
 
-  <personnel-picker visible="{{showUserDesigPopup}}" title="{{copy.designateMeritList}}" options="{{userDesigHrList}}" value="{{userDesigSelectedList}}" selectionLevel="assignment" multiple="{{true}}" confirmLoading="{{userDesigSaving}}" bindconfirm="confirmSharedUserDesignation" bindcancel="closeUserDesignation" />
+  <personnel-picker visible="{{showUserDesigPopup}}" title="{{copy.designateMeritList}}" options="{{userDesigHrList}}" value="{{userDesigSelectedList}}" selectionLevel="assignment" multiple="{{true}}" contextText="{{userDesigQuota}}" confirmLoading="{{userDesigSaving}}" confirmDisabled="{{userDesigSaveUnknown}}" bindselectionchange="onUserDesignationChange" bindconfirm="confirmSharedUserDesignation" bindcancel="closeUserDesignation">
+    <view slot="extra" class="ui-dialog-summary" wx:if="{{userDesigError || userDesigNotice}}">{{userDesigError || userDesigNotice}}</view>
+    <button slot="extra" wx:if="{{userDesigSaveUnknown}}" class="secondary-btn publication-retry-btn ui-motion-button" disabled="{{publicationMeritPending}}" bindtap="refreshMeritAfterSave" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.reloadProfile}}</button>
+  </personnel-picker>
 </view>
 
 <!-- 统一状态提示：承接全部 wx.showToast / wx.showLoading -->

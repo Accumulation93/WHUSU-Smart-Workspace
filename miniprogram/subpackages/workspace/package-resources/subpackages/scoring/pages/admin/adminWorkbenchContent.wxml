@@ -19,7 +19,7 @@
           <block wx:if="{{tabKey === 'activities'}}">{{localeCopy.copy_5aa4cb13ec}}</block>
           <block wx:elif="{{tabKey === 'templates'}}">{{localeCopy.copy_5a49161fd7}}</block>
           <block wx:elif="{{tabKey === 'rules'}}">{{localeCopy.copy_9ad6311419}}</block>
-          <block wx:elif="{{tabKey === 'results'}}">{{localeCopy.scoringResultsTab}}</block>
+          <block wx:elif="{{tabKey === 'results'}}">{{canReadScoreTasks && !canReadScoreResults ? localeCopy.scoringCompletionTab : localeCopy.scoringResultsTab}}</block>
           <block wx:elif="{{tabKey === 'hrInfo'}}">{{localeCopy.copy_166a418985}}</block>
           <block wx:elif="{{tabKey === 'hrTemplates'}}">{{localeCopy.copy_a0d495faa0}}</block>
           <block wx:elif="{{tabKey === 'departments'}}">{{localeCopy.copy_c15260b37c}}</block>
@@ -600,7 +600,7 @@
 
     <view class="section-stack" wx:if="{{activeTab === 'results'}}">
       <view class="section-control-card">
-        <view class="section-title">{{localeCopy.copy_1a5cfb71ab}}</view>
+        <view class="section-title">{{resultFilters.viewMode === 'completion' ? localeCopy.copy_9d954432df : localeCopy.copy_1a5cfb71ab}}</view>
       </view>
       <view class="list-card">
         <view class="list-title">{{localeCopy.copy_35fabd21a9}}</view>

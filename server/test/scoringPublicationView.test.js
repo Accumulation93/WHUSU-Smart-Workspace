@@ -3,6 +3,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const view = require('../../shared/scoringPublicationView');
 const copy = require('../../shared/locales/zh-CN/home').text;
+const home = require('../../shared/locales/zh-CN/home');
+const { awardSelection: awardCopy } = require('../../shared/locales/zh-CN/scoringPublication');
 const { pageOf } = require('../src/modules/scoring/services/publicationPage');
 
 test('publication groups use scope facts without accepting server display labels', () => {
@@ -60,4 +62,38 @@ test('changes to scores or visible groups invalidate a continuation before any r
   assert.equal(pageOf(groups.slice(1), first.page.next).page.offset, 0);
   const gradeGroups = [{ ...groups[1], members: [{ ...groups[1].members[0], displayFacts: { gradeName: 'A' } }] }];
   assert.equal(pageOf(gradeGroups).page.stats.maxScore, '--');
+});
+
+test('award groups use clause provenance after identity changes and take the maximum same-rule quota', () => {
+  const roster = [
+    { assignmentId: 'active-a', clauseId: 'clause-a', identityCategoryId: 'changed-identity' },
+    { assignmentId: 'active-b', clauseId: 'clause-b', identityCategoryId: 'identity-a' },
+    { assignmentId: 'legacy-c', identityCategoryId: 'identity-a' }
+  ];
+  const groups = view.awardGroups({ meritList: roster, clauses: [
+    { id: 'clause-a', ruleId: 'rule-a', targetIdentityId: 'identity-a', quotaLimit: 2 },
+    { id: 'clause-a2', ruleId: 'rule-a', targetIdentityId: 'identity-a', quotaLimit: 8, requireExactQuota: true },
+    { id: 'clause-b', ruleId: 'rule-b', targetIdentityId: 'identity-a', quotaLimit: 3 }
+  ] }, home, awardCopy);
+  assert.deepEqual(groups.map(group => group.members.map(member => member.assignmentId)), [['active-a'], ['active-b'], ['legacy-c']]);
+  assert.deepEqual(groups.map(group => group.limit), [8, 3, 0]);
+  assert.equal(view.awardSummary(groups, roster, home, awardCopy).requiredCount, '');
+  const picker = view.awardPicker(groups[0], [
+    { id: 'active-a', clauseIds: ['clause-a'] },
+    { id: 'active-b', clauseIds: ['clause-b'], isSelected: true },
+    { id: 'active-c', clauseIds: ['clause-a2', 'clause-b'], isSelected: true }
+  ]);
+  assert.deepEqual(picker.clauseIds, ['clause-a', 'clause-a2']);
+  assert.deepEqual(picker.options.map(item => item.assignmentId), ['active-a', 'active-c']);
+  assert.deepEqual(picker.selected.map(item => item.assignmentId), ['active-a']);
+});
+
+test('award feedback uses a structured server limit and local fallback without surfacing server prose', () => {
+  const group = { exact: true, limit: 7 };
+  const untrusted = 'raw server feedback';
+  assert.equal(view.awardSaveNotice({ status: 'quota_mismatch', quotaLimit: 8, message: untrusted }, group, 6, awardCopy),
+    awardCopy.saveTooFew.replace('{required}', '8').replace('{missing}', '2'));
+  assert.equal(view.awardSaveNotice({ status: 'quota_mismatch', message: untrusted }, group, 10, awardCopy),
+    awardCopy.saveTooMany.replace('{required}', '7').replace('{extra}', '3'));
+  assert.equal(view.awardSaveNotice({ code: 'designation_conflict', message: untrusted }, group, 7, awardCopy), awardCopy.saveAlreadyAssigned);
 });

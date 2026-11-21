@@ -71,7 +71,7 @@
 
       <view class="personnel-picker-footer button-row ui-dialog-footer">
         <button class="secondary-btn ui-motion-button" catchtap="cancelSelection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.close}}</button>
-        <button class="primary-btn ui-motion-button" disabled="{{confirmLoading}}" catchtap="confirmSelection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{confirmLoading}}" />{{localeCopy.confirm}}</button>
+        <button class="primary-btn ui-motion-button" disabled="{{confirmLoading || confirmDisabled}}" catchtap="confirmSelection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{confirmLoading}}" />{{localeCopy.confirm}}</button>
       </view>
     </view>
   </view>

@@ -3,9 +3,10 @@ import { mockApi } from './fixtures.js';
 import homeCopy from '../../src/locales/zh-CN/shared/home.js';
 import pickerCopy from '../../src/locales/zh-CN/shared/personnelPicker.js';
 import copy from '../../src/locales/zh-CN/index.js';
-import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
+import publicationCopy from '../../src/locales/zh-CN/shared/scoringPublication.js';
 import calendarCopy from '../../src/locales/zh-CN/shared/calendar.js';
 const home = homeCopy.text;
+const award = publicationCopy.awardSelection;
 const candidates = [
   { id: 'assignment-a', assignmentId: 'assignment-a', name: 'Member A', targetIdentityId: 'identity-a', identity: 'Identity A', department: 'Department A', assignmentLabel: 'Identity A · Department A', isSelected: true },
   { id: 'assignment-b', assignmentId: 'assignment-b', name: 'Member A', targetIdentityId: 'identity-a', identity: 'Identity A', department: 'Department B', assignmentLabel: 'Identity A · Department B', isSelected: false }
@@ -107,7 +108,7 @@ test('merit picker preserves business rejection, submits assignment IDs, reads s
     writes++;
     const body = route.request().postDataJSON();
     expect(body).toEqual({ clauseIds: ['merit-clause'], clauseId: 'merit-clause', publicationId: 'publication-historical', designationAssignmentIds: writes < 3 ? ['assignment-b'] : [] });
-    if (reject) { reject = false; return route.fulfill({ json: { status: 'quota_exceeded', message: 'Quota changed' } }); }
+    if (reject) { reject = false; return route.fulfill({ json: { status: 'designation_conflict', message: 'Private backend data' } }); }
     ids = body.designationAssignmentIds;
     return route.fulfill({ json: { status: 'success' } });
   });
@@ -118,8 +119,8 @@ test('merit picker preserves business rejection, submits assignment IDs, reads s
   await dialog.locator('.personnel-option').first().click();
   await dialog.locator('.personnel-option').last().click();
   await dialog.getByRole('button', { name: pickerCopy.confirm, exact: true }).click();
-  await expect(dialog.getByText(feedback.writeResultUnknown)).toBeVisible();
-  await expect(dialog.getByText('Quota changed')).toHaveCount(0);
+  await expect(dialog.getByText(award.saveAlreadyAssigned)).toBeVisible();
+  await expect(dialog.getByText('Private backend data')).toHaveCount(0);
   await expect(dialog.locator('.personnel-option').last()).toHaveAttribute('aria-pressed', 'true');
   await dialog.getByRole('button', { name: pickerCopy.confirm, exact: true }).click();
   await expect(dialog).toHaveCount(0);
@@ -142,11 +143,84 @@ test('successful save followed by failed read blocks edits and retries without a
   await page.getByRole('button', { name: home.edit, exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: pickerCopy.confirm, exact: true }).click();
   await expect(page.getByRole('button', { name: home.edit, exact: true })).toBeDisabled();
+  await expect(page.getByRole('status').getByText(award.savedNotRefreshed)).toBeVisible();
   await expect(page.locator('.merit-member')).toContainText('Department A');
   await expect(page.getByRole('button', { name: home.reloadProfile, exact: true })).toBeEnabled();
   failRead = false;
   await page.getByRole('button', { name: home.reloadProfile, exact: true }).click();
   await expect(page.getByRole('button', { name: home.edit, exact: true })).toBeEnabled();
+  await expect(page.locator('.merit-member')).toContainText('Department B');
+  expect(writes).toBe(1);
+});
+
+test('legacy over-quota roster retains all 14 records and edits only the chosen clause group', async ({ page }) => {
+  await setup(page);
+  const slots = [{ id: 'clause-x', ruleId: 'rule', targetIdentityId: 'identity-x', targetIdentity: 'Same label', quotaLimit: 8, requireExactQuota: true },
+    { id: 'clause-y', ruleId: 'rule', targetIdentityId: 'identity-y', targetIdentity: 'Same label', quotaLimit: 3, requireExactQuota: true }];
+  let roster = slots.flatMap((clause, index) => Array.from({ length: index ? 3 : 11 }, (_, row) => ({
+    id: clause.id + '-' + row, assignmentId: clause.id + '-' + row, clauseId: clause.id,
+    name: clause.id + ' member ' + row, department: 'Department ' + index, identity: 'Current category'
+  })));
+  const choices = roster.map(item => ({ ...item, clauseIds: [item.clauseId] }));
+  let ratingReads = 0;
+  await page.route('**/api/getPublicResults', route => { ratingReads++; return route.fulfill({ json: result }); });
+  await page.route('**/api/getPublicMeritList', route => route.fulfill({ json: { ...meritResponse([]), clauses: slots, meritList: roster, designationCandidates: choices } }));
+  let writes = 0;
+  await page.route('**/api/submitMeritListDesignations', route => {
+    writes++;
+    const payload = route.request().postDataJSON();
+    expect(payload.clauseIds).toEqual(['clause-x']);
+    expect(payload.designationAssignmentIds).toHaveLength(8);
+    roster = roster.filter(item => item.clauseId === 'clause-y' || payload.designationAssignmentIds.includes(item.assignmentId));
+    return route.fulfill({ json: { status: 'success' } });
+  });
+  await page.goto('/web/scoring/tasks');
+  await page.getByRole('tab', { name: home.meritList, exact: true }).click();
+  const groups = page.locator('.merit-group');
+  const first = groups.first();
+  await expect(page.locator('.merit-member')).toHaveCount(14);
+  await expect(page.locator('.publication-stat strong').filter({ hasText: award.savedCount.replace('{saved}', '14') })).toBeVisible();
+  await expect(first.getByText(award.savedOverCount.replace('{extra}', '3'))).toBeVisible();
+  await expect(first.getByText(homeCopy.format.exactQuota(8))).toBeVisible();
+  await expect(groups.last().getByText(homeCopy.format.exactQuota(3))).toBeVisible();
+  await first.getByRole('button', { name: home.edit, exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  const options = dialog.locator('.personnel-option');
+  await expect(options).toHaveCount(11);
+  const confirm = dialog.getByRole('button', { name: pickerCopy.confirm, exact: true });
+  await expect(dialog.getByText(award.selectFewer.replace('{extra}', '3'))).toBeVisible();
+  await confirm.click();
+  expect(writes).toBe(0);
+  for (let index = 0; index < 3; index++) await options.nth(index).click();
+  await confirm.click();
+  await expect(page.locator('.merit-member')).toHaveCount(11);
+  expect(writes).toBe(1);
+  expect(ratingReads).toBe(1);
+});
+
+test('a dropped save response preserves the selection and reloads the authoritative list without writing twice', async ({ page }) => {
+  await setup(page);
+  let ids = ['assignment-a'];
+  let writes = 0;
+  await page.route('**/api/getPublicMeritList', route => route.fulfill({ json: meritResponse(ids) }));
+  await page.route('**/api/submitMeritListDesignations', route => {
+    writes++;
+    ids = route.request().postDataJSON().designationAssignmentIds;
+    return route.abort('failed');
+  });
+  await page.goto('/web/scoring/tasks');
+  await page.getByRole('tab', { name: home.meritList, exact: true }).click();
+  await page.getByRole('button', { name: home.edit, exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.locator('.personnel-option').first().click();
+  await dialog.locator('.personnel-option').last().click();
+  const confirm = dialog.getByRole('button', { name: pickerCopy.confirm, exact: true });
+  await confirm.click();
+  await expect(dialog.getByText(award.saveResultUnknown)).toBeVisible();
+  await expect(confirm).toBeDisabled();
+  await expect(dialog.locator('.personnel-option').last()).toHaveAttribute('aria-pressed', 'true');
+  await dialog.getByRole('button', { name: home.reloadProfile, exact: true }).click();
+  await expect(dialog).toHaveCount(0);
   await expect(page.locator('.merit-member')).toContainText('Department B');
   expect(writes).toBe(1);
 });

@@ -20,6 +20,7 @@ Component({
     loading: { type: Boolean, value: false },
     errorText: { type: String, value: '' },
     contextText: { type: String, value: '' },
+    confirmDisabled: { type: Boolean, value: false },
     confirmLoading: { type: Boolean, value: false }
   },
 
@@ -143,10 +144,12 @@ Component({
     },
 
     toggleOption: function(event) {
+      if (this.properties.confirmLoading) return;
       const key = String(event.currentTarget.dataset.key || '');
       if (!key) return;
       const keys = model.toggleSelection(this.data.draftKeys, key, this.properties.multiple);
       this._applyView(keys, null, true);
+      this.triggerEvent('selectionchange', { count: keys.length });
     },
 
     toggleSelectedExpanded: function() {
@@ -184,6 +187,7 @@ Component({
     },
 
     confirmSelection: function() {
+      if (this.properties.confirmLoading || this.properties.confirmDisabled) return;
       this.triggerEvent('confirm', {
         keys: this.data.draftKeys.slice(),
         items: this.data.selectedItems.map(function(item) {

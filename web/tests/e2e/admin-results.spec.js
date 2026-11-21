@@ -48,11 +48,11 @@ test('native result views, sorting and filters use original parameters and prese
   expect(await page.locator('.result-summary').evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ').length)).toBe(2);
 });
 
-test('target and record details retain historical information, seconds, labels and full scroll reach', async ({ page }) => {
+test('target and record details retain historical information, minute precision, labels and full scroll reach', async ({ page }) => {
   const state = await setup(page); await open(page); await detail(page);
   expect(state.requests.find(row => row.dataType === 'targetRecords')).toEqual({ activityId: 'a1', timezone: 8, dataType: 'targetRecords', targetId: 'p1' });
   expect(state.requests.find(row => row.dataType === 'recordDetail')).toEqual({ activityId: 'a1', timezone: 8, dataType: 'recordDetail', recordId: 'r1' });
-  await expect(recordDialog(page).getByText('2026-01-02 11:04:05', { exact: true })).toBeVisible();
+  await expect(recordDialog(page).getByText('2026-01-02 11:04', { exact: true })).toBeVisible();
   const controls = await recordDialog(page).evaluate(element => { const body = element.querySelector('.dialog-body').getBoundingClientRect(); const revoke = element.querySelector('.btn-secondary').getBoundingClientRect(); const label = element.querySelector('.detail-question button').getBoundingClientRect(); return { body: body.width, revoke: revoke.width, label: label.width }; }); expect(controls.revoke).toBeLessThan(controls.body * 0.8); expect(controls.label).toBeLessThan(controls.body * 0.8);
   await recordDialog(page).getByRole('button', { name: ui.copy_b66760c55a }).first().click(); await expect(recordDialog(page).getByText('Description\nwith lines', { exact: true })).toBeVisible();
   await recordDialog(page).getByText('Question 18', { exact: true }).scrollIntoViewIfNeeded(); await expect(recordDialog(page).getByText('Question 18', { exact: true })).toBeVisible();

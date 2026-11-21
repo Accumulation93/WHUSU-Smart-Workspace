@@ -1,7 +1,7 @@
 <template>
   <div class="stack result-panel">
     <section class="card stack">
-      <span class="section-title">{{ ui.copy_1a5cfb71ab }}</span>
+      <span class="section-title">{{ filters.viewMode === 'completion' || (canReadTasks && !canReadResults) ? ui.copy_9d954432df : ui.copy_1a5cfb71ab }}</span>
       <div v-if="notice.main" class="stack-tight" role="alert"><span class="notice-line">{{ notice.main }}</span><button type="button" class="btn-quiet" :disabled="loading.main || busy" @click="refresh">{{ personnel.dictionaryRetry }}</button></div>
     </section>
     <section class="card stack-tight"><strong>{{ ui.copy_35fabd21a9 }}</strong><span>{{ activity?.name || ui.copy_79b2d9fea4 }}</span></section>
