@@ -9,6 +9,7 @@
 | 管理端数据入口 | `admin.scoringResultsTab`、`scoringCompletionTab`、`copy_1a5cfb71ab`、`copy_9d954432df` | 考核结果、评分进度、考核结果、评分任务完成情况。只有评分完成情况权限时使用进度页签，页面标题随所选视图变化 |
 | 管理端统计与导出 | `admin.copy_4adc175789`、`copy_03f903662b` | 收到有效评分的成员、导出考核结果。已有至少一条计入的评分与已生成最终考核结果分开 |
 | 公示设置与发布 | `admin.copy_10eaadc5f1`、`copy_17903d1b98`、`copy_2e6a7d24f3`、`copy_e5c0e22c49`、`copy_414b7d9da7` | 设置考核结果可见范围、发布考核结果和考核结果公示入口 |
+| 管理端评分顶栏公示页签 | `admin.scoringPublicationTab` | 结果公示。适配手机窄屏同时显示五个页签，完整标题继续使用考核结果相关术语 |
 | 公示范围 | `admin.copy_9a4a6e8793`、`publicationBehavior.copy_9a4a6e8793`、`adminUtils.copy_1580e09c5c`、`copy_3787c80077`、`copy_8e7c345003`、`copy_9a4a6e8793`、`copy_c70c40dae1`、`copy_fd80cc149b` | 查看本人或者指定范围成员的考核结果。保持原有范围条件 |
 | 评分规则开关 | `admin.copy_4cf8cbfee4` | 评分人完成规定的全部评分后，所给分数才计入被评分人的考核结果。 |
 | 共用状态提示 | `admin.copy_be942e85d1`、`resultBehavior.copy_bd06e9a531`、`copy_c59ab1ce4a` | 正在加载数据、数据未能加载，请重试。共用于总分、评分记录和完成情况，保持中性 |

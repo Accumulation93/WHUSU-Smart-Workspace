@@ -135,7 +135,7 @@ test('five native scoring tabs remain on one line and first and last can be sele
   await setup(page, Object.fromEntries(['activities', 'templates', 'rules', 'results', 'publications'].map(key => ['scoring.' + key, true])));
   await page.goto('/web/admin?subApp=scoring');
   const tabs = page.getByRole('tab');
-  await expect(tabs).toHaveText([ui.copy_5aa4cb13ec, ui.copy_5a49161fd7, ui.copy_9ad6311419, ui.scoringResultsTab, ui.copy_414b7d9da7]);
+  await expect(tabs).toHaveText([ui.copy_5aa4cb13ec, ui.copy_5a49161fd7, ui.copy_9ad6311419, ui.scoringResultsTab, ui.scoringPublicationTab]);
   const tops = await tabs.evaluateAll(items => items.map(item => item.getBoundingClientRect().top));
   expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(1);
   const labels = await tabs.evaluateAll(items => items.map(item => {

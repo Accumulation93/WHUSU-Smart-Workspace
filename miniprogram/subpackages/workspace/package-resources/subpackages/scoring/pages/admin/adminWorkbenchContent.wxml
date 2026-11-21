@@ -28,7 +28,7 @@
           <block wx:elif="{{tabKey === 'assignmentNatures'}}">{{localeCopy.hrAssignmentNature}}</block>
           <block wx:elif="{{tabKey === 'admins'}}">{{localeCopy.copy_72d3c6f7c2}}</block>
           <block wx:elif="{{tabKey === 'settings'}}">{{localeCopy.copy_a8792b30e7}}</block>
-          <block wx:elif="{{tabKey === 'publications'}}">{{localeCopy.copy_414b7d9da7}}</block>
+          <block wx:elif="{{tabKey === 'publications'}}">{{localeCopy.scoringPublicationTab}}</block>
           <block wx:elif="{{tabKey === 'auditTemplates'}}">{{localeCopy.copy_7312ee863e}}</block>
           <block wx:elif="{{tabKey === 'auditStamps'}}">{{localeCopy.copy_8ef1f4695c}}</block>
           <block wx:elif="{{tabKey === 'auditSubmissions'}}">{{localeCopy.copy_be547ba4c7}}</block>

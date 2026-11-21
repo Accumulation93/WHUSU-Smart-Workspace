@@ -50,7 +50,7 @@ test('anonymous verification reads only code and renders invalid state after ref
   await page.goto('/web/identity-card/verify?token='+'a'.repeat(32));
   await expect(page.locator('.identity-name')).toHaveText(card.name);
   await expect(page.getByText(copy.verified,{exact:true})).toBeVisible();
-  await expect(page.locator('.identity-time:not(.identity-live-time) .identity-time-value')).toHaveText('2026-10-23 16:00:00');
+  await expect(page.locator('.identity-time:not(.identity-live-time) .identity-time-value')).toHaveText('2026-10-23 16:00');
   await expect(page.locator('.identity-image')).toHaveCount(0);
   await expect(page.locator('.workspace-context-card')).toHaveCount(0);
   await expect(page.locator('.workspace-hero')).toBeVisible();
@@ -81,14 +81,16 @@ for (const activeContextId of ['ctx-assignment', 'ctx-admin']) {
   });
 }
 test('admin identity retains dark hero and clock advances without network polling', async ({page}) => {
+  await page.clock.install({ time: new Date('2026-11-10T08:00:00Z') });
   await mockApi(page,{activeContextId:'ctx-admin'});
   let reads=0;
   await page.route('**/api/getMyIdentityCard',r=>{reads++;return r.fulfill({json:{status:'success',valid:true,card}});});
   await page.route('**/api/createMyIdentityCardCode',r=>r.fulfill({json:{status:'success',valid:true,card,image,verificationImage}}));
   await page.goto('/web/identity-card');
   await expect(page.locator('.workspace-hero-admin')).toBeVisible();
-  const first=await page.locator('.identity-time-value').innerText();
-  await expect(page.locator('.identity-time-value')).not.toHaveText(first);
+  await expect(page.locator('.identity-time-value')).toHaveText('2026-11-10 16:00');
+  await page.clock.fastForward(60000);
+  await expect(page.locator('.identity-time-value')).toHaveText('2026-11-10 16:01');
   expect(reads).toBe(1);
 });
 
@@ -122,6 +124,7 @@ test('code service failure retains basic identity and offers retry', async ({pag
 });
 
 test('public identity exposes structured position cards and a local clock without revalidation', async ({page}) => {
+  await page.clock.install({ time: new Date('2026-11-10T08:00:00Z') });
   await mockApi(page,{authenticated:false});
   let reads=0;
   await page.route('**/api/verifyIdentityCard',r=>{ reads++; return r.fulfill({json:{status:'success',valid:true,checkedAt:'2026-11-10T08:00:00.000Z',card:{...card,positionFacts:{...card.positionFacts,department:'Department A',identityCategory:'Coordinator',workGroup:'Group A'}}}}); });
@@ -129,7 +132,9 @@ test('public identity exposes structured position cards and a local clock withou
   await expect(page.locator('.identity-field')).toHaveCount(4);
   for (const value of ['Department A','Coordinator','Group A']) await expect(page.locator('.identity-field').getByText(value,{exact:true})).toBeVisible();
   const clock=page.locator('.identity-live-time .identity-time-value');
-  const first=await clock.innerText(); await expect(clock).not.toHaveText(first);
-  await expect(page.locator('.identity-time:not(.identity-live-time) .identity-time-value')).toHaveText('2026-11-10 16:00:00');
+  await expect(clock).toHaveText('2026-11-10 16:00');
+  await page.clock.fastForward(60000);
+  await expect(clock).toHaveText('2026-11-10 16:01');
+  await expect(page.locator('.identity-time:not(.identity-live-time) .identity-time-value')).toHaveText('2026-11-10 16:00');
   expect(reads).toBe(1);
 });

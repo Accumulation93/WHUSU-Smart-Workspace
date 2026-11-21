@@ -36,6 +36,7 @@ const sharedModule = Object.freeze({
   mappingQuestionField: '对应题目设置',
   scoringResultsTab: '考核结果',
   scoringCompletionTab: '评分进度',
+  scoringPublicationTab: '结果公示',
   reverseFilteredRules: '反选筛选结果',
   selectAllVisibleViewRules: '全选筛选结果',
   generateViewRulesHelp: '按本组织参与岗位的部门和身份类别补建查看规则，已有规则保持不变。生成后，请设置每条规则可查看哪些成员的结果。',

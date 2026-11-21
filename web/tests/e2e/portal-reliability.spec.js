@@ -17,7 +17,8 @@ test('notifications load independently and todo failure is not an empty result',
     await page.goto('/web/portal');
     await expect(page.getByText(messageCopy.unknownNotificationTitle)).toBeVisible();
     await expect(page.getByText('Independent notification')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: new RegExp(messageCopy.unknownNotificationTitle) })).toBeDisabled();
+    await expect(page.getByRole('button', { name: new RegExp(messageCopy.unknownNotificationTitle) })).toBeEnabled();
+    await expect(page.getByText(messageCopy.notificationDetailUnavailable, { exact: true })).toHaveCount(0);
     const loading = page.getByRole('status', { name: copy.common.loading });
     await expect(loading).toBeVisible();
     await expect(loading.locator('.spinner')).toBeVisible();
