@@ -4,6 +4,7 @@ import homeCopy from '../../src/locales/zh-CN/shared/home.js';
 import pickerCopy from '../../src/locales/zh-CN/shared/personnelPicker.js';
 import copy from '../../src/locales/zh-CN/index.js';
 import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
+import calendarCopy from '../../src/locales/zh-CN/shared/calendar.js';
 const home = homeCopy.text;
 const candidates = [
   { id: 'assignment-a', assignmentId: 'assignment-a', name: 'Member A', targetIdentityId: 'identity-a', identity: 'Identity A', department: 'Department A', assignmentLabel: 'Identity A · Department A', isSelected: true },
@@ -30,7 +31,7 @@ async function setup(page) {
   await page.route('**/api/getRateTargets', route => route.fulfill({ json: { status: 'success', targets: [] } }));
   await page.route('**/api/getLatestPublishedScoreActivity', route => route.fulfill({ json: { status: 'success', activity: { id: 'historical', name: 'Historical publication' } } }));
   await page.route('**/api/getPublicResults', route => {
-    expect(route.request().postDataJSON()).toEqual({ activityId: 'historical' });
+    expect(route.request().postDataJSON()).toEqual({ activityId: 'historical', batch: true });
     return route.fulfill({ json: result });
   });
   await page.route('**/api/getPublicMeritList', route => {
@@ -59,6 +60,43 @@ test('historical publication uses original tabs, grouped scores, filters and zer
   await expect(page.locator('.result-score strong')).toHaveText(['0.000']);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+
+test('first result page and merit are usable before the next result batch returns', async ({ page }) => {
+  await setup(page);
+  const rows = Array.from({ length: 20 }, (_, index) => ({ assignmentId: 'member-' + index, name: 'Member ' + index,
+    finalScore: String(100 - index), displayFacts: { identityCategoryName: 'Identity A' } }));
+  const group = { clauseId: 'view-a', scopeType: 'all_people', displayMode: 'score', memberCount: rows.length };
+  const cursor = { revision: 'publication-1', offset: 16 };
+  let release;
+  const delayed = new Promise(resolve => { release = resolve; });
+  let secondRequested = false;
+  await page.route('**/api/getPublicResults', async route => {
+    const data = route.request().postDataJSON();
+    if (!data.cursor) return route.fulfill({ json: { status: 'success', groups: [{ ...group, members: rows.slice(0, 16) }],
+      page: { offset: 0, total: 20, next: cursor, stats: { count: 20, maxScore: '100.0', avgScore: '90.5' } } } });
+    expect(data.cursor).toEqual(cursor);
+    secondRequested = true;
+    await delayed;
+    return route.fulfill({ json: { status: 'success', groups: [{ ...group, members: rows.slice(16) }], page: { offset: 16, total: 20, next: null } } });
+  });
+  try {
+    await page.goto('/web/scoring/tasks');
+    await page.getByRole('tab', { name: home.results, exact: true }).click();
+    await expect(page.locator('.result-member strong')).toHaveCount(16);
+    await expect(page.locator('.publication-stat strong').first()).toHaveText('20');
+    await expect.poll(() => secondRequested).toBe(true);
+    await page.getByRole('tab', { name: home.meritList, exact: true }).click();
+    await expect(page.locator('.merit-member')).toHaveCount(1);
+    await page.getByRole('tab', { name: home.results, exact: true }).click();
+    await page.getByRole('button', { name: calendarCopy.next, exact: true }).click();
+    await expect(page.locator('.result-member strong')).toHaveCount(0);
+    release();
+    await expect(page.locator('.result-member strong')).toHaveText(rows.slice(16).map(member => member.name));
+  } finally {
+    release();
+  }
+});
+
 test('merit picker preserves business rejection, submits assignment IDs, reads saved list and can clear it', async ({ page }) => {
   await setup(page);
   let ids = ['assignment-a'];

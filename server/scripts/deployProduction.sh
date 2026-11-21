@@ -582,6 +582,10 @@ fi
 timeout --signal=TERM --kill-after=10s 120s \
   node "$NEW_RELEASE/server/scripts/migrateAuditSigningKeys.js"
 
+log "上流量前生成已有评分公示的结果"
+timeout --signal=TERM --kill-after=10s 120s \
+  nice -n 10 node "$NEW_RELEASE/server/scripts/prepareScoringPublications.js"
+
 # 上流量前的最后一道闸门：新版本先在独立端口跑通健康检查，再切换到线上。
 if ! preflight_new_release "$(read_port)"; then
   log "新版本未通过上线前预检，放弃本次发布并保持当前版本继续服务"

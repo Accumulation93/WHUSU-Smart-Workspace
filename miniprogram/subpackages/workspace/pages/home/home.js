@@ -1,5 +1,6 @@
 const { callFunction, getErrorText, formatAuditTime } = require('../../../../utils/api');
 const directoryCopy = require('../../../../locales/zh-CN/contactDirectory');
+const calendarCopy = require('../../../../locales/zh-CN/calendar');
 const orgSession = require('../../../../utils/orgSession');
 const authContext = require('../../../../utils/authContext');
 const deviceMetadataReport = require('../../../../utils/deviceMetadataReport');
@@ -157,6 +158,7 @@ function emptyPublicationState() {
     filteredStatsData: { count: 0, maxScore: '--', avgScore: '--' },
     expandedResultGroupClauseId: '',
     showUserDesigPopup: false,
+    publicationPageLabels: { previous: calendarCopy.previous, next: calendarCopy.next },
     userDesigPerms: [],
     userDesigHrList: [],
     userDesigFilteredList: [],
@@ -759,7 +761,9 @@ Page({
   },
 
   loadLatestPublishedActivity() {
+    if (this._publicationDiscovery && orgSession.isRequestCurrent(this, this._publicationDiscovery)) return;
     const request = orgSession.beginRequest(this, 'publicationActivity');
+    this._publicationDiscovery = request;
     callFunction({
       name: 'getLatestPublishedScoreActivity',
       success: (res) => {
@@ -794,6 +798,9 @@ Page({
         // 新接口与小程序可能分批发布。服务端尚未支持历史公示发现时，
         // 继续用当前活动读取公示，避免已上线的结果/评优入口短暂消失。
         this.useCurrentActivityAsPublicationFallback();
+      },
+      complete: () => {
+        if (this._publicationDiscovery === request) this._publicationDiscovery = null;
       }
     });
   },
@@ -1412,9 +1419,9 @@ Page({
     const current = () => orgSession.isRequestCurrent(this, request)
       && activityId === ((this.data.publicationActivity || {}).id || '');
     // 直接复用请求 Promise，取消或失效的请求也能结束对应的加载状态。
-    const readPublication = async name => {
+    const readPublication = async (name, extra) => {
       try {
-        return await callFunction({ name, data: { activityId } });
+        return await callFunction({ name, data: { activityId, ...extra } });
       } catch (error) {
         if (error.statusCode === 403) return { status: 'no_permission' };
         throw error;
@@ -1422,9 +1429,78 @@ Page({
     };
     const readResults = async () => {
     try {
-      const res = await readPublication('getPublicResults');
+      let res = await readPublication('getPublicResults', { batch: true });
       if (!current()) return;
       if (res.status === 'success') {
+        this._publicationGroupPages = {};
+        this.showResultBatch(res, true);
+        while (res.page && res.page.next) {
+          const next = await readPublication('getPublicResults', { batch: true, cursor: res.page.next });
+          if (!current()) return;
+          if (next.status !== 'success') {
+            res = next;
+            break;
+          }
+          const restarted = next.page && !next.page.offset;
+          if (restarted) this._publicationGroupPages = {};
+          res = publicationView.appendResultBatch(res, next);
+          this.showResultBatch(res, restarted);
+        }
+      }
+      if (res.status === 'no_permission' || res.status === 'not_published') {
+        this._publicationRows = null;
+        this.setData({
+          publicationMemberCount: 0,
+          filteredResults: [],
+          filteredGroups: [],
+          hasPublication: res.status === 'no_permission',
+          hasViewPerm: false,
+          statsData: { count: 0, maxScore: '--', avgScore: '--' }
+        });
+      } else if (res.status !== 'success') {
+        this.setData({ publicationResultsFailed: true });
+      }
+    } catch (e) {
+      if (current()) this.setData({ publicationResultsFailed: true });
+    } finally {
+      if (current()) {
+        this.setData({ publicationResultsPending: false });
+        this.rebuildUserTabs(true);
+      }
+    }
+    };
+
+    const readMerit = async () => {
+    try {
+      const mlRes = await readPublication('getPublicMeritList');
+      if (!current()) return;
+      if (mlRes.status === 'success') {
+        this.showMeritList(mlRes);
+      } else if (mlRes.status === 'not_published' || mlRes.status === 'no_permission') {
+        this.setData({ publishedMeritList: [], publishedMeritGroups: [], meritRuleGroups: [], meritDeptCount: 0,
+          hasMeritPerm: false, userMeritClauses: [], userDesigCandidates: [], userDesigPubId: '' });
+      } else {
+        this.setData({ publicationMeritFailed: true });
+      }
+    } catch (e) {
+      if (current()) this.setData({ publicationMeritFailed: true });
+    } finally {
+      if (current()) {
+        this.setData({ publicationMeritPending: false });
+        this.rebuildUserTabs(true);
+      }
+    }
+    };
+
+    await Promise.all([loadResults && readResults(), loadMerit && readMerit()]);
+    if (current()) {
+      this._publicationLoaded = true;
+      this.setData({ publicationAccessLoading: false });
+      this.rebuildUserTabs(true);
+    }
+  },
+
+  showResultBatch(res, reset) {
         const displayMode = res.displayMode || 'score';
         const isGrade = displayMode === 'grade';
         // Support both legacy flat results and new per-clause groups
@@ -1489,39 +1565,16 @@ Page({
         const resultWorkGroups = Array.from(wgSet).sort();
 
         this._publicationRows = { flat: sorted, groups: enrichedGroups };
-        this.setData({ publicationMemberCount: members.length, filteredResults: sorted, filteredGroups: enrichedGroups,
-          hasPublication: true, hasViewPerm: true, statsData, filteredStatsData: statsData,
+        const fullStats = res.page ? res.page.stats : statsData;
+        this.setData({ publicationMemberCount: res.page ? res.page.total : members.length, filteredResults: sorted,
+          filteredGroups: enrichedGroups.map(group => publicationView.resultPage(group, this._publicationGroupPages[group.clauseId])),
+          hasPublication: true, hasViewPerm: true, statsData: fullStats, filteredStatsData: fullStats,
           displayMode, gradeDistribution,
           resultIdentities, resultDepartments, resultWorkGroups,
-          resultFilterIdentity: '', resultFilterDepartment: '', resultFilterWorkGroup: '', resultFilterGrade: '', resultSearchText: '' });
-      } else if (res.status === 'no_permission' || res.status === 'not_published') {
-        this._publicationRows = null;
-        this.setData({
-          publicationMemberCount: 0,
-          filteredResults: [],
-          filteredGroups: [],
-          hasPublication: res.status === 'no_permission',
-          hasViewPerm: false,
-          statsData: { count: 0, maxScore: '--', avgScore: '--' }
-        });
-      } else {
-        this.setData({ publicationResultsFailed: true });
-      }
-    } catch (e) {
-      if (current()) this.setData({ publicationResultsFailed: true });
-    } finally {
-      if (current()) {
-        this.setData({ publicationResultsPending: false });
-        this.rebuildUserTabs(true);
-      }
-    }
-    };
+          ...(reset ? { resultFilterIdentity: '', resultFilterDepartment: '', resultFilterWorkGroup: '', resultFilterGrade: '', resultSearchText: '' } : {}) });
+  },
 
-    const readMerit = async () => {
-    try {
-      const mlRes = await readPublication('getPublicMeritList');
-      if (!current()) return;
-      if (mlRes.status === 'success') {
+  showMeritList(mlRes) {
         const canDes = mlRes.canDesignate === true;
         const canViewMeritList = mlRes.canViewMeritList === true || canDes;
         const list = mlRes.meritList || [];
@@ -1566,36 +1619,6 @@ Page({
         const meritRuleGroups = Array.from(ruleGroupMap.values());
 
         this.setData({ publishedMeritList: list, publishedMeritGroups: Array.from(groupMap.values()), meritDeptCount: deptSet.size, hasMeritPerm: canViewMeritList, userMeritClauses: userClauses, userDesigCandidates: mlRes.designationCandidates || [], userDesigPubId: mlRes.publicationId || '', meritRuleGroups });
-      } else if (mlRes.status === 'not_published' || mlRes.status === 'no_permission') {
-        this.setData({
-          publishedMeritList: [],
-          publishedMeritGroups: [],
-          meritRuleGroups: [],
-          meritDeptCount: 0,
-          hasMeritPerm: false,
-          userMeritClauses: [],
-          userDesigCandidates: [],
-          userDesigPubId: ''
-        });
-      } else {
-        this.setData({ publicationMeritFailed: true });
-      }
-    } catch (e) {
-      if (current()) this.setData({ publicationMeritFailed: true });
-    } finally {
-      if (current()) {
-        this.setData({ publicationMeritPending: false });
-        this.rebuildUserTabs(true);
-      }
-    }
-    };
-
-    await Promise.all([loadResults && readResults(), loadMerit && readMerit()]);
-    if (current()) {
-      this._publicationLoaded = true;
-      this.setData({ publicationAccessLoading: false });
-      this.rebuildUserTabs(true);
-    }
   },
 
   retryPublication() {
@@ -1604,7 +1627,8 @@ Page({
     else this.loadLatestPublishedActivity();
   },
 
-  applyResultFilters() {
+  applyResultFilters(resetPage = true) {
+    if (resetPage) this._publicationGroupPages = {};
     const { flat: base, groups: baseGroups } = this._publicationRows || { flat: [], groups: [] };
     const idFilter = this.data.resultFilterIdentity || '';
     const deptFilter = this.data.resultFilterDepartment || '';
@@ -1631,10 +1655,11 @@ Page({
     const filtered = base.filter(memberMatches).map((item, index) => ({ ...item, rank: index + 1 }));
 
     // Filtered groups
-    const filteredGroups = baseGroups.map(group => ({
-      ...group,
-      members: (group.members || []).filter(memberMatches)
-    })).filter(group => group.members.length > 0);
+    const filtering = idFilter || deptFilter || wgFilter || gradeFilter || searchText;
+    const filteredGroups = filtering ? baseGroups.map(group => {
+      const members = group.members.filter(memberMatches);
+      return { ...group, members, memberCount: members.length };
+    }).filter(group => group.memberCount) : baseGroups;
 
     // Stats from all filtered members
     const allFiltered = [];
@@ -1662,10 +1687,18 @@ Page({
     }
     this.setData({
       filteredResults: filtered,
-      filteredGroups,
-      filteredStatsData,
+      filteredGroups: filteredGroups.map(group => publicationView.resultPage(group, this._publicationGroupPages && this._publicationGroupPages[group.clauseId])),
+      filteredStatsData: this.data.publicationResultsPending || this.data.publicationResultsFailed ? this.data.statsData : filteredStatsData,
       gradeDistribution: gradeDistribution || this.data.gradeDistribution || []
     });
+  },
+  changeResultGroupPage(e) {
+    const { clauseId, step } = e.currentTarget.dataset;
+    const group = this.data.filteredGroups.find(item => item.clauseId === clauseId);
+    if (!group) return;
+    this._publicationGroupPages[clauseId] = group.page + Number(step);
+    this.applyResultFilters(false);
+    wx.pageScrollTo({ selector: '#publication-group-' + clauseId, duration: 0, offsetTop: -(this.data.navStickyTopPx || 0) });
   },
   toggleResultGroup(e) {
     const clauseId = e.currentTarget.dataset.clauseId || '';

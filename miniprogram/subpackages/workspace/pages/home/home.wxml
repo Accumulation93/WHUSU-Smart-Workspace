@@ -138,7 +138,7 @@
       </view>
 
       <!-- 搜索 + 筛选 -->
-      <view class="result-filter-area">
+      <view class="result-filter-area" wx:if="{{!publicationResultsPending && !publicationResultsFailed}}">
         <view class="result-search-row">
           <view class="search-icon"><ui-icon name="search" tone="muted" size="34" ariaLabel="{{copy.search}}" /></view>
           <input class="result-search-input" placeholder="{{copy.resultSearchPlaceholder}}" value="{{resultSearchText}}" bindinput="onResultSearchInput" confirm-type="search" />
@@ -171,7 +171,7 @@
 
       <!-- Grouped bubble cards (new per-clause mode) -->
       <view class="result-groups-area" wx:if="{{filteredGroups.length}}">
-        <view class="result-group-bubble" wx:for="{{filteredGroups}}" wx:key="clauseId" wx:for-item="group">
+        <view class="result-group-bubble" id="publication-group-{{group.clauseId}}" wx:for="{{filteredGroups}}" wx:key="clauseId" wx:for-item="group">
           <view class="result-group-head ui-motion-chip" data-clause-id="{{group.clauseId}}" bindtap="toggleResultGroup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <view class="result-group-head-left">
               <view class="result-group-label">{{group.groupLabel}}</view>
@@ -185,12 +185,12 @@
           </view>
           <view class="result-group-body" wx:if="{{expandedResultGroupClauseId === group.clauseId || filteredGroups.length === 1}}">
             <view class="ranked-list">
-              <view class="rank-card rank-card-{{index === 0 ? 'gold' : (index === 1 ? 'silver' : (index === 2 ? 'bronze' : 'normal'))}}" wx:for="{{group.members}}" wx:for-item="m" wx:key="resultKey">
-                <view class="rank-badge rank-badge-{{index === 0 ? 'gold' : (index === 1 ? 'silver' : (index === 2 ? 'bronze' : 'normal'))}}">
-                  <text wx:if="{{index === 0}}">{{copy.rankMedalGold}}</text>
-                  <text wx:elif="{{index === 1}}">{{copy.rankMedalSilver}}</text>
-                  <text wx:elif="{{index === 2}}">{{copy.rankMedalBronze}}</text>
-                  <text wx:else>{{index + 1}}</text>
+              <view class="rank-card rank-card-{{m.rank === 1 ? 'gold' : (m.rank === 2 ? 'silver' : (m.rank === 3 ? 'bronze' : 'normal'))}}" wx:for="{{group.members}}" wx:for-item="m" wx:key="resultKey">
+                <view class="rank-badge rank-badge-{{m.rank === 1 ? 'gold' : (m.rank === 2 ? 'silver' : (m.rank === 3 ? 'bronze' : 'normal'))}}">
+                  <text wx:if="{{m.rank === 1}}">{{copy.rankMedalGold}}</text>
+                  <text wx:elif="{{m.rank === 2}}">{{copy.rankMedalSilver}}</text>
+                  <text wx:elif="{{m.rank === 3}}">{{copy.rankMedalBronze}}</text>
+                  <text wx:else>{{m.rank}}</text>
                 </view>
                 <view class="member-info">
                   <view class="member-name"><person-link name="{{m.name}}" assignment-id="{{m.targetAssignmentId || m.assignmentId}}" hr-id="{{m.targetHrId}}" /></view>
@@ -201,6 +201,11 @@
                   <view class="score-label">{{group.displayMode === 'grade' ? copy.grade : copy.earnedScore}}</view>
                 </view>
               </view>
+            </view>
+            <app-loading wx:if="{{group.awaitingPage && publicationResultsPending}}" text="{{copy.loadingDots}}" />
+            <view class="publication-page-actions" wx:if="{{group.hasPrevious || group.hasNext}}">
+              <button class="secondary-btn publication-page-btn ui-motion-button" disabled="{{!group.hasPrevious}}" data-clause-id="{{group.clauseId}}" data-step="-1" bindtap="changeResultGroupPage" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{publicationPageLabels.previous}}</button>
+              <button class="secondary-btn publication-page-btn ui-motion-button" disabled="{{!group.hasNext || group.awaitingPage}}" data-clause-id="{{group.clauseId}}" data-step="1" bindtap="changeResultGroupPage" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{publicationPageLabels.next}}</button>
             </view>
           </view>
         </view>

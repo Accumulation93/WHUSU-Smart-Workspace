@@ -15,21 +15,21 @@
     </section>
     <section v-if="loading && !panelData" class="card empty-state"><AppLoading :text="home.loadingDots" /></section>
     <template v-if="tab === 'results' && results?.status === 'success'">
-      <section v-if="!members.length" class="card empty-state">{{ home.noVisibleResults }}</section>
+      <section v-if="!memberCount" class="card empty-state">{{ home.noVisibleResults }}</section>
       <section v-else class="card stack results-panel-card">
-        <div class="info-head"><span class="section-title">{{ home.scoringResults }}</span><span class="chip">{{ home.totalPrefix }} {{ members.length }} {{ home.personSuffix }}</span></div>
+        <div class="info-head"><span class="section-title">{{ home.scoringResults }}</span><span class="chip">{{ home.totalPrefix }} {{ memberCount }} {{ home.personSuffix }}</span></div>
         <div class="publication-stats">
-          <div class="publication-stat"><strong>{{ filteredMembers.length }}</strong><span>{{ home.publicationCount }}</span></div>
+          <div class="publication-stat"><strong>{{ publicationStats.count }}</strong><span>{{ home.publicationCount }}</span></div>
           <template v-if="displayMode !== 'grade'">
-            <div class="publication-stat"><strong>{{ scoreStats.max }}</strong><span>{{ home.maxScore }}</span></div>
-            <div class="publication-stat"><strong>{{ scoreStats.average }}</strong><span>{{ home.averageScore }}</span></div>
+            <div class="publication-stat"><strong>{{ publicationStats.max }}</strong><span>{{ home.maxScore }}</span></div>
+            <div class="publication-stat"><strong>{{ publicationStats.average }}</strong><span>{{ home.averageScore }}</span></div>
           </template>
         </div>
-        <div v-if="displayMode === 'grade'" class="row row-wrap">
+        <div v-if="displayMode === 'grade' && !receivingResults" class="row row-wrap">
           <button v-for="item in grades" :key="item.grade" type="button" class="btn-quiet" :class="{ 'chip-blue': filters.grade === item.grade }"
             :aria-pressed="filters.grade === item.grade" @click="toggleFilter('grade', item.grade)">{{ item.grade }} {{ item.count }}{{ home.personSuffix }}</button>
         </div>
-        <div class="stack result-filters">
+        <div v-if="!receivingResults" class="stack result-filters">
           <input v-model="filters.search" class="field-input" :placeholder="home.resultSearchPlaceholder" :aria-label="home.resultSearchPlaceholder" />
           <span class="field-label">{{ home.filter }}</span>
           <div v-for="field in filterFields" :key="field.key" class="publication-filter-row">
@@ -42,16 +42,21 @@
           </div>
           <button v-if="Object.values(filters).some(Boolean)" type="button" class="btn-quiet" @click="clearFilters">{{ home.clearAllFilters }}</button>
         </div>
-        <div v-for="group in filteredGroups" :key="group.clauseId" class="publication-group">
+        <div v-for="group in visibleGroups" :id="'publication-group-' + group.clauseId" :key="group.clauseId" class="publication-group">
           <button type="button" class="publication-group-head" :aria-expanded="expanded === group.clauseId || filteredGroups.length === 1"
             @click="expanded = expanded === group.clauseId ? '' : group.clauseId">
             <span class="publication-group-label">{{ group.groupLabel }}</span>
             <span v-if="group.identityLabel" class="chip chip-sky">{{ group.identityLabel }}</span>
             <span class="chip" :class="group.displayMode === 'grade' ? 'chip-orange' : 'chip-blue'">{{ group.displayMode === 'grade' ? home.grade : home.score }}</span>
-            <span class="muted">{{ group.members.length }}{{ home.personSuffix }}</span><span>{{ expanded === group.clauseId ? '▲' : '▼' }}</span>
+            <span class="muted">{{ group.memberCount }}{{ home.personSuffix }}</span><span>{{ expanded === group.clauseId ? '▲' : '▼' }}</span>
           </button>
           <div v-if="expanded === group.clauseId || filteredGroups.length === 1" class="stack publication-group-body">
-            <ScoringResultRow v-for="(member, index) in group.members" :key="member.assignmentId || member.id || index" :member="member" :rank="index + 1" :mode="group.displayMode" />
+            <ScoringResultRow v-for="member in group.members" :key="member.assignmentId || member.id || member.rank" :member="member" :rank="member.rank" :mode="group.displayMode" />
+            <AppLoading v-if="group.awaitingPage && !resultsError" :text="home.loadingDots" />
+            <div v-if="group.hasPrevious || group.hasNext" class="row row-wrap">
+              <button class="btn-quiet" type="button" :disabled="!group.hasPrevious" @click="changeResultPage(group, -1)">{{ calendarCopy.previous }}</button>
+              <button class="btn-quiet" type="button" :disabled="!group.hasNext || group.awaitingPage" @click="changeResultPage(group, 1)">{{ calendarCopy.next }}</button>
+            </div>
           </div>
         </div>
         <div v-if="!groups.length" class="stack">
@@ -88,11 +93,12 @@
 </template>
 
 <script setup>
-import { computed, onActivated, onBeforeUnmount, onDeactivated, reactive, ref } from 'vue';
+import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, reactive, ref, watch } from 'vue';
 import { onBeforeRouteLeave } from 'vue-router';
 import PersonnelPicker from './PersonnelPicker.vue';
 import ScoringResultRow from './ScoringResultRow.vue';
 import homeCopy from '@/locales/zh-CN/shared/home.js';
+import calendarCopy from '@/locales/zh-CN/shared/calendar.js';
 import publicationView from '@/shared/scoringPublicationView.js';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
@@ -112,6 +118,7 @@ const picker = ref(null);
 const saveError = ref('');
 const expanded = ref('');
 const filters = reactive({ search: '', identity: '', department: '', workGroup: '', grade: '' });
+const groupPages = ref({});
 let active = false;
 let generation = 0;
 const scope = () => [session.user?.id, session.context?.organizationId, session.context?.contextId].join('|');
@@ -130,13 +137,20 @@ const groups = computed(() => (results.value?.groups || []).map(group => ({ ...g
   groupLabel: publicationView.groupTitle(group, home), identityLabel: publicationView.groupIdentity(group),
   members: sorted((group.members || []).map(publicationView.memberView)) })));
 const members = computed(() => groups.value.length ? sorted(groups.value.flatMap(group => group.members)) : sorted((results.value?.results || []).map(publicationView.memberView)));
+const memberCount = computed(() => results.value?.page?.total ?? members.value.length);
+const receivingResults = computed(() => Boolean(results.value?.page?.next));
 function matches(member) {
   return ['identity', 'department', 'workGroup'].every(key => !filters[key] || member[key] === filters[key])
     && (!filters.grade || (member.grade || home.unrated) === filters.grade)
     && ['name', 'identity', 'department', 'workGroup'].some(key => String(member[key] || '').toLowerCase().includes(filters.search.trim().toLowerCase()));
 }
 const filteredMembers = computed(() => members.value.filter(matches));
-const filteredGroups = computed(() => groups.value.map(group => ({ ...group, members: group.members.filter(matches) })).filter(group => group.members.length));
+const filteredGroups = computed(() => Object.values(filters).some(Boolean) ? groups.value.map(group => {
+  const rows = group.members.filter(matches);
+  return { ...group, members: rows, memberCount: rows.length };
+}).filter(group => group.memberCount) : groups.value);
+const visibleGroups = computed(() => filteredGroups.value.map(group => publicationView.resultPage(group, groupPages.value[group.clauseId])));
+watch(filters, () => { groupPages.value = {}; });
 const filterFields = [{ key: 'identity', label: home.identity }, { key: 'department', label: home.department }, { key: 'workGroup', label: home.workGroup }];
 const options = key => [...new Set(members.value.map(member => member[key]).filter(Boolean))].sort();
 const grades = computed(() => {
@@ -148,6 +162,11 @@ const scoreStats = computed(() => {
   if (!filteredMembers.value.length || filteredMembers.value.some(member => member.grade)) return { max: '--', average: '--' };
   const scores = filteredMembers.value.map(member => parseFloat(member.finalScore) || 0);
   return { max: scores.reduce((max, score) => Math.max(max, score), -Infinity).toFixed(1), average: (scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(1) };
+});
+const publicationStats = computed(() => {
+  const stats = results.value?.page?.stats;
+  if (stats && !Object.values(filters).some(Boolean)) return { count: stats.count, max: stats.maxScore, average: stats.avgScore };
+  return { count: filteredMembers.value.length, ...scoreStats.value };
 });
 const meritGroups = computed(() => {
   const map = new Map();
@@ -166,6 +185,11 @@ const meritGroups = computed(() => {
 const departmentCount = computed(() => new Set((merit.value?.meritList || []).map(member => member.department).filter(Boolean)).size);
 function clearFilters() { for (const key of Object.keys(filters)) filters[key] = ''; }
 function toggleFilter(key, value) { filters[key] = filters[key] === value ? '' : value; }
+async function changeResultPage(group, step) {
+  groupPages.value[group.clauseId] = group.page + step;
+  await nextTick();
+  document.getElementById('publication-group-' + group.clauseId)?.scrollIntoView({ block: 'start' });
+}
 function selectTab(key) { if (!saving.value) tab.value = key; }
 function normalizeTab() { if (!tabs.value.some(item => item.key === tab.value)) tab.value = 'scoring'; }
 async function discover() {
@@ -198,11 +222,22 @@ async function refresh() {
     ['getPublicResults', results, resultsError], ['getPublicMeritList', merit, meritError]
   ].map(async ([name, value, notice]) => {
     try {
-      const response = await callApi(name, { activityId: id });
+      const isResults = name === 'getPublicResults';
+      let response = await callApi(name, isResults ? { activityId: id, batch: true } : { activityId: id });
       if (!current()) return;
       if (!['no_permission', 'not_published'].includes(response.status)) requireSuccess(response);
       if (response.status === 'success' && (name === 'getPublicResults' ? !Array.isArray(response.groups) && !Array.isArray(response.results) : !Array.isArray(response.meritList))) throw new Error();
       value.value = response; notice.value = '';
+      if (isResults) groupPages.value = {};
+      while (isResults && response.page?.next) {
+        const next = await callApi(name, { activityId: id, batch: true, cursor: response.page.next });
+        if (!current()) return;
+        if (['no_permission', 'not_published'].includes(next.status)) { value.value = next; break; }
+        requireSuccess(next);
+        if (next.page && !next.page.offset) { groupPages.value = {}; clearFilters(); }
+        response = publicationView.appendResultBatch(response, next);
+        value.value = response;
+      }
     } catch (error) {
       if (!current()) return;
       if (error.status === 'forbidden' || error.status === 'no_permission') {

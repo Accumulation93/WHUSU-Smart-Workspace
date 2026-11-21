@@ -44,12 +44,12 @@ async function remove(id) {
   await pool.query('DELETE FROM result_publications WHERE id = ? AND org_id = ?', [id, orgId]);
 }
 
-async function listPublishedActivities() {
-  const [rows] = await pool.query(
-    `SELECT org_id, activity_id FROM result_publications
-      WHERE is_published = 1 ORDER BY published_at DESC, id LIMIT 50`
-  );
+async function listViewClauses(publicationId, orgId) {
+  const [rows] = await pool.query(`SELECT c.*, r.grantee_department_id, r.grantee_identity_id,
+      r.nature_ids AS grantee_nature_ids
+    FROM pub_view_rules r JOIN pub_view_rule_clauses c ON c.org_id = r.org_id AND c.rule_id = r.id
+    WHERE r.publication_id = ? AND r.org_id = ? ORDER BY r.id, c.sort_order, c.id`, [publicationId, orgId]);
   return rows;
 }
 
-module.exports = { getByActivity, getById, create, update, remove, listPublishedActivities };
+module.exports = { getByActivity, getById, create, update, remove, listViewClauses };

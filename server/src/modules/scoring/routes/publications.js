@@ -23,6 +23,7 @@ const pool = require('../../../config/db');
 const { withTransaction } = pool;
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const publicationSummary = require('../services/publicationSummary');
+const { pageOf } = require('../services/publicationPage');
 const { resolveCurrentActor } = require('../../../core/services/currentActor');
 const participantService = require('../services/participants');
 const publicationAssignments = require('../services/publicationAssignments');
@@ -1053,7 +1054,10 @@ router.post('/getPublicResults', async (req, res) => {
     if (!actorResult.ok || actorResult.actor.type !== 'user') {
       return respondScoringResponse(res, { status: actorResult.status || 'not_bound', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
-    const viewerRecord = await participantService.resolveActorParticipant(orgId, actorResult.actor, granularity);
+    const [viewerRecord, clauses] = await Promise.all([
+      participantService.resolveActorParticipant(orgId, actorResult.actor, granularity),
+      publicationModel.listViewClauses(publication.id, orgId)
+    ]);
     if (!viewerRecord) return respondScoringResponse(res, { status: 'not_bound', message: localeCopy.copy_c20c4aad74 });
     const viewer = {
       id: safeString(viewerRecord.id),
@@ -1063,37 +1067,23 @@ router.post('/getPublicResults', async (req, res) => {
       workGroupId: safeString(viewerRecord.work_group_id)
     };
 
-    const [viewRuleRows] = await pool.query('SELECT * FROM pub_view_rules WHERE publication_id = ? AND org_id = ?', [publication.id, orgId]);
-    const matchingRules = viewRuleRows.filter(r => publicationAssignments.matchesRuleGrantee(viewerRecord, r));
-    if (!matchingRules.length) return respondScoringResponse(res, { status: 'no_permission', message: localeCopy.copy_f4a11b6280 });
-
-    // Collect all matching clauses (with per-clause display_mode)
-    const matchingRuleIds = matchingRules.map((rule) => rule.id);
-    const matchingRulePlaceholders = matchingRuleIds.map(() => '?').join(',');
-    const [matchingClauses] = await pool.query(
-      `SELECT * FROM pub_view_rule_clauses
-        WHERE rule_id IN (${matchingRulePlaceholders}) AND org_id = ?
-        ORDER BY rule_id, sort_order ASC`,
-      [...matchingRuleIds, orgId]
-    );
+    const matchingClauses = clauses.filter(clause => publicationAssignments.matchesRuleGrantee(viewerRecord, clause));
     if (!matchingClauses.length) return respondScoringResponse(res, { status: 'no_permission', message: localeCopy.copy_f4a11b6280 });
 
-    if (referenceFromRequest(req)) {
-      await withTransaction(connection =>
-        participationAuthorization.checkPublication(req, connection, orgId, publication.id, 'scoring.publishedResults', 'read'));
-    }
-
     const gradeClauseIds = matchingClauses.filter(clause => clause.display_mode === 'grade').map(clause => clause.id);
-    const [participantRows, lookups, summary, [gradeBands]] = await Promise.all([
+    const [participantRows, lookups, prepared, [gradeBands]] = await Promise.all([
       participantService.listParticipants(orgId, granularity),
       fetchOrgLookups(),
-      publicationSummary.load(activityId, orgId),
+      publicationSummary.readPrepared(activityId, orgId),
       gradeClauseIds.length ? pool.query(
         `SELECT clause_id, min_score, max_score, grade_name FROM pub_grade_bands
           WHERE clause_id IN (?) AND org_id = ? ORDER BY clause_id, sort_order`,
         [gradeClauseIds, orgId]
-      ) : [[]]
+      ) : [[]],
+      referenceFromRequest(req) && withTransaction(connection =>
+        participationAuthorization.checkPublication(req, connection, orgId, publication.id, 'scoring.publishedResults', 'read'))
     ]);
+    const summary = prepared || await publicationSummary.calculateOnDemand(activityId, orgId);
     const historicalFailure = require('../utils/scoreCalc').getHistoricalSnapshotFailure(summary.diagnostics);
     if (historicalFailure) {
       return respondScoringResponse(res, Object.assign({}, historicalFailure, {
@@ -1227,7 +1217,7 @@ router.post('/getPublicResults', async (req, res) => {
     respondScoringResponse(res, {
       status: 'success',
       needsAssignmentDisambiguation: memberPresentation.needsAssignmentDisambiguation,
-      groups
+      ...(req.body.batch === true ? pageOf(groups, req.body.cursor) : { groups })
     });
   } catch (error) {
     if (error.code === 'authorization_forbidden') {
