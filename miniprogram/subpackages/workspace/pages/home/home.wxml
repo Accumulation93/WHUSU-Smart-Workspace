@@ -278,7 +278,7 @@
         <view class="merit-rule-head">
           <view class="target-group-label target-group-label--flush">{{item.label}}</view>
           <text class="merit-group-count" wx:if="{{item.quota}}">{{item.quota}}</text>
-          <button wx:if="{{canEditMerit && item.clauses.length}}" class="merit-edit-btn ui-motion-button" disabled="{{userDesigSaving || publicationMeritPending || savedMeritRefreshFailed}}" bindtap="openUserDesignation" data-group-key="{{item.key}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.edit}}</button>
+          <button wx:if="{{canEditMerit && item.clauses.length}}" class="secondary-btn merit-edit-btn ui-motion-button" disabled="{{userDesigSaving || publicationMeritPending || savedMeritRefreshFailed}}" bindtap="openUserDesignation" data-group-key="{{item.key}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.edit}}</button>
         </view>
         <view class="merit-rule-facts">
           <text>{{item.savedCount}}</text>
