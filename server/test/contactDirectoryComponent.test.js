@@ -55,6 +55,43 @@ async function main() {
   assert(calls.some(call=>call.name==='batchContactDirectoryRules'));assert.equal(c.data.deleteTargets,null);
   c.clearPrivate();assert.equal(f.listeners.size,0);assert.equal(c.data.people.length,0);
   assert.equal(c.data.batchMode,false);assert.equal(c.data.activeSection,'');
+  let savedRule;
+  const attempts = [];
+  const unrestricted = fixture(async input => {
+    if (input.name === 'getContactDirectoryConfiguration') {
+      return { ...config, rules: savedRule ? [savedRule] : [], natures: [{ id: 'staff', name: 'Staff' }] };
+    }
+    attempts.push(input.data);
+    if (attempts.length === 1) return { status: 'directory_staleReferences' };
+    savedRule = { ...input.data, id: 'unrestricted', version: 1 };
+    return { status: 'success' };
+  });
+  const editor = unrestricted.component;
+  editor.activate();
+  await new Promise(resolve => setImmediate(resolve));
+  editor.edit({ currentTarget: { dataset: {} } });
+  editor.nameInput({ detail: { value: 'Unrestricted nature' } });
+  const audience = { section: 'audience', index: 0 };
+  editor.typeChange({ currentTarget: { dataset: audience }, detail: { value: 1 } });
+  await editor.save();
+  assert.equal(attempts.length, 0);
+  assert.equal(editor.data.activeClause, 'audience-0');
+  assert.equal(editor.data.validationAnchor, 'directory-clause-audience-0');
+  assert.notEqual(editor.data.notice, '');
+  await editor.toggleChoice({ currentTarget: { dataset: { ...audience, key: 'departmentIds', id: 'd' } } });
+  await editor.toggleChoice({ currentTarget: { dataset: { ...audience, key: 'natureIds', id: 'staff' } } });
+  editor.clearNature({ currentTarget: { dataset: audience } });
+  await editor.save();
+  assert.notEqual(editor.data.notice, '');
+  assert.ok(editor.data.draft);
+  assert.equal(editor.data.busy, false);
+  await editor.save();
+  assert.equal(attempts.length, 2);
+  assert.deepEqual(JSON.parse(JSON.stringify(attempts[1].audience)), [{ type: 'scope', natureIds: [], departmentIds: ['d'], identityCategoryIds: [], workGroupIds: [] }]);
+  assert.equal(editor.data.draft, null);
+  assert.equal(editor.data.rules[0].id, 'unrestricted');
+  editor.clearPrivate();
+
   let resolveRead;const late=fixture(()=>new Promise(resolve=>{resolveRead=resolve;}));late.component.activate();late.component.clearPrivate();resolveRead(config);await new Promise(resolve=>setImmediate(resolve));
   assert.equal(late.component.data.people.length,0);
   let finishDetail;

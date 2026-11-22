@@ -139,6 +139,24 @@ test('directory-only admin can configure without loading member records, copy an
   await page.getByRole('button',{name:ui.deleteSelected,exact:true}).click();
   await page.getByRole('dialog').getByRole('button',{name:ui.remove,exact:true}).click();
   await expect(page.getByText(ui.noRules,{exact:true})).toBeVisible(); expect(memberReads).toBe(0);
+  await page.getByRole('button',{name:ui.add,exact:true}).click();
+  await page.getByRole('button',{name:ui.save,exact:true}).click();
+  await expect(page.getByRole('alert')).toHaveText(ui.nameRequired);
+  await page.getByPlaceholder(ui.namePlaceholder).fill('Department rule');
+  await page.getByLabel(ui.audience,{exact:true}).selectOption('scope');
+  await expect(page.getByRole('button',{name:ui.any,exact:true})).toHaveAttribute('aria-pressed','true');
+  await page.getByRole('button',{name:ui.save,exact:true}).click();
+  await expect(page.getByRole('alert')).toHaveText(ui.scopeConditionRequired(ui.audienceGroupTitle(1)));
+  expect(writes).toBe(2);
+  const department = page.locator('.directory-filter').filter({has:page.locator('summary').filter({hasText:ui.department})}).first();
+  await department.locator('summary').click();
+  await department.getByRole('checkbox',{name:'Department',exact:true}).check();
+  await page.getByRole('button',{name:ui.save,exact:true}).click();
+  await expect.poll(()=>writes).toBe(3);
+  expect(saved.audience).toEqual([{type:'scope',natureIds:[],departmentIds:['d'],identityCategoryIds:[],workGroupIds:[]}]);
+  await expect(page.getByText('Department rule',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:ui.edit,exact:true}).click();
+  await expect(page.getByPlaceholder(ui.namePlaceholder)).toHaveValue('Department rule');
 });
 
 test('contact detail shows pending feedback, retries, and discards a response after leaving', async ({page}) => {

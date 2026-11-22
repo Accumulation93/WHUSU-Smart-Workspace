@@ -6,17 +6,54 @@ function blankClause(type) {
 }
 function blankRule() { return { name: '', enabled: true, audience: [blankClause('people')], targets: [blankClause('self')], fieldIds: [] }; }
 function payload(rule) {
-  const clean = list => list.map(clause => {
+  const clean = (list, targets) => list.map(clause => {
     if (clause.type === 'people') return { type: clause.type, personIds: clause.personIds.slice() };
     if (clause.type === 'self') return { type: 'self' };
-    const value = { type: 'scope' };
-    ['natureIds', 'sameNature', 'departmentIds', 'identityCategoryIds', 'workGroupIds', 'sameDepartment', 'sameIdentity', 'sameWorkGroup'].forEach(key => {
+    const value = { type: 'scope', natureIds: clause.natureIds || [] };
+    const keys = ['departmentIds', 'identityCategoryIds', 'workGroupIds'];
+    if (targets) keys.push('sameNature', 'sameDepartment', 'sameIdentity', 'sameWorkGroup');
+    keys.forEach(key => {
       if (clause[key] !== undefined) value[key] = clause[key];
     });
     return value;
   });
   return { id: rule.id || '', version: rule.version || 0, name: rule.name, enabled: rule.enabled,
-    audience: clean(rule.audience), targets: clean(rule.targets), fieldIds: rule.fieldIds.slice() };
+    audience: clean(rule.audience, false), targets: clean(rule.targets, true), fieldIds: rule.fieldIds.slice() };
+}
+function editableRule(rule) {
+  if (!rule) return blankRule();
+  const draft = payload(rule);
+  for (const section of ['audience', 'targets']) {
+    rule[section].forEach((clause, index) => {
+      if (clause.type === 'scope' && clause.natureIds == null && !clause.sameNature) {
+        draft[section][index].legacyNature = true;
+      }
+    });
+  }
+  return draft;
+}
+function legacyNatureSelections(rule, natures, relations) {
+  const restricted = rule.audience.concat(rule.targets)
+    .filter(clause => clause.legacyNature && (clause.natureIds.length || clause.sameNature));
+  const labels = natures.filter(nature => restricted.some(clause => clause.natureIds.includes(nature.id))).map(nature => nature.name);
+  if (restricted.some(clause => clause.sameNature)) labels.push(relations.directorySameNatureSummary);
+  return labels;
+}
+function ruleIssue(rule, copy) {
+  const length = Array.from(rule.name.trim()).length;
+  if (!length || length > 80) return { message: length ? copy.nameTooLong : copy.nameRequired };
+  for (const section of ['audience', 'targets']) {
+    for (const [index, clause] of rule[section].entries()) {
+      if (clause.type === 'people' && !clause.personIds.length) {
+        return { section, index, message: copy[section + 'PeopleRequired'] };
+      }
+      if (clause.type !== 'scope') continue;
+      const hasValues = ['natureIds', 'departmentIds', 'identityCategoryIds', 'workGroupIds'].some(key => (clause[key] || []).length);
+      const hasSame = section === 'targets' && ['sameNature', 'sameDepartment', 'sameIdentity', 'sameWorkGroup'].some(key => clause[key]);
+      if (!hasValues && !hasSame) return { section, index, message: copy.scopeConditionRequired(copy[section + 'GroupTitle'](index + 1)) };
+    }
+  }
+  return null;
 }
 function peopleOptions(people) {
   return (people || []).map(person => ({ id: person.personId, personId: person.personId, name: person.name,
@@ -110,7 +147,7 @@ function ruleSections(rule, metadata, copy, relations) {
   const clauseLines = (clause, section) => {
     if (clause.type === 'self') return [copy.self];
     if (clause.type === 'people') return [clause.personIds.length ? copy.specifiedPeopleLine(clause.personIds.length, (metadata.people || []).filter(person => clause.personIds.includes(person.personId)).map(person => person.name).join('、')) : section === 'audience' ? copy.audienceEmpty : copy.targetsEmpty];
-    const nature = !relations ? '' : clause.sameNature ? relations.directorySameNatureSummary : clause.natureIds == null ? relations.legacyScope : (clause.natureIds || []).map(id => ((metadata.natures || []).find(item => item.id === id) || {}).name || copy.unnamed).join('、');
+    const nature = !relations ? '' : clause.sameNature ? relations.directorySameNatureSummary : !(clause.natureIds || []).length ? copy.any : clause.natureIds.map(id => ((metadata.natures || []).find(item => item.id === id) || {}).name || copy.unnamed).join('、');
     return [relations ? copy.scopeFieldLine(relations.nature, nature) : nature].concat([['departmentIds', 'departments', 'sameDepartment', 'department'], ['identityCategoryIds', 'identities', 'sameIdentity', 'identity'], ['workGroupIds', 'workGroups', 'sameWorkGroup', 'workGroup']]
       .filter(([key, options, same]) => clause[same] || (clause[key] || []).length)
       .map(([key, options, same, label]) => copy.scopeFieldLine(copy[label], (clause[same] ? copy[same] : (clause[key] || []).map(id => {
@@ -128,5 +165,5 @@ function ruleSections(rule, metadata, copy, relations) {
 function ruleSummary(rule, metadata, copy, relations) {
   return ruleSections(rule, metadata, copy, relations).map(section => copy.summarySection(section.title, section.groups.map(group => group.lines)));
 }
-module.exports = { blankClause, blankRule, payload, peopleOptions, contactTags, tagGroups, availableTagKeys, filterGroups,
+module.exports = { blankClause, blankRule, payload, editableRule, legacyNatureSelections, ruleIssue, peopleOptions, contactTags, tagGroups, availableTagKeys, filterGroups,
   decorateGroups, decorateContact, ruleSummary, ruleSections };

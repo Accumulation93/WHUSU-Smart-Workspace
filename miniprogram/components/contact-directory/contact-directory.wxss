@@ -31,6 +31,7 @@
 @media (min-width: 520px) { .directory-search-icon { left: 12px; } .directory-search .directory-search-input { padding-left: 44px; } }
 .directory-value { font-size: var(--ui-type-value); font-weight: 700; line-height: 1.5; }
 .directory-note { font-size: var(--ui-type-meta); color: #64748b; line-height: 1.6; }
+.directory-save-notice { font-size: var(--ui-type-label); font-weight: 600; color: #b91c1c; line-height: 1.5; overflow-wrap: anywhere; }
 .directory-label, .directory-content { font-size: var(--ui-type-body); line-height: 1.6; overflow-wrap: anywhere; }
 .directory-clause { padding: var(--ui-card-padding, 20rpx) 0; border-bottom: 1px solid rgba(147,197,253,.3); }
 .directory-switch { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-field-gap, 16rpx); }

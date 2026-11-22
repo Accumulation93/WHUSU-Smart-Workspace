@@ -1,5 +1,6 @@
 'use strict';
 const copy = require('../../locales/zh-CN/contactDirectory');
+const { confirm: confirmLabel } = require('../../locales/zh-CN/personnelPicker');
 const relations = require('../../locales/zh-CN/identityNatureRelations');
 const view = require('../../utils/contactDirectoryView');
 const { callFunction, getErrorText, showShortToast } = require('../../utils/api');
@@ -16,7 +17,7 @@ Component({
   options: { styleIsolation: 'apply-shared' },
   properties: { admin: { type: Boolean, value: false }, initialKey: { type: String, value: '' }, copyId: { type: String, value: '' } },
   data: { copy, relations, groups: [], rules: [], selected: [], selectedText: '', query: '', tagGroups: [], activeTagCategory: '', activeTagGroup: null, selectedTags: [], tagsSelected: false, tagFilterExpanded: false, loading: false, busy: false, notice: '', loadFailed: false,
-    contact: null, detailKey: '', detailLoading: false, detailNotice: '', expandedFilters: {}, fieldsExpanded: false,
+    contact: null, detailKey: '', detailLoading: false, detailNotice: '', expandedFilters: {}, fieldsExpanded: false, validationAnchor: '',
     draft: null, activeSection: '', activeClause: '', batchMode: false, fieldsSummary: '', sections: [], fields: [], people: [], pickerVisible: false, pickerValue: [], deleteTargets: null, deleteText: '', typeLabels: [copy.selectPeople, copy.scope, copy.self] },
   lifetimes: {
     attached: function() { this.activate(); },
@@ -154,10 +155,9 @@ Component({
       if (this.blocked()) return;
       const id = event.currentTarget.dataset.id;
       const existing = this.data.rules.find(rule => rule.id === id);
-      const draft = existing ? view.payload(existing) : view.blankRule();
-      this._legacyNatureEdit=['audience','targets'].some(key=>draft[key].some(clause=>clause.type==='scope'&&clause.natureIds==null&&!clause.sameNature));
+      const draft = view.editableRule(existing);
       if (event.currentTarget.dataset.copy) { delete draft.id; delete draft.version; }
-      this.setData({ draft, activeSection: existing ? '' : 'audience', activeClause: existing ? '' : 'audience-0', expandedFilters: {}, fieldsExpanded: false }, () => { this.refreshEditor(); this.scrollTo('#directory-editor'); });
+      this.setData({ draft, notice: '', validationAnchor: '', activeSection: existing ? '' : 'audience', activeClause: existing ? '' : 'audience-0', expandedFilters: {}, fieldsExpanded: false }, () => { this.refreshEditor(); this.scrollTo('#directory-editor'); });
     },
     refreshEditor: function() {
       const draft = this.data.draft, metadata = this._metadata;
@@ -165,10 +165,11 @@ Component({
       const peopleById = new Map(this.data.people.map(person => [person.personId, person.name]));
       const departments = new Map(metadata.departments.map(item => [item.id, item.name]));
       const summaries = view.ruleSections(draft, metadata, copy, relations);
-      const sections = ['audience', 'targets'].map(key => ({ key, title: copy[key], help: copy[key + 'Help'], typeLabel: copy[key + 'Type'], addLabel: key === 'audience' ? copy.addAudience : copy.addTargets, removeLabel: key === 'audience' ? copy.removeAudience : copy.removeTargets, chooseLabel: key === 'audience' ? copy.chooseAudience : copy.chooseTargets, optionalHelp: key === 'audience' ? copy.audienceOptionalScopeHelp : copy.optionalScopeHelp, clauses: draft[key].map((clause, index) => ({
+      const sections = ['audience', 'targets'].map(key => ({ key, title: copy[key], help: copy[key + 'Help'], typeLabel: copy[key + 'Type'], addLabel: key === 'audience' ? copy.addAudience : copy.addTargets, removeLabel: key === 'audience' ? copy.removeAudience : copy.removeTargets, chooseLabel: key === 'audience' ? copy.chooseAudience : copy.chooseTargets, clauses: draft[key].map((clause, index) => ({
         expanded: this.data.activeClause === key + '-' + index, lines: summaries.find(section => section.key === key).groups[index].lines,
         title: copy[key + 'GroupTitle'](index + 1), help: clause.type === 'self' ? copy.selfHelp : copy[key + (clause.type === 'scope' ? 'ScopeHelp' : 'PeopleHelp')],
-        sameNature: Boolean(clause.sameNature),legacyNature: clause.natureIds == null && !clause.sameNature,
+        sameNature: Boolean(clause.sameNature),
+        unrestrictedNature: !(clause.natureIds || []).length && !clause.sameNature,
         natures: (metadata.natures || []).map(item => ({ id:item.id, name:item.name, selected:(clause.natureIds || []).includes(item.id) })),
         index, type: clause.type, typeIndex: ['people', 'scope', 'self'].indexOf(clause.type),
         labels: key === 'targets' ? [copy.targetsPeople, copy.targetsScope, copy.self] : [copy.audiencePeople, copy.audienceScope],
@@ -179,7 +180,7 @@ Component({
           expanded: Boolean(this.data.expandedFilters[key + '-' + index + '-' + dimension.key]),
           summary: clause[dimension.same] ? copy[dimension.same] : ((clause[dimension.key] || []).length ? copy.selectedOptions.replace('{count}', String(clause[dimension.key].length)) : copy.any),
           sameLabel: copy[dimension.same], isSame: Boolean(clause[dimension.same]),
-          choices: (metadata[dimension.options] || []).filter(option => dimension.key !== 'identityCategoryIds' || clause.sameNature || (option.natureIds || []).some(id => (clause.natureIds || []).includes(id))).map(option => ({ id: option.id,
+          choices: (metadata[dimension.options] || []).filter(option => dimension.key !== 'identityCategoryIds' || !(clause.natureIds || []).length || (option.natureIds || []).some(id => clause.natureIds.includes(id))).map(option => ({ id: option.id,
             name: copy.optionWithDepartment(option.name, departments.get(option.departmentId)),
             selected: (clause[dimension.key] || []).includes(option.id) }))
         }))
@@ -188,7 +189,7 @@ Component({
     },
     nameInput: function(event) { this.setData({ 'draft.name': event.detail.value }); },
     enabledChange: function(event) { this.setData({ 'draft.enabled': event.detail.value }); },
-    cancel: function() { if (!this.data.busy) this.setData({ draft: null, sections: [], fields: [] }); },
+    cancel: function() { if (!this.data.busy) this.setData({ draft: null, sections: [], fields: [], notice: '', validationAnchor: '' }); },
     typeChange: function(event) {
       if (this.blocked()) return;
       const { section, index } = event.currentTarget.dataset;
@@ -215,11 +216,27 @@ Component({
       const patch = { [path]: next };
       if(key === 'natureIds') {
         const draft=this.data.draft,clause=draft[section][Number(index)];
-        const invalid=(this._metadata.identities||[]).filter(item=>(clause.identityCategoryIds||[]).includes(item.id)&&!(item.natureIds||[]).some(nature=>next.includes(nature)));
-        if(invalid.length){const result=await wx.showModal({title:relations.incompatibleSelectionTitle,content:[relations.incompatibleSelectionHelp].concat(invalid.map(item=>item.name)).join('\n'),confirmText:relations.clearIncompatibleSelection,cancelText:copy.cancel});if(!result.confirm||this.data.draft!==draft)return;}
-        patch['draft.'+section+'['+index+'].sameNature']=false;
+        const invalid=(this._metadata.identities||[]).filter(item=>next.length&&(clause.identityCategoryIds||[]).includes(item.id)&&!(item.natureIds||[]).some(nature=>next.includes(nature)));
+        if (invalid.length) {
+          try {
+            const result = await wx.showModal({ title: relations.incompatibleSelectionTitle, content: [relations.incompatibleSelectionHelp].concat(invalid.map(item => item.name)).join('\n'), confirmText: confirmLabel, cancelText: copy.cancel });
+            if (!result.confirm || this.data.draft !== draft) return;
+          } catch (error) {
+            if (this.data.draft === draft) showShortToast(getErrorText(error, copy.operationFailed));
+            return;
+          }
+        }
+        if (section === 'targets') patch['draft.'+section+'['+index+'].sameNature']=false;
         patch['draft.'+section+'['+index+'].identityCategoryIds']=(clause.identityCategoryIds||[]).filter(value=>!invalid.some(item=>item.id===value));
       }
+      this.setData(patch, () => this.refreshEditor());
+    },
+    clearNature: function(event) {
+      if (this.blocked()) return;
+      const { section, index } = event.currentTarget.dataset;
+      const prefix = 'draft.' + section + '[' + index + '].';
+      const patch = { [prefix + 'natureIds']: [] };
+      if (section === 'targets') patch[prefix + 'sameNature'] = false;
       this.setData(patch, () => this.refreshEditor());
     },
     sameChange: function(event) {
@@ -254,14 +271,32 @@ Component({
     selectAll: function() { if (!this.blocked()) this.setSelection(this.data.rules.map(rule => rule.id)); },
     clearSelection: function() { if (!this.blocked()) this.setSelection([]); },
     save: async function() {
-      if(this.blocked())return;
-      for (const section of ['audience','targets']) {
-        const index = this.data.draft[section].findIndex(clause => clause.type === 'scope' && !(clause.natureIds || []).length && !clause.sameNature);
-        if (index >= 0) { this.setData({ notice: relations.selectNatureRequired, activeSection: section, activeClause: section + '-' + index }, () => { this.refreshEditor(); wx.nextTick(() => this.scrollTo('#directory-clause-' + section + '-' + index)); }); return; }
+      const source = this.data.draft;
+      if (!source || this.blocked() || this._confirmingSave) return;
+      const issue = view.ruleIssue(source, copy);
+      if (issue) {
+        const clause = issue.section ? issue.section + '-' + issue.index : '';
+        const anchor = clause ? 'directory-clause-' + clause : 'directory-rule-name';
+        const patch = { notice: issue.message, validationAnchor: anchor };
+        if (clause) Object.assign(patch, { activeSection: issue.section, activeClause: clause });
+        this.setData(patch, () => {
+          this.refreshEditor();
+          wx.nextTick(() => this.scrollTo('#' + anchor));
+        });
+        return;
       }
-      const source=this.data.draft;
-      if(this._legacyNatureEdit){const clauses=source.audience.concat(source.targets).filter(clause=>clause.type==='scope');const labels=(this._metadata.natures||[]).filter(item=>clauses.some(clause=>(clause.natureIds||[]).includes(item.id))).map(item=>item.name);if(clauses.some(clause=>clause.sameNature))labels.push(relations.directorySameNatureSummary);const result=await wx.showModal({title:relations.legacyScopeChangeTitle,content:relations.legacyScopeChangeHelp(labels),confirmText:relations.confirmScopeChange,cancelText:copy.cancel});if(!result.confirm||this.data.draft!==source)return;}
-      this.write('saveContactDirectoryRule',view.payload(source));
+      const labels = view.legacyNatureSelections(source, this._metadata.natures || [], relations);
+      if (labels.length) {
+        this._confirmingSave = true;
+        try {
+          const result = await wx.showModal({ title: relations.legacyScopeChangeTitle, content: relations.legacyScopeChangeHelp(labels), confirmText: copy.save, cancelText: copy.cancel });
+          if (!result.confirm || this.data.draft !== source) return;
+        } catch (error) {
+          if (this.data.draft === source) this.setData({ notice: getErrorText(error, copy.operationFailed), validationAnchor: '' });
+          return;
+        } finally { this._confirmingSave = false; }
+      }
+      await this.write('saveContactDirectoryRule', view.payload(source));
     },
     toggleEnabled: function(event) {
       if (this.blocked()) return;
@@ -280,15 +315,16 @@ Component({
     },
     write: async function(name, data) {
       const request = session.beginRequest(this, 'write');
-      this.setData({ busy: true, notice: '' });
+      this.setData({ busy: true, notice: '', validationAnchor: '' });
       this.triggerEvent('busychange', { busy: true });
       try {
         const result = await callFunction({ name, data });
         if (!this.current(request)) return;
         if (result.status !== 'success') throw result;
+        if (name === 'saveContactDirectoryRule') showShortToast(copy.saved);
         this.setData({ draft: null, sections: [], fields: [], deleteTargets: null });
         await this.load();
-      } catch (error) { if (this.current(request)) this.setData({ notice: getErrorText(error, copy.operationFailed) }); }
+      } catch (error) { if (this.current(request)) this.setData({ notice: getErrorText(error, copy.operationFailed) || copy.operationFailed }); }
       finally { if (this.current(request)) { this.setData({ busy: false }); this.triggerEvent('busychange', { busy: false }); } }
     }
   }
