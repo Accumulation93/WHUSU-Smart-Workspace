@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { mockApi } from './fixtures.js';
 import ui from '../../src/locales/zh-CN/shared/contactDirectory.js';
 import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
+import picker from '../../src/locales/zh-CN/shared/personnelPicker.js';
 
 test('directory only renders granted values and navigates visible positions', async ({ page }, testInfo) => {
   await mockApi(page);
@@ -15,13 +16,24 @@ test('directory only renders granted values and navigates visible positions', as
     expect(body.summaryOnly).toBe(true);
     reads++;
     return route.fulfill({ json: { status: 'success', groups: [
-      { key: 'g1', name: 'Department A', items: [{ key: 'a', name: 'Same name', departmentId: 'd1', departmentName: 'Department A', assignmentNature: 'staff', assignmentNatureName: 'Staff role', identityCategoryId: 'i1', identityCategoryName: 'Member', workGroupId: '', workGroupName: '', fields: [], relatedKeys: ['b'] }] },
+      { key: 'g1', name: 'Department A', items: [{ key: 'a', name: 'Same name', departmentId: 'd1', departmentName: 'Department A', assignmentNature: 'staff', assignmentNatureName: 'Staff role', identityCategoryId: 'i1', identityCategoryName: 'Member', workGroupId: 'w1', workGroupName: 'Student outreach and event coordination', fields: [], relatedKeys: ['b'] }] },
       { key: 'g2', name: 'Department B', items: [{ key: 'b', name: 'Same name', departmentId: 'd2', departmentName: 'Department B', assignmentNature: 'staff', assignmentNatureName: 'Staff role', identityCategoryId: 'i2', identityCategoryName: 'Leader', workGroupId: '', workGroupName: '', fields: [], relatedKeys: ['a'] }] }
     ] } });
   });
   await page.goto('/web/hr/profile');
   await page.getByRole('button', { name: ui.title, exact: true }).click();
   await expect(page.locator('.directory-position')).toHaveCount(2);
+  const memberCard = page.locator('#contact-a');
+  await expect(memberCard.locator('.info-head .chip')).toHaveText('Member');
+  await expect(memberCard.locator('.muted')).toHaveText('Department A · Student outreach and event coordination');
+  await expect(page.locator('#contact-b .muted')).toHaveText('Department B');
+  expect(await memberCard.evaluate(card => {
+    const bounds = card.getBoundingClientRect();
+    return Array.from(card.querySelectorAll('.chip, img')).every(child => {
+      const box = child.getBoundingClientRect();
+      return box.left >= bounds.left && box.right <= bounds.right && box.bottom <= bounds.bottom;
+    });
+  })).toBe(true);
   const searchIcon = page.locator('.directory-search-icon img');
   await expect(searchIcon).toBeVisible();
   await expect(searchIcon).toHaveAttribute('src', /search\.svg/);
@@ -33,17 +45,22 @@ test('directory only renders granted values and navigates visible positions', as
   expect(searchGeometry.centerDelta).toBeLessThanOrEqual(1);
   expect(searchGeometry.textGap).toBeGreaterThanOrEqual(8);
   expect(detailReads).toBe(0);
-  await page.getByRole('button', { name: ui.filterByTags }).click();
   const filterBox = page.locator('.tag-filter');
-  expect((await filterBox.boundingBox()).height).toBeLessThan(200);
-  await expect(filterBox.locator('.tag-options')).toHaveCount(1);
-  await expect(page.getByRole('button', { name: 'Staff role' })).toBeVisible();
-  await page.getByRole('tab', { name: ui.department, exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Department A' })).toBeVisible();
-  await page.getByRole('button', { name: 'Department A' }).click();
+  await expect(filterBox.locator('.tag-filter-row')).toHaveCount(4);
+  const department = filterBox.getByRole('group', { name: ui.department, exact: true });
+  const identity = filterBox.getByRole('group', { name: ui.identity, exact: true });
+  const departmentOption = department.getByRole('button', { name: 'Department A', exact: true });
+  await expect(departmentOption).toBeVisible();
+  const departmentLabel = filterBox.getByText(ui.department, { exact: true });
+  expect((await departmentLabel.boundingBox()).x).toBeLessThan((await departmentOption.boundingBox()).x);
+  await departmentOption.click();
   await expect(page.locator('.directory-position')).toHaveCount(1);
-  await expect(page.locator('.tag-filter-count')).toHaveText('1');
-  await expect(page.locator('.tag-category-count')).toHaveText('1');
+  const memberFilter = identity.getByRole('button', { name: 'Member', exact: true });
+  await memberFilter.click();
+  await department.getByRole('button', { name: picker.all, exact: true }).click();
+  await expect(departmentOption).toHaveAttribute('aria-pressed', 'false');
+  await expect(memberFilter).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.directory-position')).toHaveCount(1);
   await page.screenshot({ path: testInfo.outputPath('directory-tag-filter.png'), fullPage: true, animations: 'disabled' });
   await page.getByRole('button', { name: ui.clearTagFilters }).click();
   await expect(page.locator('.directory-position')).toHaveCount(2);
@@ -51,7 +68,7 @@ test('directory only renders granted values and navigates visible positions', as
   await expect(page.getByRole('link', { name: ui.call })).toHaveCount(0);
   await page.getByRole('searchbox').fill('Member');
   await expect(page.locator('.directory-position')).toHaveCount(1);
-  await page.locator('#contact-a').click();
+  await memberCard.press('Enter');
   const firstDetailChild = await page.locator('.directory-identity').first().evaluate(element => element.parentElement.firstElementChild.className);
   expect(firstDetailChild).toContain('directory-identity');
   await expect(page.getByRole('link', { name: ui.call })).toHaveAttribute('href', 'tel:13800138000');
@@ -73,6 +90,9 @@ test('directory only renders granted values and navigates visible positions', as
   await expect(page.getByRole('status')).toHaveText(ui.copyFailed);
   await expect(phoneAction).toBeVisible();
   await expect(page.getByText('13800138000', { exact: true })).toBeVisible();
+  const phoneField = page.locator('.directory-field-phone');
+  await expect(phoneField.locator('.directory-field-label')).toHaveCSS('font-weight', '700');
+  await expect(phoneField.locator('.directory-field-value')).toHaveCSS('font-weight', '400');
   expect(detailReads).toBe(1);
   await page.screenshot({path:testInfo.outputPath('contact-detail.png'),fullPage:true,animations:'disabled'});
   await expect(page.getByRole('button', { name: ui.copyContact, exact: true })).toHaveCount(1);

@@ -16,9 +16,9 @@
       <view class="selection-status" wx:if="{{draftOrganizationName}}">{{localeCopy.copy_83d91b058a}}</view>
     </view>
 
-    <view class="organization-search" wx:if="{{showOrganizationSearch}}">
+    <view class="ui-list-filter-search" wx:if="{{showOrganizationSearch}}">
       <ui-icon name="search" tone="muted" size="30" ariaLabel="{{localeCopy.copy_08113b4ae2}}" />
-      <input class="organization-search-input" value="{{organizationKeyword}}" placeholder="{{localeCopy.copy_c1256b26d6}}" bindinput="onOrganizationSearch" confirm-type="search" />
+      <input class="ui-list-filter-input" value="{{organizationKeyword}}" placeholder="{{localeCopy.copy_c1256b26d6}}" bindinput="onOrganizationSearch" confirm-type="search" />
       <view class="organization-search-clear" wx:if="{{organizationKeyword}}" bindtap="clearOrganizationSearch" hover-class="context-search-clear-pressing" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" aria-role="button">
         <ui-icon name="x" tone="muted" size="27" ariaLabel="{{localeCopy.copy_ed081670d5}}" />
       </view>

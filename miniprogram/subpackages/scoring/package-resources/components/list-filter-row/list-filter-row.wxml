@@ -1,0 +1,10 @@
+<view class="ui-list-filter-row" wx:if="{{options.length}}">
+  <view class="ui-list-filter-label" wx:if="{{label}}">{{label}}</view>
+  <scroll-view class="ui-list-filter-scroll ui-dialog-scroll--x" scroll-x enhanced show-scrollbar="{{false}}">
+    <view class="ui-list-filter-track">
+      <view wx:for="{{options}}" wx:key="index" class="ui-list-filter-chip {{(multiple ? item.selected : value === item.index) ? 'is-active' : ''}} ui-motion-chip" role="button" aria-pressed="{{multiple ? item.selected : value === item.index}}" data-index="{{item.index}}" catchtap="choose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+        {{item.label}}
+      </view>
+    </view>
+  </scroll-view>
+</view>

@@ -27,6 +27,8 @@
 
 人事通讯录复用 `miniprogram/components/contact-directory/` 与网页 `ContactDirectory.vue`、`ContactDirectoryAdmin.vue`。用户结果与管理配置独立加载；规则编辑采用页面内三段结构，人员使用共享选择器。权限、接口与验证见 [通讯录说明](contact-directory.md)。
 
+小程序筛选共用 `miniprogram/styles/list-filters.wxss`。标准选项行使用 `miniprogram/components/list-filter-row/`，传入标签、候选与选中位置。单选沿用原生 picker 的字符串索引事件，多选沿用 checkbox-group 的业务值数组。显式的数据筛选可以复用原有处理函数，消息中心等需要确认的选择继续由业务页面确认。
+
 | 组件 | 路径 | 用途 | 必须保留的差异 |
 | --- | --- | --- | --- |
 | `workspace-hero` | `miniprogram/components/workspace-hero/` | 品牌、姓名、身份、组织与切换入口 | 手机换行更自然，Pad 收紧内边距，横屏压缩高度 |
@@ -35,7 +37,7 @@
 | `ui-icon` | `miniprogram/components/ui-icon/` | 统一 SVG 图标加载和色调 | 业务图标用 `sizeRole`；手机 rpx、Pad 竖屏/横屏 px 独立收紧；本体受槽位边界约束，不用 emoji |
 | `ui-navbar` | `miniprogram/components/ui-navbar/` | 全站统一顶栏（自绘导航条） | 自己量状态栏与胶囊、自己固定定位与占位、自己在横竖屏切换后重算；`z-index: 90` 必须低于全屏弹窗遮罩（98/99 起），弹窗打开时遮罩能连顶栏一起盖住 |
 | `app-toast` | `miniprogram/components/app-toast/` | 承接全部状态提示（成功、失败、加载、普通提示） | 深色半透明块 + 白色状态图标在上、正文在下；字数不受限，超出视口上限时卡内滚动；三档设备共用一套尺寸，不依赖页面变量继承 |
-| `signaturePad` | `miniprogram/subpackages/audit/components/signaturePad/` | 独立页面连续签署 | 紧凑工具栏与充满剩余视口的 Canvas 2D；共享连续路径、颜色、擦除、步骤内撤销历史；透明层导出 |
+| `signaturePad` | `miniprogram/subpackages/audit/components/signaturePad/` | 独立页面连续签署 | 固定操作区与充满剩余视口的 Canvas 2D，设置和图层面板浮在画布上且正文单独滚动；共享连续路径、硬笔/软笔、五档物理笔宽、颜色、擦除和步骤内撤销历史；PDF/照片按实际页面比例预览，透明层导出 |
 
 统一状态提示契约：`miniprogram/utils/appToast.js` 在小程序启动时接管 `wx.showToast`、`wx.showLoading`、`wx.hideToast`、`wx.hideLoading`，业务调用点保持原生签名不变，也不需要改动；每个页面 WXML 末尾挂一个 `<app-toast />` 实例。提示由组件自绘，替代微信原生提示的固定方框：正文按内容自然换行、行数不限，超过视口上限时在卡片内滚动，任何长度的文案都能完整读到；停留时长按可读字数自适应（下限 1.8 秒、上限 6 秒），加载态由业务显式 `hideLoading` 结束并带 20 秒兜底。没有挂载实例时回退微信原生实现，`options.image` 的自定义图片提示同样保留原生渲染。
 
@@ -54,7 +56,7 @@
 
 全局完整显示原语：`ui-field-control-host` 禁止纵向收缩；完整选择表面为 `view.picker-display.ui-field-control`，长值自然增高。`.ui-action-summary` 在操作栏独占语义行，数量不得进入确认按钮。所有模块执行，不允许私有裁切覆盖。时间条轨道与手柄分层，管理端由 `venue/utils/adminTimeSelection.js` 统一滑块、原生选框、默认区间和占用校验。
 
-人员选择器按“紧凑已选摘要 + 标准高度筛选 + 主要候选列表”组织视觉层级：已选标题/数量用弹窗元数据字号，详情按需展开且不改变选择；部门、身份类别、职能组使用完整字段高度与下拉箭头，候选列表按内容自然生长并受视口上限约束。此布局由共享组件持有，全仓调用方不得另行缩小筛选、放大已选计数或压缩候选区。
+人员选择器按“紧凑已选摘要 + 搜索与分维度气泡 + 主要候选列表”组织视觉层级。已选详情按需展开。岗位性质、部门、身份类别、职能组使用共享筛选行，候选列表按内容自然生长并受视口上限约束。
 
 媒体行组件采用“固定图标槽 + `min-width:0` 正文 + 固定尾部操作”。多行正文顶部对齐；门户/消息中心的上下文行与组织整行必须分层，禁止使用一个 `flex-wrap` 容器承载全部元数据。页面底部操作使用 `--ui-page-action-gap`，品牌页脚使用 `--ui-footer-gap`。
 
@@ -119,14 +121,14 @@
 
 ### 紧凑分组标签筛选
 
-该模式用于需要同时保留多个筛选维度、但每个维度都有多枚标签的普通列表。组件由三段组成：单行摘要入口、横向分类导航、单一活动标签云。分类导航与标签云均为二次信息，视觉权重必须低于上方的搜索框。
+小程序通讯录和考核结果直接分行展示。仅对仍采用折叠入口的其他列表，保留单行摘要入口、横向分类导航以及当前分类的共享选项行。
 
 - 摘要入口：筛选图标、名称、已选数量徽标、紧凑清除和展开箭头；没有选择时不显示清除，也不显示帮助段落。
 - 分类导航：每类显示名称和该类已选数量；手机横向滚动，Pad 单行等分；当前类使用淡蓝玻璃底和蓝色文字。
-- 标签云：只显示当前类，使用 `display:flex; flex-wrap:wrap`；标签最低使用共享 `--ui-compact-height`，选中态沿用蓝色边框、淡蓝底和蓝字。
-- 说明行：只保留“同类任选，不同类别同时符合”一类短说明；不能与选择摘要、分类标题、标签云重复。
+- 当前分类的选项仅在本行横滑。标签使用共享 `--ui-compact-height`，选中态为淡蓝底、蓝字和蓝色描边。
+- 说明行只用于解释多选的筛选关系。
 - 可访问性：分类使用 `tablist/tab` 和 `aria-selected`；标签按钮使用 `aria-pressed`；分类切换不改变条件。
-- 高度：手机展开态目标不超过 190px；内容超出时由标签云自然换行增高，不使用固定高度、省略号或隐藏内容。
+- 高度由摘要、分类和选项行自然决定。长选项可横滑查看完整名称。
 
 完整单行字段、主按钮、紧凑控件、同行筛选和页签分别使用 `--ui-field-control-height`、`--ui-control-height`、`--ui-compact-height`、`--ui-inline-control-height`、`--ui-tab-min-height`。页面只选择语义角色，不重新写固定高度；手机值为 `82/82/52/56/76rpx`，Pad 竖屏对应 `44/44/32/32/40px`，Pad 横屏继承完整字段与主按钮高度，页签按横屏工作区令牌处理。单行角色使用最小高度，长文案只能自然增高。
 

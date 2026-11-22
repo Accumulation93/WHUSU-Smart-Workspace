@@ -85,7 +85,7 @@
         <div class="row row-wrap merit-group-facts">
           <span class="muted">{{ group.savedCount }}</span><span v-if="group.overCount" class="merit-group-over">{{ group.overCount }}</span>
         </div>
-        <div v-for="member in group.members" :key="member.id" class="list-row merit-member">
+        <div v-for="member in group.members" :key="member.id" class="list-row person-summary-row merit-member">
           <div class="info-head"><strong><PersonLink :name="member.name" :assignment-id="member.targetAssignmentId || member.assignmentId" :hr-id="member.targetHrId" /></strong><span class="chip chip-blue">{{ member.identity }}</span></div>
           <span class="muted">{{ [member.department, member.workGroup].filter(Boolean).join(' · ') }}</span>
         </div>
@@ -388,5 +388,4 @@ onBeforeUnmount(() => { active = false; generation++; clearMeritEditor(); result
 .merit-group-head > button { margin-left: auto; }
 .merit-group-facts { font-size: var(--ui-type-meta); }
 .merit-group-over { color: var(--ui-chip-orange-text); }
-.merit-member { display: flex; flex-direction: column; align-items: stretch; gap: var(--ui-label-gap); }
 </style>

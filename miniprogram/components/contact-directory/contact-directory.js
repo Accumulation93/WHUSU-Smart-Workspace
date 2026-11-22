@@ -1,6 +1,6 @@
 'use strict';
 const copy = require('../../locales/zh-CN/contactDirectory');
-const { confirm: confirmLabel } = require('../../locales/zh-CN/personnelPicker');
+const { all: allFilterOptions, confirm: confirmLabel } = require('../../locales/zh-CN/personnelPicker');
 const relations = require('../../locales/zh-CN/identityNatureRelations');
 const view = require('../../utils/contactDirectoryView');
 const { callFunction, getErrorText, showShortToast } = require('../../utils/api');
@@ -16,8 +16,8 @@ const dimensions = [
 Component({
   options: { styleIsolation: 'apply-shared' },
   properties: { admin: { type: Boolean, value: false }, initialKey: { type: String, value: '' }, copyId: { type: String, value: '' } },
-  data: { copy, relations, groups: [], rules: [], selected: [], selectedText: '', query: '', tagGroups: [], activeTagCategory: '', activeTagGroup: null, selectedTags: [], tagsSelected: false, tagFilterExpanded: false, loading: false, busy: false, notice: '', loadFailed: false,
-    contact: null, detailKey: '', detailLoading: false, detailNotice: '', expandedFilters: {}, fieldsExpanded: false, validationAnchor: '',
+  data: { copy, allFilterOptions, relations, groups: [], hasContacts: false, rules: [], selected: [], selectedText: '', query: '', tagGroups: [], selectedTags: [], tagsSelected: false, loading: false, busy: false, notice: '', loadFailed: false,
+    contact: null, detailKey: '', detailLoading: false, detailNotice: '', hasDetailFields: false, hasRelatedPositions: false, expandedFilters: {}, fieldsExpanded: false, validationAnchor: '',
     draft: null, activeSection: '', activeClause: '', batchMode: false, fieldsSummary: '', sections: [], fields: [], people: [], pickerVisible: false, pickerValue: [], deleteTargets: null, deleteText: '', typeLabels: [copy.selectPeople, copy.scope, copy.self] },
   lifetimes: {
     attached: function() { this.activate(); },
@@ -39,7 +39,7 @@ Component({
       if (this._changed) eventBus.off('org:changed', this._changed);
       this._changed = null;
       this._active = false; session.invalidateRequests(this); this._groups = []; this._metadata = null; this._picker = null;
-      this.setData({ activeSection: '', activeClause: '', batchMode: false, fieldsSummary: '', groups: [], rules: [], selected: [], draft: null, sections: [], fields: [], people: [], pickerVisible: false, pickerValue: [], query: '', tagGroups: [], activeTagCategory: '', activeTagGroup: null, selectedTags: [], tagsSelected: false, tagFilterExpanded: false, busy: false, deleteTargets: null, contact: null, detailKey: '', detailLoading: false, detailNotice: '', expandedFilters: {}, fieldsExpanded: false });
+      this.setData({ activeSection: '', activeClause: '', batchMode: false, fieldsSummary: '', groups: [], hasContacts: false, rules: [], selected: [], draft: null, sections: [], fields: [], people: [], pickerVisible: false, pickerValue: [], query: '', tagGroups: [], selectedTags: [], tagsSelected: false, busy: false, deleteTargets: null, contact: null, detailKey: '', detailLoading: false, detailNotice: '', hasDetailFields: false, hasRelatedPositions: false, expandedFilters: {}, fieldsExpanded: false });
       this.triggerEvent('pickerchange', { visible: false });
       this.triggerEvent('busychange', { busy: false });
     },
@@ -74,25 +74,17 @@ Component({
       const available = view.availableTagKeys(this._groups || []);
       const selected = (Array.isArray(selectedTags) ? selectedTags : []).filter(key => available.has(key));
       const tagGroups = view.tagGroups(this._groups || [], copy, selected);
-      const activeTagGroup = tagGroups.find(group => group.key === this.data.activeTagCategory)
-        || tagGroups.find(group => group.selectedCount > 0) || tagGroups[0] || null;
+      const groups = view.filterGroups(this._groups || [], query, selected);
       return {
         query,
         selectedTags: selected,
         tagsSelected: selected.length > 0,
         tagGroups,
-        activeTagCategory: activeTagGroup ? activeTagGroup.key : '',
-        activeTagGroup,
-        groups: view.filterGroups(this._groups || [], query, selected)
+        groups,
+        hasContacts: groups.length > 0
       };
     },
     search: function(event) { this.setData(this.directoryFilterState(event.detail.value, this.data.selectedTags)); },
-    toggleTagFilter: function() { this.setData({ tagFilterExpanded: !this.data.tagFilterExpanded }); },
-    selectTagCategory: function(event) {
-      const key = String(event.currentTarget.dataset.key || '');
-      const activeTagGroup = this.data.tagGroups.find(group => group.key === key) || null;
-      if (activeTagGroup) this.setData({ activeTagCategory: key, activeTagGroup });
-    },
     toggleTag: function(event) {
       const key = String(event.currentTarget.dataset.key || '');
       if (!key) return;
@@ -101,20 +93,30 @@ Component({
         : this.data.selectedTags.concat([key]);
       this.setData(this.directoryFilterState(this.data.query, selected));
     },
+    clearTagGroup: function(event) {
+      const key = event.currentTarget.dataset.key;
+      const group = this.data.tagGroups.find(item => item.key === key);
+      if (!group || !group.selectedCount) return;
+      const groupKeys = new Set(group.options.map(option => option.key));
+      const selected = this.data.selectedTags.filter(tag => !groupKeys.has(tag));
+      this.setData(this.directoryFilterState(this.data.query, selected));
+    },
     clearTags: function() { this.setData(this.directoryFilterState(this.data.query, [])); },
     openContact: async function(event) {
       const key = event.currentTarget.dataset.key || this.data.detailKey;
       const basic = (this._groups || []).flatMap(group => group.items).find(item => item.key === key) || (key === this.properties.initialKey || (this.data.contact && (this.data.contact.related || []).some(item => item.key === key)) ? { key, name: '', related: [] } : null);
       if (!basic) return;
       const request = session.beginRequest(this, 'contactDetail');
-      this.setData({ detailKey: key, contact: basic, detailLoading: true, detailNotice: '' }, () => this.scrollTo('#directory-detail'));
+      this.setData({ detailKey: key, contact: basic, detailLoading: true, detailNotice: '', hasDetailFields: false, hasRelatedPositions: false }, () => this.scrollTo('#directory-detail'));
       try {
         const result = await callFunction({ name: 'getContactDirectory', data: { key } });
         if (!this.current(request) || this.data.detailKey !== key) return;
         if (result.status !== 'success' || !result.contact) throw result;
-        this.setData({ contact: view.decorateContact(result.contact, dateFormatter, copy) });
-      } catch (error) { if (this.current(request) && this.data.detailKey === key) this.setData({ detailNotice: getErrorText(error, copy.loadFailed) }); }
-      finally { if (this.current(request) && this.data.detailKey === key) this.setData({ detailLoading: false }); }
+        const contact = view.decorateContact(result.contact, dateFormatter, copy);
+        this.setData({ contact, detailLoading: false, hasDetailFields: contact.fields.length > 0, hasRelatedPositions: contact.related.length > 0 });
+      } catch (error) {
+        if (this.current(request) && this.data.detailKey === key) this.setData({ detailLoading: false, detailNotice: getErrorText(error, copy.loadFailed) });
+      }
     },
     toggleFilter: function(event) {
       const key = event.currentTarget.dataset.filter;
@@ -136,7 +138,7 @@ Component({
       const key = event.currentTarget.dataset.key;
       if (!(this._groups || []).some(group => group.items.some(item => item.key === key))) return this.openContact(event);
       session.beginRequest(this, 'contactDetail');
-      this.setData(Object.assign({ contact: null, detailKey: '', detailLoading: false, detailNotice: '' },
+      this.setData(Object.assign({ contact: null, detailKey: '', detailLoading: false, detailNotice: '', hasDetailFields: false, hasRelatedPositions: false },
         this.directoryFilterState('', this.data.selectedTags)), () => this.scrollTo('#contact-' + key));
     },
     toggleRelated: function(event) {

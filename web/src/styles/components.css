@@ -366,6 +366,18 @@ button:disabled,
   box-shadow: var(--ui-list-shadow);
 }
 
+.person-summary-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--ui-label-gap);
+  overflow-wrap: anywhere;
+}
+
+.person-summary-row .chip {
+  max-width: 100%;
+  white-space: normal;
+}
+
 .list-row-main {
   flex: 1 1 auto;
   min-width: 0;

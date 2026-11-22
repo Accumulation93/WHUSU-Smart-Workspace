@@ -12,8 +12,7 @@
 .calendar-outside { color:#94a3b8; }
 .calendar-count,.calendar-note { color:#64748b;font-size:var(--ui-type-meta);line-height:1.6;overflow-wrap:anywhere; }
 .calendar-name { font-size:var(--ui-type-emphasis);font-weight:700;line-height:1.5;overflow-wrap:anywhere; }
-.calendar-search,.calendar-between { display:flex;align-items:center;gap:var(--ui-inline-gap); }
-.calendar-search .field-input { flex:1;min-width:0; }
+.calendar-between { display:flex;align-items:center;gap:var(--ui-inline-gap); }
 .calendar-between { justify-content:space-between; }
 
 .calendar-hour { display:flex;flex-direction:column;gap:var(--ui-field-gap);min-height:var(--ui-field-control-height);padding-block:var(--ui-compact-padding-y);border-top:1px solid rgba(147,197,253,.25); }

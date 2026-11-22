@@ -233,6 +233,22 @@
       },
       {
         "type": "file",
+        "value": "components/list-filter-row/list-filter-row.js"
+      },
+      {
+        "type": "file",
+        "value": "components/list-filter-row/list-filter-row.json"
+      },
+      {
+        "type": "file",
+        "value": "components/list-filter-row/list-filter-row.wxml"
+      },
+      {
+        "type": "file",
+        "value": "components/list-filter-row/list-filter-row.wxss"
+      },
+      {
+        "type": "file",
         "value": "components/person-link/person-link.js"
       },
       {

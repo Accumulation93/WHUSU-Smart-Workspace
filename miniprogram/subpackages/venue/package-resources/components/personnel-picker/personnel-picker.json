@@ -1,6 +1,8 @@
 {
   "component": true,
   "usingComponents": {
+    "ui-icon": "/components/ui-icon/ui-icon",
+    "list-filter-row": "/subpackages/venue/package-resources/components/list-filter-row/list-filter-row",
     "viewport-portal": "/components/viewport-portal/viewport-portal"
   }
 }

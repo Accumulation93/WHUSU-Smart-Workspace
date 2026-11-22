@@ -4,33 +4,21 @@
     <app-loading wx:if="{{loading || busy}}" text="{{busy ? copy.saving : (admin ? copy.loadingRules : copy.loading)}}" />
     <view wx:if="{{notice}}" class="directory-note">{{notice}}</view>
     <button wx:if="{{loadFailed}}" class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{busy}}" bindtap="load">{{copy.retry}}</button>
-    <view wx:if="{{!admin}}" class="directory-search">
-      <view class="directory-search-icon"><ui-icon name="search" sizeRole="context-leading" /></view>
-      <input class="field-input directory-search-input" value="{{query}}" placeholder="{{copy.search}}" bindinput="search" />
-    </view>
-    <view wx:if="{{!admin && tagGroups.length}}" class="directory-tag-filter">
-      <view class="directory-tag-head">
-        <view class="directory-tag-trigger" role="button" aria-expanded="{{tagFilterExpanded}}" bindtap="toggleTagFilter" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
-          <view class="directory-tag-trigger-main"><ui-icon name="filter" sizeRole="context-leading" /><text class="directory-label">{{copy.filterByTags}}</text></view>
-          <view class="directory-tag-trigger-tail"><text wx:if="{{tagsSelected}}" class="directory-tag-count">{{selectedTags.length}}</text><view class="directory-tag-chevron {{tagFilterExpanded ? 'directory-tag-chevron-open' : ''}}"><ui-icon name="chevron-right" sizeRole="context-trailing" /></view></view>
-        </view>
-        <button wx:if="{{tagsSelected}}" class="secondary-btn directory-tag-clear ui-motion-chip" bindtap="clearTags" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.clearTagFilters}}</button>
+    <view wx:if="{{!admin}}" class="ui-list-filter ui-list-filter-stack">
+      <view class="ui-list-filter-search">
+        <ui-icon name="search" tone="muted" sizeRole="context-leading" />
+        <input class="ui-list-filter-input" value="{{query}}" placeholder="{{copy.search}}" bindinput="search" />
       </view>
-      <block wx:if="{{tagFilterExpanded}}">
-        <scroll-view class="directory-tag-category-scroll" scroll-x enhanced show-scrollbar="{{false}}">
-          <view class="directory-tag-category-track">
-            <view wx:for="{{tagGroups}}" wx:key="key" class="directory-tag-category {{activeTagCategory === item.key ? 'directory-tag-category-active' : ''}}" role="tab" aria-selected="{{activeTagCategory === item.key}}" data-key="{{item.key}}" bindtap="selectTagCategory" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">
-              <text>{{item.label}}</text><text wx:if="{{item.selectedCount}}" class="directory-tag-category-count">{{item.selectedCount}}</text>
-            </view>
+      <view wx:for="{{tagGroups}}" wx:for-item="category" wx:key="key" class="ui-list-filter-row" data-category="{{category.key}}">
+        <view class="ui-list-filter-label">{{category.label}}</view>
+        <scroll-view class="ui-list-filter-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+          <view class="ui-list-filter-track">
+            <view class="ui-list-filter-chip {{category.selectedCount ? '' : 'is-active'}} ui-motion-chip" role="button" aria-pressed="{{!category.selectedCount}}" data-key="{{category.key}}" bindtap="clearTagGroup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{allFilterOptions}}</view>
+            <view wx:for="{{category.options}}" wx:for-item="option" wx:key="key" class="ui-list-filter-chip {{option.selected ? 'is-active' : ''}} ui-motion-chip" role="button" aria-pressed="{{option.selected}}" data-key="{{option.key}}" bindtap="toggleTag" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{option.label}}</view>
           </view>
         </scroll-view>
-        <view wx:if="{{activeTagGroup}}" class="directory-tag-cloud">
-          <button wx:for="{{activeTagGroup.options}}" wx:for-item="option" wx:key="key" class="secondary-btn directory-tag-option {{option.selected ? 'directory-tag-option-active' : ''}} ui-motion-chip" aria-checked="{{option.selected}}" data-key="{{option.key}}" bindtap="toggleTag" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{option.label}}</button>
-        </view>
-        <view class="directory-tag-footer">
-          <text class="directory-tag-help">{{copy.tagFilterHelp}}</text>
-        </view>
-      </block>
+      </view>
+      <view wx:if="{{tagsSelected}}" class="ui-list-filter-chip ui-list-filter-clear ui-motion-chip" role="button" bindtap="clearTags" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.clearTagFilters}}</view>
     </view>
     <block wx:if="{{admin}}">
       <button class="primary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{loading || busy || loadFailed}}" bindtap="edit">{{copy.add}}</button>
@@ -55,7 +43,7 @@
       </view>
       <view wx:if="{{!loading && !loadFailed && !rules.length}}" class="directory-note">{{copy.noRules}}</view>
     </block>
-    <view wx:elif="{{!loading && !loadFailed && !groups.length}}" class="directory-note">{{tagsSelected ? copy.tagNoResults : (query ? copy.noResults : copy.empty)}}</view>
+    <view wx:if="{{!admin && !loading && !loadFailed && !hasContacts}}" class="directory-note">{{tagsSelected ? copy.tagNoResults : (query ? copy.noResults : copy.empty)}}</view>
   </view>
   <view wx:if="{{deleteTargets}}" id="directory-delete" class="directory-card directory-stack">
     <view class="directory-heading">{{deleteText}}</view>
@@ -121,33 +109,55 @@
     <view wx:for="{{groups}}" wx:for-item="group" wx:key="key" class="directory-stack">
       <view class="directory-group-head"><text class="directory-department">{{group.name}}</text></view>
       <view class="directory-person-grid">
-        <view wx:for="{{group.items}}" wx:key="key" id="contact-{{item.key}}" class="directory-card directory-person" data-key="{{item.key}}" bindtap="openContact" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
-          <view class="directory-person-body"><view class="directory-value">{{item.name}}</view><view class="directory-note">{{item.identityCategoryName}}<text wx:if="{{item.workGroupName}}"> · {{item.workGroupName}}</text></view></view>
-          <ui-icon name="chevron-right" sizeRole="context-trailing" />
+        <view wx:for="{{group.items}}" wx:key="key" id="contact-{{item.key}}" class="target-card directory-person" data-key="{{item.key}}" role="button" bindtap="openContact" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
+          <view class="target-main">
+            <view class="target-name">{{item.name}}</view>
+            <view wx:if="{{item.identityCategoryName}}" class="target-tags">
+              <view class="target-identity">{{item.identityCategoryName}}</view>
+            </view>
+          </view>
+          <view wx:if="{{item.hasAssignment !== false && (item.departmentName || item.workGroupName)}}" class="target-meta">{{item.departmentName}}{{item.workGroupName ? (item.departmentName ? ' · ' : '') + item.workGroupName : ''}}</view>
         </view>
       </view>
     </view>
   </block>
-  <view wx:if="{{detailKey}}" id="directory-detail" class="directory-stack">
+  <view wx:if="{{detailKey}}" id="directory-detail" class="directory-detail">
     <view class="directory-card directory-identity">
-      <view class="directory-person-body directory-stack"><view class="directory-note">{{copy.details}}</view><view class="directory-heading">{{contact.name}}</view><view class="directory-tags"><text class="directory-department">{{contact.departmentName}}</text><text wx:if="{{contact.identityCategoryName}}" class="directory-note">{{contact.identityCategoryName}}</text><text wx:if="{{contact.workGroupName}}" class="directory-note">{{contact.workGroupName}}</text></view></view>
-      <button wx:if="{{!detailLoading && !detailNotice}}" class="secondary-btn directory-icon-action ui-motion-button" aria-label="{{copy.copyContact}}" data-value="{{contact.copyText}}" bindtap="copyValue" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><ui-icon name="copy" sizeRole="context-leading" /></button>
+      <view class="directory-identity-head">
+        <view class="directory-person-body">
+          <view class="directory-detail-kicker">{{copy.details}}</view>
+          <view class="directory-detail-name">{{contact.name}}</view>
+        </view>
+        <button wx:if="{{!detailLoading && !detailNotice}}" class="secondary-btn directory-icon-action ui-motion-button" aria-label="{{copy.copyContact}}" data-value="{{contact.copyText}}" bindtap="copyValue" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><ui-icon name="copy" sizeRole="context-leading" /></button>
+      </view>
+      <view wx:if="{{contact.assignmentNatureName || contact.identityCategoryName}}" class="directory-detail-tags">
+        <text wx:if="{{contact.assignmentNatureName}}" class="directory-detail-chip">{{contact.assignmentNatureName}}</text>
+        <text wx:if="{{contact.identityCategoryName}}" class="directory-detail-chip directory-detail-chip-identity">{{contact.identityCategoryName}}</text>
+      </view>
+      <view wx:if="{{contact.departmentName || contact.workGroupName}}" class="directory-detail-position">{{contact.departmentName}}{{contact.workGroupName ? (contact.departmentName ? ' · ' : '') + contact.workGroupName : ''}}</view>
     </view>
     <app-loading wx:if="{{detailLoading}}" text="{{copy.loadingDetail}}" />
     <view wx:if="{{detailNotice}}" class="directory-note">{{detailNotice}}</view>
     <view wx:if="{{detailNotice}}" class="card-actions directory-actions"><button class="secondary-btn ui-motion-button" bindtap="openContact" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.retry}}</button></view>
     <block wx:if="{{!detailLoading && !detailNotice}}">
-      <view class="directory-fields">
+      <view wx:if="{{hasDetailFields}}" class="directory-fields">
         <view wx:for="{{contact.fields}}" wx:key="label" class="directory-card directory-detail-field {{item.phone ? 'directory-detail-field-phone' : ''}}">
-          <view class="directory-person-body"><view class="directory-note">{{item.label}}</view><text class="directory-field-value {{!item.value ? 'directory-note' : ''}}" user-select="{{true}}">{{item.value || copy.blankValue}}</text></view>
+          <view class="directory-person-body">
+            <view class="directory-field-label">{{item.label}}</view>
+            <text class="directory-field-value {{!item.value ? 'directory-field-value-empty' : ''}}" user-select="{{true}}">{{item.value || copy.blankValue}}</text>
+          </view>
           <view wx:if="{{item.value}}" class="directory-field-actions">
             <button wx:if="{{item.phone}}" class="secondary-btn directory-icon-action ui-motion-button" aria-label="{{copy.call}}" data-phone="{{item.phone}}" bindtap="callPhone" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><ui-icon name="phone" sizeRole="context-leading" /></button>
             <button class="secondary-btn directory-icon-action ui-motion-button" aria-label="{{copy.copyValue + ' ' + item.label}}" data-value="{{item.value}}" bindtap="copyValue" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><ui-icon name="copy" sizeRole="context-leading" /></button>
           </view>
         </view>
       </view>
-      <view wx:if="{{contact.related.length}}" class="directory-note">{{copy.otherPositions}}</view>
-      <view wx:for="{{contact.related}}" wx:key="key" class="directory-filter-head" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" data-key="{{item.key}}" bindtap="locate"><text class="directory-content">{{item.label}}</text><ui-icon name="chevron-right" sizeRole="context-trailing" /></view>
+      <view wx:if="{{hasRelatedPositions}}" class="directory-card directory-related">
+        <view class="directory-related-heading">{{copy.otherPositions}}</view>
+        <view wx:for="{{contact.related}}" wx:key="key" class="directory-filter-head directory-related-position" role="button" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" data-key="{{item.key}}" bindtap="locate">
+          <text>{{item.label}}</text><ui-icon name="chevron-right" sizeRole="context-trailing" />
+        </view>
+      </view>
     </block>
   </view>
 </view>

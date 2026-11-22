@@ -55,6 +55,7 @@ async function main() {
   assert(calls.some(call=>call.name==='batchContactDirectoryRules'));assert.equal(c.data.deleteTargets,null);
   c.clearPrivate();assert.equal(f.listeners.size,0);assert.equal(c.data.people.length,0);
   assert.equal(c.data.batchMode,false);assert.equal(c.data.activeSection,'');
+
   let savedRule;
   const attempts = [];
   const unrestricted = fixture(async input => {
@@ -95,7 +96,7 @@ async function main() {
   let resolveRead;const late=fixture(()=>new Promise(resolve=>{resolveRead=resolve;}));late.component.activate();late.component.clearPrivate();resolveRead(config);await new Promise(resolve=>setImmediate(resolve));
   assert.equal(late.component.data.people.length,0);
   let finishDetail;
-  const basic = { key:'entry',name:'联系人',departmentName:'部门',identityCategoryName:'成员',fields:[],relatedKeys:[] };
+  const basic = { key:'entry',name:'联系人',departmentId:'d1',departmentName:'部门',identityCategoryId:'i1',identityCategoryName:'成员',fields:[],relatedKeys:[] };
   const lazyCalls=[];
   const lazy = fixture(input => {
     lazyCalls.push(input);
@@ -104,6 +105,21 @@ async function main() {
   lazy.component.data.admin=false; lazy.component.activate(); await new Promise(resolve=>setImmediate(resolve));
   assert.equal(lazyCalls[0].data.summaryOnly,true);
   assert.equal(lazyCalls.length,1);
+  assert.equal(lazy.component.data.hasContacts, true);
+  lazy.component.search({ detail: { value: 'absent' } });
+  assert.equal(lazy.component.data.hasContacts, false);
+  lazy.component.search({ detail: { value: '' } });
+  assert.equal(lazy.component.data.hasContacts, true);
+  const filterEvent = key => ({ currentTarget: { dataset: { key } } });
+  lazy.component.toggleTag(filterEvent('department:d1'));
+  lazy.component.toggleTag(filterEvent('identity:i1'));
+  assert.deepEqual(Array.from(lazy.component.data.selectedTags), ['department:d1', 'identity:i1']);
+  lazy.component.clearTagGroup(filterEvent('department'));
+  assert.deepEqual(Array.from(lazy.component.data.selectedTags), ['identity:i1']);
+  assert.equal(lazy.component.data.tagGroups.find(group => group.key === 'department').selectedCount, 0);
+  lazy.component.clearTags();
+  assert.equal(lazy.component.data.selectedTags.length, 0);
+  assert.equal(lazyCalls.length, 1);
   const opening=lazy.component.openContact({currentTarget:{dataset:{key:'entry'}}});
   assert.equal(lazy.component.data.detailLoading,true);
   lazy.component.clearPrivate();
@@ -113,12 +129,14 @@ async function main() {
   const secondOpen=lazy.component.openContact({currentTarget:{dataset:{key:'entry'}}});
   finishDetail({status:'success',contact:{...basic,fields:[{label:'电话',type:'phone',value:'13800138000'}]}}); await secondOpen;
   assert(lazy.component.data.contact.copyText.includes('电话：13800138000'));
+  assert.equal(lazy.component.data.hasDetailFields, true);
   lazy.component.clearPrivate(); assert.equal(lazy.component.data.contact,null);
   const directCalls=[];
   const direct=fixture(async input=>{ directCalls.push(input); return input.data.key ? {status:'success',contact:{...basic,key:input.data.key,relatedPositions:[{key:'other',label:'server-generated-label',hasAssignment:true,departmentName:'Department',identityCategoryName:'Role',workGroupName:''}]}} : {status:'success',groups:[]}; });
   direct.component.data.admin=false; direct.component.properties.initialKey='entry'; direct.component.activate(); await new Promise(resolve=>setImmediate(resolve));
   assert.equal(directCalls.length,1); assert.equal(directCalls[0].data.key,'entry');
   assert.equal(direct.component.data.contact.related[0].label,'Department · Role');
+  assert.equal(direct.component.data.hasRelatedPositions, true);
   await direct.component.openContact({currentTarget:{dataset:{key:'other'}}});
   assert.equal(directCalls[1].data.key,'other'); assert.equal(direct.component.data.contact.key,'other');
   direct.component.clearPrivate();

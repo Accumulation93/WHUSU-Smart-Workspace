@@ -1,0 +1,5 @@
+/* 颜色、字号和间距由 app.wxss 加载的共享筛选样式提供。 */
+:host {
+  display: block;
+  min-width: 0;
+}

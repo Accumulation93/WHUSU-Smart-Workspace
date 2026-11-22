@@ -15,34 +15,22 @@
       <view class="list-title">{{localeCopy.copy_74d527730a}}</view>
       <view class="field">
         <view class="field-label">{{localeCopy.copy_d6b32891ae}}</view>
+        <view class="ui-list-filter-search">
+        <ui-icon name="search" tone="muted" sizeRole="row-leading" />
         <input
-          class="field-input"
+          class="ui-list-filter-input"
           value="{{keyword}}"
           bindinput="onKeywordInput"
           bindconfirm="onKeywordConfirm"
           confirm-type="search"
           placeholder="{{localeCopy.copy_9ce810a320}}"
         />
-      </view>
-      <view class="field field-row">
-        <view class="field field-half">
-          <view class="field-label">{{localeCopy.copy_7ee1272d5b}}</view>
-          <picker range="{{filterOptions.departments}}" value="{{pk.idx(filterOptions.departments, filters.department)}}" bindchange="onFilterChange" data-field="department">
-            <view class="picker-value">{{filters.department}}</view>
-          </picker>
-        </view>
-        <view class="field field-half">
-          <view class="field-label">{{localeCopy.copy_c1965e0690}}</view>
-          <picker range="{{filterOptions.identities}}" value="{{pk.idx(filterOptions.identities, filters.identity)}}" bindchange="onFilterChange" data-field="identity">
-            <view class="picker-value">{{filters.identity}}</view>
-          </picker>
         </view>
       </view>
-      <view class="field scorer-filter-last-field">
-        <view class="field-label">{{localeCopy.copy_303b7a8611}}</view>
-        <picker range="{{filterOptions.workGroups}}" value="{{pk.idx(filterOptions.workGroups, filters.workGroup)}}" bindchange="onFilterChange" data-field="workGroup">
-          <view class="picker-value">{{filters.workGroup}}</view>
-        </picker>
+      <view class="ui-list-filter ui-list-filter-stack">
+        <list-filter-row label="{{localeCopy.copy_7ee1272d5b}}" range="{{filterOptions.departments}}" value="{{pk.idx(filterOptions.departments, filters.department)}}" data-field="department" bindchange="onFilterChange" />
+        <list-filter-row label="{{localeCopy.copy_c1965e0690}}" range="{{filterOptions.identities}}" value="{{pk.idx(filterOptions.identities, filters.identity)}}" data-field="identity" bindchange="onFilterChange" />
+        <list-filter-row label="{{localeCopy.copy_303b7a8611}}" range="{{filterOptions.workGroups}}" value="{{pk.idx(filterOptions.workGroups, filters.workGroup)}}" data-field="workGroup" bindchange="onFilterChange" />
       </view>
       <view class="button-row compact-row scorer-filter-actions">
         <button class="secondary-btn ui-motion-button" disabled="{{loading}}" bindtap="loadData" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loading}}" />{{localeCopy.copy_8029e5c326}}</button>

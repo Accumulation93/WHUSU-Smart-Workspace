@@ -134,9 +134,9 @@
     </view>
 
     <!-- 应用搜索栏 -->
-    <view class="app-search-bar">
+    <view class="ui-list-filter-search">
       <view class="app-search-icon"><ui-icon name="search" tone="muted" sizeRole="row-leading" ariaLabel="{{copy.search}}" /></view>
-      <input class="app-search-input"
+      <input class="ui-list-filter-input"
              placeholder="{{copy.searchPlaceholder}}"
              value="{{appSearchKeyword}}"
              bindinput="onAppSearchInput"

@@ -33,14 +33,12 @@
             </scroll-view>
           </view>
 
-          <view class="personnel-picker-toolbar ui-dialog-toolbar">
-            <view class="personnel-picker-filter-grid">
-              <view class="personnel-picker-filter"><view class="personnel-picker-filter-label">{{relations.nature}}</view><picker class="ui-field-control-host" range="{{natureOptions}}" value="{{natureIndex}}" bindchange="onNatureChange"><view class="personnel-picker-filter-value picker-value ui-field-control {{natureIndex ? 'personnel-picker-filter-active' : ''}}"><text class="personnel-picker-filter-text">{{natureOptions[natureIndex]}}</text><view class="personnel-picker-chevron"></view></view></picker></view>
-              <view class="personnel-picker-filter"><view class="personnel-picker-filter-label">{{localeCopy.department}}</view><picker class="ui-field-control-host" range="{{departmentOptions}}" value="{{departmentIndex}}" bindchange="onDepartmentChange"><view class="personnel-picker-filter-value picker-value ui-field-control {{departmentIndex ? 'personnel-picker-filter-active' : ''}}"><text class="personnel-picker-filter-text">{{departmentOptions[departmentIndex]}}</text><view class="personnel-picker-chevron"></view></view></picker></view>
-              <view class="personnel-picker-filter"><view class="personnel-picker-filter-label">{{localeCopy.identity}}</view><picker class="ui-field-control-host" range="{{identityOptions}}" value="{{identityIndex}}" bindchange="onIdentityChange"><view class="personnel-picker-filter-value picker-value ui-field-control {{identityIndex ? 'personnel-picker-filter-active' : ''}}"><text class="personnel-picker-filter-text">{{identityOptions[identityIndex]}}</text><view class="personnel-picker-chevron"></view></view></picker></view>
-              <view class="personnel-picker-filter"><view class="personnel-picker-filter-label">{{localeCopy.workGroup}}</view><picker class="ui-field-control-host" range="{{workGroupOptions}}" value="{{workGroupIndex}}" bindchange="onWorkGroupChange"><view class="personnel-picker-filter-value picker-value ui-field-control {{workGroupIndex ? 'personnel-picker-filter-active' : ''}}"><text class="personnel-picker-filter-text">{{workGroupOptions[workGroupIndex]}}</text><view class="personnel-picker-chevron"></view></view></picker></view>
-            </view>
-            <input class="personnel-picker-search field-input" value="{{keyword}}" bindinput="onKeywordInput" placeholder="{{localeCopy.searchPlaceholder}}" adjust-position="{{false}}" cursor-spacing="24" />
+          <view class="personnel-picker-toolbar ui-dialog-toolbar ui-list-filter ui-list-filter-stack">
+            <view class="ui-list-filter-search"><ui-icon name="search" tone="muted" sizeRole="row-leading" /><input class="ui-list-filter-input" value="{{keyword}}" bindinput="onKeywordInput" placeholder="{{localeCopy.searchPlaceholder}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
+            <list-filter-row label="{{relations.nature}}" range="{{natureOptions}}" value="{{natureIndex}}" bindchange="onNatureChange" />
+            <list-filter-row label="{{localeCopy.department}}" range="{{departmentOptions}}" value="{{departmentIndex}}" bindchange="onDepartmentChange" />
+            <list-filter-row label="{{localeCopy.identity}}" range="{{identityOptions}}" value="{{identityIndex}}" bindchange="onIdentityChange" />
+            <list-filter-row label="{{localeCopy.workGroup}}" range="{{workGroupOptions}}" value="{{workGroupIndex}}" bindchange="onWorkGroupChange" />
           </view>
 
           <slot name="extra"></slot>

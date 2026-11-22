@@ -2,11 +2,15 @@
       <view wx:if="{{!loadingMap.identities && dictionaryLoadState.identities.status !== 'error' && !identityRelationEnabled}}" class="section-control-card"><view class="hint-text">{{relationCopy.configurationNotEnabled}}</view><button class="secondary-btn ui-motion-button" catchtap="retryIdentityList" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.dictionaryRetry}}</button></view>
       <view class="section-control-card">
         <view class="section-title">{{localeCopy.copy_2079e402f3}}</view>
-        <view class="field-label">{{relationCopy.nature}}</view>
-        <view class="selection-options-grid" wx:if="{{identityRelationEnabled}}">
-          <view class="selection-option-card {{!identityNatureFilter ? 'selection-option-card-selected' : ''}}" aria-checked="{{!identityNatureFilter}}" catchtap="onIdentityNatureFilter">{{relationCopy.allNatures}}</view>
-          <view class="selection-option-card {{identityNatureFilter === 'pending' ? 'selection-option-card-selected' : ''}}" aria-checked="{{identityNatureFilter === 'pending'}}" data-id="pending" catchtap="onIdentityNatureFilter">{{relationCopy.pendingFilter}}</view>
-          <view class="selection-option-card {{identityNatureFilter === item.id ? 'selection-option-card-selected' : ''}}" aria-checked="{{identityNatureFilter === item.id}}" wx:for="{{identityNatureOptions}}" wx:key="id" data-id="{{item.id}}" catchtap="onIdentityNatureFilter">{{item.name}}</view>
+        <view class="ui-list-filter ui-list-filter-row" wx:if="{{identityRelationEnabled}}">
+          <view class="ui-list-filter-label">{{relationCopy.nature}}</view>
+          <scroll-view class="ui-list-filter-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+            <view class="ui-list-filter-track">
+              <view class="ui-list-filter-chip {{!identityNatureFilter ? 'is-active' : ''}} ui-motion-chip" role="button" aria-pressed="{{!identityNatureFilter}}" catchtap="onIdentityNatureFilter" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{relationCopy.allNatures}}</view>
+              <view class="ui-list-filter-chip {{identityNatureFilter === 'pending' ? 'is-active' : ''}} ui-motion-chip" role="button" aria-pressed="{{identityNatureFilter === 'pending'}}" data-id="pending" catchtap="onIdentityNatureFilter" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{relationCopy.pendingFilter}}</view>
+              <view class="ui-list-filter-chip {{identityNatureFilter === item.id ? 'is-active' : ''}} ui-motion-chip" role="button" aria-pressed="{{identityNatureFilter === item.id}}" wx:for="{{identityNatureOptions}}" wx:key="id" data-id="{{item.id}}" catchtap="onIdentityNatureFilter" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{item.name}}</view>
+            </view>
+          </scroll-view>
         </view>
       </view>
       <view class="edit-box" wx:if="{{identityRelationEnabled && (authorizationEnforced ? (identityForm.id ? actionCapabilities['hr.identities.update'] : actionCapabilities['hr.identities.create']) : (isSuperAdmin || user.permissions['hr.identities']))}}">

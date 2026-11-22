@@ -549,19 +549,9 @@
           </view>
           <view class="rule-list-count">{{ruleListView.length}} / {{ruleList.length}}</view>
         </view>
-        <view class="rule-filter-row ui-inline-field-row">
-          <view class="rule-filter-field">
-            <view class="field-label">{{localeCopy.copy_1a978b0d52}}</view>
-            <picker range="{{ruleFilterOptions.departments}}" value="{{pk.idx(ruleFilterOptions.departments, ruleFilters.department)}}" bindchange="onRuleFilterChange" data-field="department">
-              <view class="picker-value compact-picker-value">{{ruleFilters.department}}</view>
-            </picker>
-          </view>
-          <view class="rule-filter-field">
-            <view class="field-label">{{localeCopy.copy_12367d56b7}}</view>
-            <picker range="{{ruleFilterOptions.identities}}" value="{{pk.idx(ruleFilterOptions.identities, ruleFilters.identity)}}" bindchange="onRuleFilterChange" data-field="identity">
-              <view class="picker-value compact-picker-value">{{ruleFilters.identity}}</view>
-            </picker>
-          </view>
+        <view class="ui-list-filter ui-list-filter-stack">
+          <list-filter-row label="{{localeCopy.copy_1a978b0d52}}" range="{{ruleFilterOptions.departments}}" value="{{pk.idx(ruleFilterOptions.departments, ruleFilters.department)}}" data-field="department" bindchange="onRuleFilterChange" />
+          <list-filter-row label="{{localeCopy.copy_12367d56b7}}" range="{{ruleFilterOptions.identities}}" value="{{pk.idx(ruleFilterOptions.identities, ruleFilters.identity)}}" data-field="identity" bindchange="onRuleFilterChange" />
         </view>
         <view class="button-row compact-row">
           <button class="secondary-btn ui-motion-button" bindtap="toggleSelectAllRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{visibleRuleAllSelected ? localeCopy.copy_cc82c2aee6 : localeCopy.copy_e1d94e445d}}</button>
@@ -630,39 +620,12 @@
 
       <view class="edit-box">
         <view class="list-title">{{localeCopy.copy_fa119a1829}}</view>
-        <view class="field field-row">
-          <view class="field field-half">
-            <view class="field-label">{{localeCopy.copy_7ee1272d5b}}</view>
-            <picker range="{{resultFilterOptions.departments}}" value="{{pk.idx(resultFilterOptions.departments, resultFilters.department)}}" bindchange="onResultFilterChange" data-field="department">
-              <view class="picker-value">{{resultFilters.department}}</view>
-            </picker>
-          </view>
-          <view class="field field-half">
-            <view class="field-label">{{localeCopy.copy_c1965e0690}}</view>
-            <picker range="{{resultFilterOptions.identities}}" value="{{pk.idx(resultFilterOptions.identities, resultFilters.identity)}}" bindchange="onResultFilterChange" data-field="identity">
-              <view class="picker-value">{{resultFilters.identity}}</view>
-            </picker>
-          </view>
-        </view>
-        <view class="field field-row">
-          <view class="field field-half">
-            <view class="field-label">{{localeCopy.copy_303b7a8611}}</view>
-            <picker range="{{resultFilterOptions.workGroups}}" value="{{pk.idx(resultFilterOptions.workGroups, resultFilters.workGroup)}}" bindchange="onResultFilterChange" data-field="workGroup">
-              <view class="picker-value">{{resultFilters.workGroup}}</view>
-            </picker>
-          </view>
-          <view class="field field-half">
-            <view class="field-label">{{localeCopy.copy_27d5123777}}</view>
-            <picker range="{{resultViewOptions}}" range-key="label" value="{{pk.idx(resultViewOptions, resultFilters.viewMode)}}" bindchange="onResultFilterChange" data-field="viewMode">
-              <view class="picker-value">{{resultViewLabel}}</view>
-            </picker>
-          </view>
-        </view>
-        <view class="field">
-          <view class="field-label">{{localeCopy.copy_caeab5d89c}}</view>
-          <picker range="{{resultSortOptions}}" range-key="label" value="{{pk.idx(resultSortOptions, resultFilters.sortMode)}}" bindchange="onResultFilterChange" data-field="sortMode">
-            <view class="picker-value">{{resultSortLabel}}</view>
-          </picker>
+        <view class="ui-list-filter ui-list-filter-stack">
+          <list-filter-row label="{{localeCopy.copy_7ee1272d5b}}" range="{{resultFilterOptions.departments}}" value="{{pk.idx(resultFilterOptions.departments, resultFilters.department)}}" data-field="department" bindchange="onResultFilterChange" />
+          <list-filter-row label="{{localeCopy.copy_c1965e0690}}" range="{{resultFilterOptions.identities}}" value="{{pk.idx(resultFilterOptions.identities, resultFilters.identity)}}" data-field="identity" bindchange="onResultFilterChange" />
+          <list-filter-row label="{{localeCopy.copy_303b7a8611}}" range="{{resultFilterOptions.workGroups}}" value="{{pk.idx(resultFilterOptions.workGroups, resultFilters.workGroup)}}" data-field="workGroup" bindchange="onResultFilterChange" />
+          <list-filter-row label="{{localeCopy.copy_27d5123777}}" range="{{resultViewOptions}}" value="{{pk.idx(resultViewOptions, resultFilters.viewMode)}}" range-key="label" data-field="viewMode" bindchange="onResultFilterChange" />
+          <list-filter-row label="{{localeCopy.copy_caeab5d89c}}" range="{{resultSortOptions}}" value="{{pk.idx(resultSortOptions, resultFilters.sortMode)}}" range-key="label" data-field="sortMode" bindchange="onResultFilterChange" />
         </view>
         <view class="button-row compact-row">
           <button class="secondary-btn ui-motion-button" disabled="{{loadingMap.results}}" bindtap="reloadScoreResults" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.results}}" />{{localeCopy.copy_e15d9ac2ee}}</button>
@@ -1983,7 +1946,7 @@
 
         <view class="field" wx:if="{{!authorizationEnforced}}">
           <view class="field-label">{{localeCopy.copy_e7c1936709}}</view>
-          <input class="field-input" bindinput="onAdminCandidateKeyword" bindconfirm="onAdminCandidateConfirm" confirm-type="search" value="{{adminCandidateKeyword}}" placeholder="{{localeCopy.copy_634a8d035c}}" adjust-position="{{false}}" cursor-spacing="24" />
+          <view class="ui-list-filter-search"><ui-icon name="search" tone="muted" sizeRole="row-leading" /><input class="ui-list-filter-input" bindinput="onAdminCandidateKeyword" bindconfirm="onAdminCandidateConfirm" confirm-type="search" value="{{adminCandidateKeyword}}" placeholder="{{localeCopy.copy_634a8d035c}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
         </view>
 
         <admin-candidate-list
@@ -2347,7 +2310,10 @@
 
         <view class="list-card rule-list-card">
           <view class="rule-list-toolbar"><view><view class="list-title">{{localeCopy.copy_17903d1b98}}</view></view><view class="rule-list-count">{{pubViewRuleListView.length}} / {{pubViewRuleList.length}}</view></view>
-          <view class="rule-filter-row ui-inline-field-row"><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_02419589be}}</view><picker range="{{pubViewRuleFilterOptions.departments}}" value="{{pk.idx(pubViewRuleFilterOptions.departments, pubViewRuleFilters.department)}}" bindchange="onPubViewRuleFilterChange" data-field="department"><view class="picker-value compact-picker-value">{{pubViewRuleFilters.department}}</view></picker></view><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_c1965e0690}}</view><picker range="{{pubViewRuleFilterOptions.identities}}" value="{{pk.idx(pubViewRuleFilterOptions.identities, pubViewRuleFilters.identity)}}" bindchange="onPubViewRuleFilterChange" data-field="identity"><view class="picker-value compact-picker-value">{{pubViewRuleFilters.identity}}</view></picker></view></view>
+          <view class="ui-list-filter ui-list-filter-stack">
+            <list-filter-row label="{{localeCopy.copy_02419589be}}" range="{{pubViewRuleFilterOptions.departments}}" value="{{pk.idx(pubViewRuleFilterOptions.departments, pubViewRuleFilters.department)}}" data-field="department" bindchange="onPubViewRuleFilterChange" />
+            <list-filter-row label="{{localeCopy.copy_c1965e0690}}" range="{{pubViewRuleFilterOptions.identities}}" value="{{pk.idx(pubViewRuleFilterOptions.identities, pubViewRuleFilters.identity)}}" data-field="identity" bindchange="onPubViewRuleFilterChange" />
+          </view>
           <view wx:if="{{!publicationLoadFailed}}" class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="toggleSelectAllPubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{pubViewRuleAllSelected ? localeCopy.copy_fb3cdc524b : localeCopy.copy_e1d94e445d}}</button><button class="secondary-btn ui-motion-button" bindtap="reverseSelectPubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_cf96ec6e3a}}</button><button class="secondary-btn ui-motion-button" wx:if="{{canDeletePublications}}" bindtap="batchDeletePubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_3b7c76c871}}</button></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="target-scroll target-scroll--limited">
             <view class="list-item rule-list-item selection-rule-card selection-option-card {{pubViewRuleSelectedIds[item.id] ? 'selection-option-card-selected' : ''}} ui-motion-card" data-id="{{item.id}}" catchtap="togglePubViewRuleSelection" aria-role="checkbox" aria-checked="{{!!pubViewRuleSelectedIds[item.id]}}" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" wx:for="{{pubViewRuleListView}}" wx:key="id">
@@ -2395,7 +2361,10 @@
 
         <view class="list-card rule-list-card">
           <view class="rule-list-toolbar"><view><view class="list-title">{{localeCopy.copy_09bf239b61}}</view></view><view class="rule-list-count">{{pubMeritRuleListView.length}} / {{pubMeritRuleList.length}}</view></view>
-          <view class="rule-filter-row ui-inline-field-row"><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_02419589be}}</view><picker range="{{pubMeritRuleFilterOptions.departments}}" value="{{pk.idx(pubMeritRuleFilterOptions.departments, pubMeritRuleFilters.department)}}" bindchange="onPubMeritRuleFilterChange" data-field="department"><view class="picker-value compact-picker-value">{{pubMeritRuleFilters.department}}</view></picker></view><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_c1965e0690}}</view><picker range="{{pubMeritRuleFilterOptions.identities}}" value="{{pk.idx(pubMeritRuleFilterOptions.identities, pubMeritRuleFilters.identity)}}" bindchange="onPubMeritRuleFilterChange" data-field="identity"><view class="picker-value compact-picker-value">{{pubMeritRuleFilters.identity}}</view></picker></view></view>
+          <view class="ui-list-filter ui-list-filter-stack">
+            <list-filter-row label="{{localeCopy.copy_02419589be}}" range="{{pubMeritRuleFilterOptions.departments}}" value="{{pk.idx(pubMeritRuleFilterOptions.departments, pubMeritRuleFilters.department)}}" data-field="department" bindchange="onPubMeritRuleFilterChange" />
+            <list-filter-row label="{{localeCopy.copy_c1965e0690}}" range="{{pubMeritRuleFilterOptions.identities}}" value="{{pk.idx(pubMeritRuleFilterOptions.identities, pubMeritRuleFilters.identity)}}" data-field="identity" bindchange="onPubMeritRuleFilterChange" />
+          </view>
           <view wx:if="{{!publicationLoadFailed}}" class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="toggleSelectAllPubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{pubMeritRuleAllSelected ? localeCopy.copy_fb3cdc524b : localeCopy.copy_034e4a532e}}</button><button class="secondary-btn ui-motion-button" bindtap="reverseSelectPubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_ba3a4b8440}}</button><button class="secondary-btn ui-motion-button" wx:if="{{canDeletePublications}}" bindtap="batchDeletePubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_b5c6b6df78}}</button></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="target-scroll target-scroll--limited">
             <view class="list-item rule-list-item selection-rule-card selection-option-card {{pubMeritRuleSelectedIds[item.id] ? 'selection-option-card-selected' : ''}} ui-motion-card" data-id="{{item.id}}" catchtap="togglePubMeritRuleSelection" aria-role="checkbox" aria-checked="{{!!pubMeritRuleSelectedIds[item.id]}}" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" wx:for="{{pubMeritRuleListView}}" wx:key="id">
@@ -2424,25 +2393,10 @@
         </view>
 
         <!-- 筛选条（玻璃风格） -->
-        <view class="merit-summary-filter-bar" wx:if="{{meritSummaryGroups.length}}">
-          <view class="merit-summary-filter-field">
-            <text class="merit-summary-filter-label">{{localeCopy.copy_02419589be}}</text>
-            <picker range="{{meritSummaryDeptOptions}}" value="{{pk.idx(meritSummaryDeptOptions, meritSummaryFilterDept)}}" bindchange="onMeritSummaryFilterChange" data-field="department">
-              <view class="merit-summary-filter-value">{{meritSummaryFilterDept}}</view>
-            </picker>
-          </view>
-          <view class="merit-summary-filter-field">
-            <text class="merit-summary-filter-label">{{localeCopy.copy_c1965e0690}}</text>
-            <picker range="{{meritSummaryIdentOptions}}" value="{{pk.idx(meritSummaryIdentOptions, meritSummaryFilterIdent)}}" bindchange="onMeritSummaryFilterChange" data-field="identity">
-              <view class="merit-summary-filter-value">{{meritSummaryFilterIdent}}</view>
-            </picker>
-          </view>
-          <view class="merit-summary-filter-field">
-            <text class="merit-summary-filter-label">{{localeCopy.copy_303b7a8611}}</text>
-            <picker range="{{meritSummaryWgOptions}}" value="{{pk.idx(meritSummaryWgOptions, meritSummaryFilterWg)}}" bindchange="onMeritSummaryFilterChange" data-field="workGroup">
-              <view class="merit-summary-filter-value">{{meritSummaryFilterWg}}</view>
-            </picker>
-          </view>
+        <view class="ui-list-filter ui-list-filter-stack" wx:if="{{meritSummaryGroups.length}}">
+          <list-filter-row label="{{localeCopy.copy_02419589be}}" range="{{meritSummaryDeptOptions}}" value="{{pk.idx(meritSummaryDeptOptions, meritSummaryFilterDept)}}" data-field="department" bindchange="onMeritSummaryFilterChange" />
+          <list-filter-row label="{{localeCopy.copy_c1965e0690}}" range="{{meritSummaryIdentOptions}}" value="{{pk.idx(meritSummaryIdentOptions, meritSummaryFilterIdent)}}" data-field="identity" bindchange="onMeritSummaryFilterChange" />
+          <list-filter-row label="{{localeCopy.copy_303b7a8611}}" range="{{meritSummaryWgOptions}}" value="{{pk.idx(meritSummaryWgOptions, meritSummaryFilterWg)}}" data-field="workGroup" bindchange="onMeritSummaryFilterChange" />
         </view>
 
         <view class="rule-empty glass-empty merit-summary-loading" wx:if="{{meritSummaryLoading}}">
@@ -2889,11 +2843,8 @@
     <view class="section-stack" wx:if="{{activeTab === 'auditSubmissions'}}">
       <view class="section-control-card section-control-card--stacked">
         <view class="section-title">{{localeCopy.copy_be547ba4c7}}</view>
-        <view class="audit-filter-bar">
-          <text class="audit-filter-label">{{localeCopy.copy_bff094c480}}</text>
-          <picker range="{{[localeCopy.copy_31d4595959,localeCopy.copy_f6afc42806,localeCopy.copy_57b008f8c7,localeCopy.copy_0dc99cac16,localeCopy.copy_5d5af942c5,localeCopy.copy_2220286f1c,localeCopy.copy_282e15e226]}}" value="{{auditSubmissionFilters.status === '' ? 0 : (auditSubmissionFilters.status === 'draft' ? 1 : (auditSubmissionFilters.status === 'pending' ? 2 : (auditSubmissionFilters.status === 'in_progress' ? 3 : (auditSubmissionFilters.status === 'rejected' ? 4 : (auditSubmissionFilters.status === 'approved' ? 5 : 6)))))}}" bindchange="onAuditSubmissionStatusFilter">
-            <view class="picker-value compact-status-picker">{{auditSubmissionFilters.status === 'draft' ? localeCopy.copy_f6afc42806 : (auditSubmissionFilters.status === 'pending' ? localeCopy.copy_57b008f8c7 : (auditSubmissionFilters.status === 'in_progress' ? localeCopy.copy_0dc99cac16 : (auditSubmissionFilters.status === 'rejected' ? localeCopy.copy_5d5af942c5 : (auditSubmissionFilters.status === 'approved' ? localeCopy.copy_2220286f1c : (auditSubmissionFilters.status === 'withdrawn' ? localeCopy.copy_282e15e226 : localeCopy.copy_31d4595959)))))}}</view>
-          </picker>
+        <view class="ui-list-filter">
+          <list-filter-row label="{{localeCopy.copy_bff094c480}}" range="{{[localeCopy.copy_31d4595959,localeCopy.copy_f6afc42806,localeCopy.copy_57b008f8c7,localeCopy.copy_0dc99cac16,localeCopy.copy_5d5af942c5,localeCopy.copy_2220286f1c,localeCopy.copy_282e15e226]}}" value="{{auditSubmissionFilters.status === '' ? 0 : (auditSubmissionFilters.status === 'draft' ? 1 : (auditSubmissionFilters.status === 'pending' ? 2 : (auditSubmissionFilters.status === 'in_progress' ? 3 : (auditSubmissionFilters.status === 'rejected' ? 4 : (auditSubmissionFilters.status === 'approved' ? 5 : 6)))))}}" bindchange="onAuditSubmissionStatusFilter" />
         </view>
       </view>
       <view class="card">
@@ -3085,18 +3036,18 @@
       <view class="ui-dialog-scroll-content">
       <!-- Search -->
       <view class="rule-filter-row ui-dialog-filter-row ui-inline-field-row">
-        <view class="rule-filter-field rule-filter-field--grow"><view class="field-label">{{localeCopy.copy_cea1da7603}}</view><input class="field-input" placeholder="{{localeCopy.copy_d71ef091dd}}" value="{{auditMultiPickerSearchKeyword}}" bindinput="onAuditMultiPickerSearch" adjust-position="{{false}}" cursor-spacing="24" /></view>
+        <view class="rule-filter-field rule-filter-field--grow"><view class="ui-list-filter-title">{{localeCopy.copy_cea1da7603}}</view><view class="ui-list-filter-search"><input class="ui-list-filter-input" placeholder="{{localeCopy.copy_d71ef091dd}}" value="{{auditMultiPickerSearchKeyword}}" bindinput="onAuditMultiPickerSearch" adjust-position="{{false}}" cursor-spacing="24" /></view></view>
       </view>
       <!-- Filters (only for personnel picker) -->
-      <view class="rule-filter-row ui-dialog-filter-row ui-inline-field-row" wx:if="{{auditMultiPickerTarget === 'personHrIds'}}">
-        <view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_02419589be}}</view><picker range="{{auditMultiPickerDeptOptions}}" value="{{pk.idx(auditMultiPickerDeptOptions, auditMultiPickerFilterDept)}}" bindchange="onAuditMultiPickerFilterDept"><view class="picker-value compact-picker-value">{{auditMultiPickerFilterDept}}</view></picker></view>
-        <view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_c1965e0690}}</view><picker range="{{auditMultiPickerIdentOptions}}" value="{{pk.idx(auditMultiPickerIdentOptions, auditMultiPickerFilterIdent)}}" bindchange="onAuditMultiPickerFilterIdent"><view class="picker-value compact-picker-value">{{auditMultiPickerFilterIdent}}</view></picker></view>
+      <view class="ui-list-filter ui-list-filter-stack" wx:if="{{auditMultiPickerTarget === 'personHrIds'}}">
+        <list-filter-row label="{{localeCopy.copy_02419589be}}" range="{{auditMultiPickerDeptOptions}}" value="{{pk.idx(auditMultiPickerDeptOptions, auditMultiPickerFilterDept)}}" bindchange="onAuditMultiPickerFilterDept" />
+        <list-filter-row label="{{localeCopy.copy_c1965e0690}}" range="{{auditMultiPickerIdentOptions}}" value="{{pk.idx(auditMultiPickerIdentOptions, auditMultiPickerFilterIdent)}}" bindchange="onAuditMultiPickerFilterIdent" />
       </view>
       <!-- Department tabs (for work group picker with specific depts) -->
-      <view class="dept-tab-scroll" wx:if="{{auditMultiPickerDeptTabs.length}}">
-        <scroll-view scroll-x class="dept-tab-scroll-view ui-dialog-scroll--x">
-          <view class="dept-tab-row">
-            <view class="dept-tab {{auditMultiPickerActiveDeptTab === item.deptId ? 'dept-tab-active' : ''}} ui-motion-chip"
+      <view class="ui-list-filter ui-list-filter-row" wx:if="{{auditMultiPickerDeptTabs.length}}">
+        <scroll-view scroll-x enhanced show-scrollbar="{{false}}" class="ui-list-filter-scroll ui-dialog-scroll--x">
+          <view class="ui-list-filter-track">
+            <view class="ui-list-filter-chip {{auditMultiPickerActiveDeptTab === item.deptId ? 'is-active' : ''}} ui-motion-chip"
                   wx:for="{{auditMultiPickerDeptTabs}}" wx:key="deptId"
                   data-dept="{{item.deptId}}" catchtap="onAuditMultiPickerDeptTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
               {{item.deptName}}<text class="dept-tab-count">{{localeCopy.copy_c38fbdddf0}}{{item.selectedCount}}）</text>

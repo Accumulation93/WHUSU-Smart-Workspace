@@ -285,6 +285,7 @@ Page({
 - ❌ 用正则批量改写 WXML 标签或属性；`wx:if="{{a > b}}"` 中的 `>` 不是标签结束符，工具必须识别引号、Mustache 和 WXS
 - ❌ 页面级标题、二级页签或成组按钮直接暴露在 `.page` / `.section-stack` 等透明布局层；必须使用 `.section-control-card` 或等价真实玻璃表面包裹
 - ❌ 卡片小型查看/编辑/删除/移除继续使用页面私有 `list-actions` 排列；统一迁移到 `.card-actions`，禁止绝对定位到标题、状态或展开入口旁
+- 列表筛选沿用考核结果的横向气泡样式，使用 `list-filter-row` 或同源 `.ui-list-filter-*`，详见 `docs/ui-kit.md`。日期、时间和未提交的业务选择保留原组件。
 - ❌ 同一视觉行中的选择器、筛选、清除/重置使用不同高度或私有上下 margin；直接同行控件采用 `.ui-inline-control-row` + `.ui-inline-control`，带标签字段采用 `.ui-inline-field-row` 对齐底边，最终高度统一使用 `--ui-inline-control-height`
 - ❌ 标题旁的宫格/列表二态切换复用整行主页签高度、Pad 横屏 50px 或整行均分；必须采用 `.ui-compact-segmented` + `.ui-compact-segmented-item`
 - ❌ 固定 px 图标槽内继续使用 `ui-icon size` 的 rpx 图标，或让 Pad 横屏图标随视口机械放大；业务媒体行必须使用 `sizeRole` 的手机/Pad 竖屏/Pad 横屏语义尺寸
