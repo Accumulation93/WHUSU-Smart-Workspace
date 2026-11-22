@@ -7,7 +7,12 @@ const SHA = /^[a-f0-9]{40}$/;
 const UNIFIED_IDENTITY_FILES = [
   'server/src/core/models/authorizationIdentity.js',
   'server/src/core/models/authorizationIdentityTransition.js',
-  'server/src/core/services/authorizationIdentityModel.js'
+  'server/src/core/models/authorizationGrantSources.js',
+  'server/src/core/services/authorizationIdentityModel.js',
+  'server/src/core/services/authorizationPolicy.js',
+  'server/src/core/routes/unifiedAuth.js',
+  'server/db/deploy/20261122153000_unified_identity_assignment_links.sql',
+  'server/db/deploy/20261122170000_authorization_grant_sources.sql'
 ];
 
 function git(directory, args) {
@@ -50,6 +55,12 @@ function readRelease(directory, expectedSha, minimum = 1) {
     ...(minimum >= 2 ? ['server/src/core/models/identityNature.js', 'server/src/core/models/identityNatureCutover.js',
       'server/scripts/finalizeIdentityNatures.js'] : []), ...(minimum >= 3 ? UNIFIED_IDENTITY_FILES : [])]) {
     if (!fs.statSync(path.join(resolved, relative)).isFile()) throw Error('authorization_release_incomplete');
+  }
+  if (minimum >= 3) {
+    for (const file of UNIFIED_IDENTITY_FILES) {
+      const expected = git(resolved, ['rev-parse', expectedSha + ':' + file]);
+      if (git(resolved, ['hash-object', '--path=' + file, '--', file]) !== expected) throw Error('authorization_release_source_modified');
+    }
   }
   return resolved;
 }

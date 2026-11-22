@@ -53,6 +53,22 @@ test('授权启用后拒绝无协议旧提交和删解释器的提交，允许�
     const natureState = { phase: 'enforced', minimum_protocol: 2, fallback_sha: natureReady };
     assert.throws(() => tool.assertGitRelease(natureState, directory, next));
     tool.assertGitRelease(natureState, directory, natureReady);
+    write('server/authorization-protocol.json', '{"version":3,"activationReady":true}');
+    const policyFile = 'server/src/core/services/authorizationPolicy.js';
+    for (const file of ['server/src/core/models/authorizationIdentity.js', 'server/src/core/models/authorizationIdentityTransition.js',
+      'server/src/core/models/authorizationGrantSources.js', 'server/src/core/services/authorizationIdentityModel.js',
+      policyFile, 'server/src/core/routes/unifiedAuth.js']) write(file, 'module.exports = {};');
+    for (const file of ['20261122153000_unified_identity_assignment_links.sql', '20261122170000_authorization_grant_sources.sql']) {
+      write('server/db/deploy/' + file, 'SELECT 1;');
+    }
+    const unifiedReady = commit('统一身份协议');
+    write('server/node_modules/mysql2/package.json', '{}');
+    const unifiedState = { phase: 'enforced', minimum_protocol: 3, fallback_sha: unifiedReady };
+    tool.assertGitRelease(unifiedState, directory, unifiedReady);
+    assert.equal(tool.readRelease(directory, unifiedReady, 3), fs.realpathSync(directory));
+    write(policyFile, 'module.exports = { changed: true };');
+    assert.throws(() => tool.readRelease(directory, unifiedReady, 3), /release_source_modified/);
+    write(policyFile, 'module.exports = {};');
     fs.unlinkSync(path.join(directory, 'server/src/core/services/authorizationSession.js'));
     const broken = commit('缺失解释器');
     assert.throws(() => tool.assertGitRelease(state, directory, broken));
