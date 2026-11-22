@@ -39,6 +39,20 @@ function requireDecision(session, organizationId, resourceType, id, action, fiel
   return decision;
 }
 
+async function organizationVenueIds(connection, organizationId) {
+  const [rows] = await connection.query(`SELECT venue_id FROM authorization_shared_venue_organizations WHERE org_id=?
+    UNION SELECT venue_id FROM venue_booking_policies WHERE org_id=?
+    UNION SELECT venue_id FROM venue_approval_flows WHERE org_id=?
+    UNION SELECT venue_id FROM venue_booking_rules WHERE org_id=?`, Array(4).fill(organizationId));
+  return new Set(rows.map(row => row.venue_id));
+}
+
+async function assertSharedVenue(connection, session, organizationId, venueId) {
+  if (session.unifiedIdentity && !session.isSuper && !(await organizationVenueIds(connection, organizationId)).has(venueId)) {
+    throw authorizationError('authorization_forbidden');
+  }
+}
+
 async function writeSharedRule(reference, organizationId, kind, id, data, remove = false) {
   const definition = sharedDefinition(kind);
   return pool.withTransaction(async connection => {
@@ -55,6 +69,7 @@ async function writeSharedRule(reference, organizationId, kind, id, data, remove
     if ((existing && existing.venue_id !== venueId) || (remove && !existing)) throw authorizationError('venue_rule_invalid');
     const action = remove ? 'delete' : existing ? 'update' : 'create';
     if (session) {
+      await assertSharedVenue(connection, session, organizationId, venueId);
       requireDecision(session, organizationId, 'venue.sharedConfiguration', venueId, 'configure');
       requireDecision(session, organizationId, 'venue.' + kind, id, action,
         remove ? [] : [definition.title, 'cycleType', 'cycleValues', 'timeStart', 'timeEnd']);
@@ -204,6 +219,8 @@ async function saveBookingWindow(reference, organizationId, venueId, input) {
 async function configurationVenueCandidates(connection, session, organizationId) {
   const [venues] = await connection.query('SELECT id,name FROM venues WHERE is_active=1 ORDER BY name,id');
   if (!session) return venues;
+  const relatedVenues = session.unifiedIdentity && !session.isSuper
+    ? await organizationVenueIds(connection, organizationId) : null;
   const definitions = [
     { type: 'venue.approvals', table: 'venue_approval_flows' },
     { type: 'venue.bookingRules', table: 'venue_booking_rules' },
@@ -218,7 +235,8 @@ async function configurationVenueCandidates(connection, session, organizationId)
     const actions = definition.actions || ['read', 'create', 'update', 'delete'];
     if (!actions.some(action => session.hasExplicitEntry(definition.type + '.' + action))) continue;
     const mayOperate = (venueId, id, action) => check(definition.type, id, action)
-      && (!definition.shared || action === 'read' || check('venue.sharedConfiguration', venueId, 'configure'));
+      && (!definition.shared || action === 'read'
+        || ((!relatedVenues || relatedVenues.has(venueId)) && check('venue.sharedConfiguration', venueId, 'configure')));
     // 组织范围权限可以选择尚无配置的场地，指定记录权限只能看到该记录真正所属的场地。
     for (const venue of venues) {
       if (actions.some(action => mayOperate(venue.id, '', action))) allowed.add(venue.id);
@@ -263,12 +281,18 @@ async function writeVenue(reference, organizationId, id, data, remove = false) {
   return pool.withTransaction(async connection => {
     const session = await sharedSession(connection, reference, organizationId);
     const existing = await venueModel.getByIdForUpdate(id, connection);
+    if (session && (remove || existing)) await assertSharedVenue(connection, session, organizationId, id);
     if (session) requireDecision(session, organizationId, 'venue.resources', id,
       remove ? 'delete' : existing ? 'update' : 'create', remove ? [] : ['name', 'location', 'description', 'imageUrl']);
     // 保留原接口停用场地的语义，历史借用及共享时间记录不随此动作删除。
     if (remove) await venueModel.remove(id, connection);
     else if (existing) await venueModel.update(id, data, connection);
-    else await venueModel.create(id, data, connection);
+    else {
+      await venueModel.create(id, data, connection);
+      if (session?.unifiedIdentity) {
+        await connection.query('INSERT INTO authorization_shared_venue_organizations (org_id, venue_id) VALUES (?, ?)', [organizationId, id]);
+      }
+    }
     return { id, existing: Boolean(existing) };
   });
 }

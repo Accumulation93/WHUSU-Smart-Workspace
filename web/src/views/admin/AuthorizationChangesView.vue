@@ -8,7 +8,7 @@
       <section class="card stack">
         <h2 class="section-title">{{ targetName }}</h2>
         <strong>{{ ui.impactCount(result.peopleCount, result.roleCount) }}</strong>
-        <p>{{ deletingDelegation ? ui.deleteDelegationNotice : deleting ? ui.deleteRuleNotice : ui.publishSchemeNotice }}</p>
+        <p>{{ deletingDelegation ? (state.unifiedIdentity ? ui.unified.revokeDelegationCascadeNotice : ui.deleteDelegationNotice) : deleting ? ui.deleteRuleNotice : ui.publishSchemeNotice }}</p>
         <div v-if="!deleting" class="row row-wrap"><span v-for="key in result.capabilities" :key="key" class="chip chip-blue">{{ capabilityText(key) }}</span></div>
       </section>
       <article v-for="rule in ruleChanges" :key="rule.id" class="card stack">
@@ -83,7 +83,7 @@ async function load() {
     if (request !== generation) return;
     responses.forEach(requireSuccess); state.value = responses[0]; directory.value = responses[1];
     if (deletingDelegation.value) {
-      if (!state.value.isSuper) throw createLocalError(ui.forbidden);
+      if (!state.value.isSuper && !state.value.canManageDelegations) throw createLocalError(ui.forbidden);
       const selected = state.value.delegations.find(item => item.id === route.query.id);
       if (!selected) throw createLocalError(ui.conflict);
       targetName.value = selected.name;
@@ -130,7 +130,8 @@ async function confirm() {
   if (busy.value || !payload || !result.value) return;
   const request = generation; busy.value = true; notice.value = '';
   try {
-    const response = await callApi(deletingDelegation.value ? 'deleteAuthorizationDelegation' : deleting.value ? 'deleteAuthorizationRules' : 'publishAuthorizationScheme', payload);
+    const response = await callApi(deletingDelegation.value ? 'deleteAuthorizationDelegation' : deleting.value ? 'deleteAuthorizationRules' : 'publishAuthorizationScheme',
+      { ...payload, identityModel: 'unified' });
     if (request !== generation) return;
     requireSuccess(response); showToast(deleting.value ? ui.removedSuccess : ui.publishedSuccess); busy.value = false; leave();
   } catch (error) { if (request === generation) { notice.value = errorText(error, ui.operationFailed); payload = null; result.value = null; } }

@@ -60,7 +60,8 @@ async function directory(reference, options = {}) {
       if (!allowed.length) continue;
       let member = members.get(row.id);
       if (!member) {
-        member = { row, fields: new Set(), writableFields: new Set(), reviewFields: new Set(), reviewGrants: [], assignments: [], revision: session.revision, admin: currentSession?.role === 'admin' };
+        member = { row, fields: new Set(), writableFields: new Set(), reviewFields: new Set(), reviewGrants: [], assignments: [],
+          revision: session.revision, admin: currentSession?.role === 'admin' };
         members.set(row.id, member);
       }
       for (const decision of allowed) decision.fields.forEach(field => member.fields.add(field));
@@ -89,8 +90,8 @@ function basics(member) {
   const { row, fields, assignments } = member;
   const result = { id: row.id };
   if (fields.has('name')) result.name = row.name || '';
-  // 人事业务授权不能突破全局学号保护，即使规则字段中包含学号也同样执行。
-  if (fields.has('studentId') && member.admin) result.studentId = row.student_id || '';
+  // 仅从人事专用入口消耗已明确批准的学号字段授权。
+  if (fields.has('studentId')) result.studentId = row.student_id || '';
   if (fields.has('membershipStatus')) Object.assign(result, { membershipStatus: row.membership_status,
     joinedAt: row.joined_at, leftAt: row.left_at });
   if (fields.has('assignments')) Object.assign(result, { assignments, assignmentCount: assignments.length,
@@ -229,18 +230,29 @@ async function importAccess(reference, capability, connection) {
   return connection ? run(connection) : pool.withTransaction(run);
 }
 
-async function templateAccess(reference, capabilities, connection) {
+async function templateAccess(reference, capabilities, connection, templateId = '') {
   const run = async db => {
     const session = await createAuthorizationSession(db, reference, { lock: true });
     const allowed = capabilities.filter(capability => session.check({ capability,
-      resource: { type: capability.slice(0, capability.lastIndexOf('.')), organizationId: reference.organizationId }, businessAllowed: true }).allowed);
+      resource: { id: templateId, type: capability.slice(0, capability.lastIndexOf('.')), organizationId: reference.organizationId }, businessAllowed: true }).allowed);
     if (session.mode !== 'enforced' || !allowed.length) throw authorizationError('authorization_forbidden');
+    if (session.unifiedIdentity && !session.isSuper && templateId
+      && allowed.some(capability => ['hr.profileTemplates.update', 'hr.profileTemplates.delete'].includes(capability))) {
+      const [links] = await db.query(`SELECT org_id FROM authorization_shared_template_organizations
+        WHERE org_id=? AND template_id=? FOR SHARE`, [reference.organizationId, templateId]);
+      if (!links.length) {
+        const [snapshots] = await db.query('SELECT id FROM org_hr_profile_template_snapshots WHERE org_id=? AND source_template_id=? FOR SHARE',
+          [reference.organizationId, templateId]);
+        if (!snapshots.length) throw authorizationError('authorization_forbidden');
+      }
+    }
     const effective = { permissions: {} };
     for (const [legacy, capability] of [['hr.profile_templates.manage', 'hr.profileTemplates.update'], ['hr.profile_templates.select', 'hr.profileSelection.update']]) {
       effective.permissions[legacy] = session.check({ capability,
         resource: { type: capability.slice(0, capability.lastIndexOf('.')), organizationId: reference.organizationId }, businessAllowed: true }).allowed;
     }
-    return { orgId: reference.organizationId, admin: { id: reference.personId }, effective };
+    return { orgId: reference.organizationId, admin: { id: reference.personId,
+      templateOrganizationId: session.unifiedIdentity ? reference.organizationId : '' }, effective };
   };
   return connection ? run(connection) : pool.withTransaction(run);
 }
@@ -253,21 +265,34 @@ async function governanceDirectory(reference, requestedOrganizationId) {
     if (session.mode !== 'enforced') throw authorizationError('authorization_forbidden');
     const access = await directory(reference, { connection });
     const source = await require('./personIdentityOverview').listGovernanceDirectory([reference.organizationId], connection);
+    const accountGovernance = require('./accountGovernanceAuthorization');
+    const accountTargets = currentActor?.unifiedAuthorization === true
+      ? await accountGovernance.targetDirectory(connection, reference.organizationId, [...new Set(source.memberships.map(item => item.person_id))])
+      : null;
     const rows = [];
     const totals = { total: 0, verified: 0, pendingVerification: 0, frozen: 0, recoveryRequired: 0 };
     for (const item of source.memberships) {
       const resource = { id: item.account_id || item.person_id, type: 'auth.accounts', organizationId: reference.organizationId,
         ownerPersonId: item.person_id };
-      const authRead = session.check({ capability: 'auth.accounts.read', resource, businessAllowed: true }).allowed;
-      const authWrite = currentActor?.role === 'admin' && item.membership_status === 'active'
-        && session.check({ capability: 'auth.accounts.update', resource, businessAllowed: true }).allowed;
+      const target = { personId: item.person_id, accountId: item.account_id || undefined };
+      const record = accountTargets?.get(item.person_id);
+      const accountOperations = accountTargets ? accountGovernance.accountOperations(session, currentActor, target, record) : null;
+      const authRead = accountOperations ? accountOperations.read
+        : session.check({ capability: 'auth.accounts.read', resource, businessAllowed: true }).allowed;
+      const authWrite = item.membership_status === 'active' && (accountOperations
+        ? Object.entries(accountOperations).some(([action, allowed]) => action !== 'read' && allowed)
+        : currentActor?.role === 'admin' && session.check({ capability: 'auth.accounts.update', resource, businessAllowed: true }).allowed);
       const governanceResource = { organizationId: reference.organizationId, ownerPersonId: item.person_id };
       const identityResource = { ...governanceResource, type: 'auth.identity' };
       const recoveryResource = { ...governanceResource, type: 'auth.recovery' };
-      const identityRead = session.check({ capability: 'auth.identity.read', resource: identityResource, businessAllowed: true }).allowed;
-      const recoveryRead = session.check({ capability: 'auth.recovery.read', resource: recoveryResource, businessAllowed: true }).allowed;
-      const canVerifyIdentity = item.membership_status === 'active' && session.check({ capability: 'auth.identity.verify', resource: identityResource, businessAllowed: true }).allowed;
-      const canRecoverAccount = item.membership_status === 'active' && session.check({ capability: 'auth.recovery.update', resource: recoveryResource, businessAllowed: true }).allowed;
+      const allowed = (capability, resource) => accountTargets
+        ? accountGovernance.targetAllowed(session, capability, currentActor, target, record)
+        : session.check({ capability, resource, businessAllowed: true }).allowed;
+      const identityRead = allowed('auth.identity.read', identityResource);
+      const recoveryRead = allowed('auth.recovery.read', recoveryResource);
+      const canVerifyIdentity = item.membership_status === 'active' && allowed('auth.identity.verify', identityResource);
+      const canRecoverAccount = item.membership_status === 'active' && (allowed('auth.recovery.update', recoveryResource)
+        || accountOperations?.approveRecovery || accountOperations?.manageRecoveryCode);
       const showIdentity = identityRead || canVerifyIdentity;
       const showRecovery = recoveryRead || canRecoverAccount;
       const member = access.members.get(item.id);
@@ -275,11 +300,12 @@ async function governanceDirectory(reference, requestedOrganizationId) {
       const result = member ? basics(member) : { id: item.id, name: item.name, membershipStatus: item.membership_status };
       Object.assign(result, { hrId: item.id, organizationId: reference.organizationId, organizationName: item.organization_name,
         canGlobalAccountManage: authWrite, canVerifyIdentity, canRecoverAccount });
+      if (accountOperations) result.accountOperations = accountOperations;
       if (authRead || authWrite || showIdentity || showRecovery) {
         const status = ['verified','frozen','recovery_required'].includes(item.account_status) ? item.account_status : 'pending_verification';
         Object.assign(result, { personId: item.person_id, membershipId: item.membership_id, accountId: item.account_id || '',
           auth: { status } });
-        if (authRead || authWrite) Object.assign(result, {
+        if (authRead || (authWrite && !accountOperations)) Object.assign(result, {
           wxBindStatus: item.has_active_binding ? 'bound' : 'unbound',
           auth: { ...result.auth, hasActiveBinding: Boolean(item.has_active_binding), hasBindingHistory: Boolean(item.has_binding_history),
             hasRecoveryCode: Boolean(item.has_recovery_code), hasPassphrase: Boolean(item.has_passphrase),
@@ -357,7 +383,7 @@ async function exportTable(reference, payload) {
   const visible = new Map(members.map(member => [member.row.id, new Set(visibleProfileFields(member, fields).map(field => field.id))]));
   const exportedFields = fields.filter(field => members.some(member => visible.get(member.row.id).has(field.id)));
   const basic = [['name', 'name'], ['studentId', 'studentId'], ['nature', 'assignments'], ['department', 'assignments'], ['identity', 'assignments'], ['workGroup', 'assignments']]
-    .filter(([key, permission]) => members.some(member => member.fields.has(permission) && (key !== 'studentId' || member.admin)));
+    .filter(([, permission]) => members.some(member => member.fields.has(permission)));
   const data = [];
   const valueMaps = new Map();
   if (members.length && exportedFields.length) {

@@ -20,6 +20,10 @@ function actorSnapshot(actor, catalog) {
   const snapshot={personId:actor.personId,organizationId:actor.organizationId,
     contextId:actor.contextId,role:actor.role,adminGrantId:actor.adminGrantId || ''};
   if (actor.role==='admin') {
+    if (actor.unifiedAuthorization===true && actor.adminLevel==='super_admin' && actor.effectiveAssignmentId) {
+      return Object.assign(snapshot,{assignmentId:actor.effectiveAssignmentId,personName:actor.name,
+        identityName:actor.identityName,adminLevel:actor.adminLevel,systemRole:'super_admin'});
+    }
     return Object.assign(snapshot,{assignmentId:'',identityName:actor.identityName || '',adminLevel:actor.adminLevel || ''});
   }
   // 使用本次事务锁定的岗位，不在历史读取时用当前资料补写。

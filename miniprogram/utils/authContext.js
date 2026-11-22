@@ -72,6 +72,9 @@ function normalizeProfile(user) {
     personId: source.personId || '',
     membershipId: source.membershipId || '',
     assignmentId: source.assignmentId || '',
+    effectiveAssignmentId: source.effectiveAssignmentId || source.assignmentId || '',
+    accountType: source.accountType === 'super_admin' || source.accountType === 'user' ? source.accountType : '',
+    identityModel: source.identityModel === 'unified' ? 'unified' : 'legacy',
     adminGrantId: source.adminGrantId || '',
     name: source.name || '',
     studentId: source.studentId || '',
@@ -157,6 +160,8 @@ function normalizeWorkContexts(values, contexts) {
       name: stringValue(row.assignmentLabel || row.workContextName || row.label || row.name || matched.assignmentLabel || matched.identityName),
       detail: stringValue(row.detail || matched.detail),
       assignmentId: stringValue(row.assignmentId || matched.assignmentId),
+      effectiveAssignmentId: stringValue(row.effectiveAssignmentId || matched.effectiveAssignmentId || row.assignmentId || matched.assignmentId),
+      accountType: stringValue(row.accountType || matched.accountType),
       assignmentNature: stringValue(row.assignmentNature || row.assignmentKind || matched.assignmentNature || matched.assignmentKind),
       assignmentLabel: stringValue(row.assignmentLabel || matched.assignmentLabel || buildAssignmentLabel(matched)),
       identityCategoryId: stringValue(row.identityCategoryId || matched.identityCategoryId || matched.identityId),
@@ -214,7 +219,8 @@ function saveCatalog(result) {
     ? source.workContexts
     : (legacyIdentities.length ? legacyIdentities : contexts);
   const workContexts = normalizeWorkContexts(workContextValues, contexts);
-  const selection = normalizeSelection(source.selection, source.context);
+  const needsContextSelection = source.identityModel === 'unified' && source.needsContextSelection === true;
+  const selection = needsContextSelection ? { organizationId: '', contextId: '' } : normalizeSelection(source.selection, source.context);
   const runtime = getAuthenticatedState();
   if (runtime) {
     runtimeAuthenticatedState = Object.assign({}, runtime, {
@@ -222,7 +228,8 @@ function saveCatalog(result) {
       organizations,
       workContexts,
       identities: legacyIdentities,
-      selection
+      selection,
+      profile: needsContextSelection ? null : runtime.profile
     });
     if (typeof orgSession.updateAuthenticatedState === 'function') {
       orgSession.updateAuthenticatedState(compactAuthenticatedState(runtimeAuthenticatedState));
@@ -249,7 +256,8 @@ function saveCatalog(result) {
     organizations,
     workContexts,
     identities: legacyIdentities.length ? legacyIdentities : getIdentities(),
-    selection: withLegacySelectionAlias(selection)
+    selection: withLegacySelectionAlias(selection),
+    needsContextSelection
   };
 }
 
@@ -387,7 +395,7 @@ function buildAuthenticatedState(result) {
     : (identities.length ? identities : contexts);
   const workContexts = normalizeWorkContexts(workContextValues, contexts);
   const selection = normalizeSelection(source.selection, context, contexts);
-  const profile = normalizeProfile(Object.assign({}, source.account || {}, context, source.user || {}));
+  const profile = normalizeProfile(Object.assign({}, source.account || {}, context, source.user || {}, { identityModel: source.identityModel }));
   const availableOrganizations = Array.isArray(source.availableOrgs) && source.availableOrgs.length
     ? source.availableOrgs
     : organizations;
@@ -491,7 +499,12 @@ function updateRuntimeProfile(role, profile) {
   const runtime = getAuthenticatedState();
   if (!runtime || !profile) return profile || null;
   if (role && String((runtime.context && runtime.context.role) || '') !== String(role)) return profile;
-  runtime.profile = normalizeProfile(profile);
+  const existing = runtime.profile || {};
+  runtime.profile = normalizeProfile(Object.assign({}, profile, {
+    identityModel: existing.identityModel,
+    accountType: existing.accountType,
+    effectiveAssignmentId: existing.effectiveAssignmentId || profile.assignmentId
+  }));
   runtimeAuthenticatedState = runtime;
   if (typeof orgSession.updateAuthenticatedState === 'function') {
     orgSession.updateAuthenticatedState(compactAuthenticatedState(runtime));
@@ -528,7 +541,7 @@ function applyAuthenticatedResultAsync(result) {
 
 async function refreshCatalog() {
   const expectedSnapshot = orgSession.getSnapshot();
-  const result = await callFunction({ name: 'auth/contexts', data: {} });
+  const result = await callFunction({ name: 'auth/contexts', data: { identityModel: 'unified' } });
   if (!result || result.status !== 'success') {
     throw createResultError(result, localeCopy.reopenWorkContext);
   }
@@ -627,7 +640,7 @@ async function activateContext(contextId) {
   try {
     const result = await callFunction({
       name: 'auth/contexts/activate',
-      data: { contextId: contextId }
+      data: { contextId: contextId, identityModel: 'unified' }
     });
     if (!result || result.status !== 'success' || !result.context) {
       throw createResultError(result, localeCopy.switchFailed);
@@ -647,7 +660,8 @@ async function activateSelection(organizationId, contextReference) {
       name: 'auth/contexts/activate',
       data: {
         organizationId: organizationId,
-        identityId: contextReference
+        identityId: contextReference,
+        identityModel: 'unified'
       }
     });
     if (!result || result.status !== 'success' || !result.context) {

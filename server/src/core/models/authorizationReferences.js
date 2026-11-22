@@ -56,10 +56,12 @@ async function validateReferences(connection, policy) {
   const assignments = new Set();
   const grants = new Set();
   const recordIds = new Set();
+  const personIds = new Set();
   for (const clause of policy.subjects.concat(policy.scopes)) {
     if (clause.kind === 'assignments') clause.ids.forEach(id => assignments.add(id));
     if (clause.kind === 'adminGrants') clause.ids.forEach(id => grants.add(id));
     if (clause.kind === 'records') clause.ids.forEach(id => recordIds.add(id));
+    if (clause.kind === 'people') clause.ids.forEach(id => personIds.add(id));
     if (clause.kind === 'assignmentScope') {
       for (const [key, values] of Object.entries(clause.dimensions)) {
         if (values !== 'same') values.forEach(id => dimensions.get(key).add(id));
@@ -102,10 +104,22 @@ async function validateReferences(connection, policy) {
         AND g.id IN (${placeholders(values)}) FOR SHARE`, [orgId, ...values]);
     if (rows.length !== values.length) stale();
   }
+  if (personIds.size) {
+    const values = [...personIds];
+    const [rows] = await connection.query(`SELECT m.person_id AS id FROM organization_memberships m
+      JOIN persons p ON p.id = m.person_id AND p.status = 'active'
+      WHERE m.org_id = ? AND m.status = 'active' AND m.person_id IN (${placeholders(values)}) FOR SHARE`, [orgId, ...values]);
+    if (new Set(rows.map(row => row.id)).size !== values.length) stale();
+  }
   if (recordIds.size) {
     const resourceTypes = new Set(policy.capabilities.map(key => CATALOG.get(key).resourceType));
     const values = [...recordIds];
     for (const resourceType of resourceTypes) {
+      if (resourceType === 'hr.profileTemplates') {
+        const [rows] = await connection.query(`SELECT id FROM hr_profile_templates WHERE id IN (${placeholders(values)}) FOR SHARE`, values);
+        if (rows.length !== values.length) stale();
+        continue;
+      }
       if (resourceType === 'auth.accounts') {
         const [rows] = await connection.query(`SELECT a.id FROM accounts a
           JOIN organization_memberships m ON m.person_id=a.person_id

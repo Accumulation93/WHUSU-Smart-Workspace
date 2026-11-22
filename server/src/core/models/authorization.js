@@ -6,6 +6,7 @@ const { normalizePolicy, normalizeSubjects } = require('../services/authorizatio
 const { CATALOG } = require('../services/authorizationCatalog');
 const candidates = require('./authorizationCandidates');
 const { describeRuleImpact, describeDelegationImpact } = require('../services/authorizationImpact');
+const grants = require('./authorizationGrantSources');
 const parse = value => typeof value === 'string' ? JSON.parse(value) : value;
 
 function fail(code) { throw Object.assign(new Error(code), { code }); }
@@ -34,11 +35,42 @@ async function lockOrganization(connection, orgId) {
   return rows[0];
 }
 
-async function read(connection, orgId, lock = false) {
+async function read(connection, orgId, lock = false, unified = false) {
   const suffix = lock ? ' FOR SHARE' : '';
   const [state] = await connection.query('SELECT mode, revision FROM authorization_organizations WHERE org_id = ?' + suffix, [orgId]);
   const [rules] = await connection.query('SELECT * FROM authorization_rules WHERE org_id = ? ORDER BY created_at, id' + suffix, [orgId]);
-  return { mode: state[0] ? state[0].mode : 'shadow', revision: state[0] ? Number(state[0].revision) : 0, rules: rules.map(decode) };
+  const result = { mode: state[0] ? state[0].mode : 'shadow', revision: state[0] ? Number(state[0].revision) : 0,
+    rules: rules.map(decode), disabledBasic: new Set() };
+  if (unified) {
+    const runtime = await grants.readGrantSources(connection, orgId, await listDelegations(connection, orgId, lock), lock);
+    result.rules = runtime.filterRules(result.rules);
+    result.disabledBasic = await grants.readBasicExclusions(connection, orgId, lock);
+  }
+  return result;
+}
+
+async function setBasicCapability(input, orgId, guard) {
+  checkGuard(guard);
+  const definition = CATALOG.get(input.capability);
+  if (!definition || !definition.businessRoles.includes('user') || typeof input.enabled !== 'boolean') fail('invalid_authorization_capabilities');
+  return pool.withTransaction(async connection => {
+    const actor = await guard.authorize(connection);
+    if (!actor?.isSuper || actor.organizationId !== orgId || actor.unifiedAuthorization !== true) fail('authorization_forbidden');
+    const state = await lockOrganization(connection, orgId);
+    if (Number(state.revision) !== revision(input.expectedRevision)) fail('authorization_conflict');
+    const disabled = await grants.readBasicExclusions(connection, orgId, true);
+    const alreadyEnabled = !disabled.has(input.capability);
+    if (alreadyEnabled === input.enabled) return { capability: input.capability, enabled: input.enabled, revision: Number(state.revision) };
+    if (input.enabled) {
+      await connection.query('DELETE FROM authorization_basic_role_exclusions WHERE org_id = ? AND capability_key = ?', [orgId, input.capability]);
+    } else {
+      await connection.query('INSERT INTO authorization_basic_role_exclusions (org_id, capability_key) VALUES (?, ?)', [orgId, input.capability]);
+    }
+    await connection.query('UPDATE authorization_organizations SET revision = revision + 1 WHERE org_id = ?', [orgId]);
+    await recordChange(connection, actor, orgId, 'basic_permission_toggle', input.capability,
+      { enabled: alreadyEnabled }, { enabled: input.enabled });
+    return { capability: input.capability, enabled: input.enabled, revision: Number(state.revision) + 1 };
+  });
 }
 
 async function recordChange(connection, actor, orgId, action, targetId, before, after) {
@@ -91,18 +123,36 @@ async function prepareRuleChange(connection, input, orgId, guard) {
   if (input.id && (!before || before.version !== revision(input.version))) fail('authorization_conflict');
   if (input.schemeId) normalized.capabilities = await publishedCapabilities(connection, orgId, input.schemeId);
   const policy = normalizePolicy(normalized, CATALOG);
+  if (input.assignmentMode !== undefined && !['snapshot', 'dynamic'].includes(input.assignmentMode)) fail('invalid_authorization_selection');
+  if (input.assignmentMode === 'snapshot' && !policy.subjects.every(subject => subject.kind === 'assignments')) fail('invalid_authorization_selection');
+  if (input.assignmentMode === 'dynamic' && !policy.subjects.every(subject => subject.kind === 'assignmentScope')) fail('invalid_authorization_selection');
   await guard.validateReferences(connection, policy);
-  await guard.validateChange(connection, before && before.policy, policy);
+  const source = await guard.validateChange(connection, before && before.policy, policy);
   const after = { id, name: ruleName, policy, schemeId: input.schemeId || null, version: before ? before.version + 1 : 1 };
-  return { actor, state, before, after };
+  return { actor, state, before, after, source };
+}
+
+async function snapshotToken(connection, input, orgId, change) {
+  if (input.assignmentMode !== 'snapshot') return undefined;
+  const assignments = [...new Set(change.after.policy.subjects.flatMap(subject => subject.ids))].sort();
+  const directory = await candidates.read(connection, orgId, { role: 'user', assignmentIds: assignments });
+  if (directory.assignments.length !== assignments.length) fail('authorization_stale_reference');
+  const records = directory.assignments
+    .map(item => [item.assignmentId, item.personId, item.natureId, item.departmentId, item.identityCategoryId, item.workGroupId])
+    .sort((left, right) => left[0].localeCompare(right[0]));
+  const { id, ...policy } = change.after.policy;
+  const digest = [change.actor.contextId, orgId, Number(change.state.revision), change.before?.id, change.after.name,
+    change.after.schemeId, change.after.version, policy, records];
+  return crypto.createHash('sha256').update(JSON.stringify(digest)).digest('hex');
 }
 
 async function previewRule(input, orgId, guard) {
   checkGuard(guard);
   return pool.withTransaction(async connection => {
     const change = await prepareRuleChange(connection, input, orgId, guard);
-    const directory = await candidates.read(connection, orgId);
+    const directory = await candidates.read(connection, orgId, { unified: change.actor.unifiedAuthorization === true });
     return { revision: Number(change.state.revision), rule: change.after,
+      previewToken: await snapshotToken(connection, input, orgId, change),
       impact: describeRuleImpact(change.before && change.before.policy, change.after.policy, directory, orgId) };
   });
 }
@@ -110,7 +160,10 @@ async function previewRule(input, orgId, guard) {
 async function saveRule(input, orgId, guard) {
   checkGuard(guard);
   return pool.withTransaction(async connection => {
-    const { actor, before, after } = await prepareRuleChange(connection, input, orgId, guard);
+    const change = await prepareRuleChange(connection, input, orgId, guard);
+    const { actor, before, after, source } = change;
+    if (input.assignmentMode === 'snapshot'
+      && input.previewToken !== await snapshotToken(connection, input, orgId, change)) fail('authorization_stale_reference');
     const { id, name: ruleName, policy } = after;
     if (before) {
       await connection.query(`UPDATE authorization_rules SET name = ?, policy_json = ?, scheme_id = ?, version = version + 1
@@ -119,6 +172,7 @@ async function saveRule(input, orgId, guard) {
       await connection.query(`INSERT INTO authorization_rules (id, org_id, name, policy_json, scheme_id)
         VALUES (?, ?, ?, ?, ?)`, [id, orgId, ruleName, JSON.stringify(policy), input.schemeId || null]);
     }
+    await grants.persistSource(connection, orgId, 'rule', id, source);
     await recordChange(connection, actor, orgId, before ? 'rule_update' : 'rule_create', id, before, after);
     return after;
   });
@@ -147,8 +201,8 @@ async function prepareRuleDeletion(connection, input, orgId, guard) {
 async function previewRuleDeletion(input, orgId, guard) {
   checkGuard(guard);
   return pool.withTransaction(async connection => {
-    const { state, selected } = await prepareRuleDeletion(connection, input, orgId, guard);
-    const directory = await candidates.read(connection, orgId);
+    const { actor, state, selected } = await prepareRuleDeletion(connection, input, orgId, guard);
+    const directory = await candidates.read(connection, orgId, { unified: actor.unifiedAuthorization === true });
     const rules = selected.map(rule => ({ id: rule.id, name: rule.name,
       impact: describeRuleImpact(rule.policy, null, directory, orgId) }));
     const roles = new Map();
@@ -313,32 +367,41 @@ async function prepareDelegationChange(connection, input, orgId, guard) {
     || envelope.capabilities.some(key => CATALOG.get(key).delegation)) fail('invalid_authorization_delegation');
   const audience = { organizationId: orgId, subjects: normalizeSubjects(input.subjects),
     capabilities: [], scopes: [], fields: null };
-  if (audience.subjects.some(subject => subject.kind !== 'adminGrants')
+  const actor = await guard.authorize(connection);
+  if (!actor || actor.organizationId !== orgId || !actor.contextId || (!actor.isSuper && actor.unifiedAuthorization !== true)) fail('authorization_forbidden');
+  if (actor.unifiedAuthorization !== true && audience.subjects.some(subject => subject.kind !== 'adminGrants')
     && envelope.capabilities.some(key => CATALOG.get(key).governance)) fail('invalid_authorization_delegation');
-    const actor = await guard.authorize(connection);
-    if (!actor || !actor.isSuper || actor.organizationId !== orgId || !actor.contextId) fail('authorization_forbidden');
-    const state = await lockOrganization(connection, orgId);
-    if (Number(state.revision) !== revision(input.expectedRevision)) fail('authorization_conflict');
-    const [rows] = await connection.query('SELECT * FROM authorization_delegations WHERE org_id = ? AND id = ? FOR UPDATE', [orgId, id]);
-    const before = rows[0];
-    if (input.id && (!before || Number(before.version) !== revision(input.version))) fail('authorization_conflict');
-    const oldEnvelope = before ? parse(before.envelope_json) : null;
-    if (envelope.capabilities.some(key => CATALOG.get(key).systemControlled
-      && !(oldEnvelope && oldEnvelope.capabilities.includes(key)))) fail('invalid_authorization_delegation');
-    if (envelope.subjects.some(subject => subject.kind === 'adminGrants')
-      && envelope.scopes.some(scope => Object.values(scope.dimensions || {}).includes('same'))) fail('invalid_authorization_delegation');
-    await guard.validateReferences(connection, audience);
-    await guard.validateReferences(connection, envelope);
-    const after = { id, organizationId: orgId, name: delegationName, subjects: audience.subjects, envelope, enabled: input.enabled,
-      version: before ? Number(before.version) + 1 : 1 };
-    return { actor, state, before: before ? decodeDelegation(before) : null, after };
+  if (input.allowRedelegation !== undefined && (typeof input.allowRedelegation !== 'boolean' || actor.unifiedAuthorization !== true)) {
+    fail('invalid_authorization_delegation');
+  }
+  const state = await lockOrganization(connection, orgId);
+  if (Number(state.revision) !== revision(input.expectedRevision)) fail('authorization_conflict');
+  const [rows] = await connection.query('SELECT * FROM authorization_delegations WHERE org_id = ? AND id = ? FOR UPDATE', [orgId, id]);
+  const before = rows[0] ? decodeDelegation(rows[0]) : null;
+  if (input.id && (!before || before.version !== revision(input.version))) fail('authorization_conflict');
+  if (envelope.capabilities.some(key => CATALOG.get(key).systemControlled
+    && !(before && before.envelope.capabilities.includes(key)))) fail('invalid_authorization_delegation');
+  if (envelope.subjects.some(subject => subject.kind === 'adminGrants')
+    && envelope.scopes.some(scope => Object.values(scope.dimensions || {}).includes('same'))) fail('invalid_authorization_delegation');
+  await guard.validateReferences(connection, audience);
+  await guard.validateReferences(connection, envelope);
+  if (before && actor.unifiedAuthorization === true) {
+    const runtime = await grants.readGrantSources(connection, orgId, [], true);
+    Object.assign(before, runtime.sources.get('delegation:' + id));
+  }
+  const after = { id, organizationId: orgId, name: delegationName, subjects: audience.subjects, envelope, enabled: input.enabled,
+    version: before ? before.version + 1 : 1 };
+  if (actor.unifiedAuthorization !== true) return { actor, state, before, after };
+  after.allowRedelegation = input.allowRedelegation ?? before?.allowRedelegation ?? false;
+  const source = await guard.validateDelegationChange(connection, before, after);
+  return { actor, state, before, after: { ...after, parentDelegationId: source?.parentDelegationId || null }, source };
 }
 
 async function previewDelegation(input, orgId, guard) {
   checkGuard(guard);
   return pool.withTransaction(async connection => {
-    const { state, before, after } = await prepareDelegationChange(connection, input, orgId, guard);
-    const directory = await candidates.read(connection, orgId);
+    const { actor, state, before, after } = await prepareDelegationChange(connection, input, orgId, guard);
+    const directory = await candidates.read(connection, orgId, { unified: actor.unifiedAuthorization === true });
     return { revision: Number(state.revision), delegation: after,
       impact: describeDelegationImpact(before, after, directory, orgId) };
   });
@@ -347,7 +410,7 @@ async function previewDelegation(input, orgId, guard) {
 async function saveDelegation(input, orgId, guard) {
   checkGuard(guard);
   return pool.withTransaction(async connection => {
-    const { actor, before, after } = await prepareDelegationChange(connection, input, orgId, guard);
+    const { actor, before, after, source } = await prepareDelegationChange(connection, input, orgId, guard);
     const { id, name: delegationName, subjects, envelope, enabled } = after;
     if (before) {
       await connection.query(`UPDATE authorization_delegations SET name = ?, subjects_json = ?, envelope_json = ?, enabled = ?, version = version + 1
@@ -356,6 +419,7 @@ async function saveDelegation(input, orgId, guard) {
       await connection.query(`INSERT INTO authorization_delegations (id, org_id, name, subjects_json, envelope_json, enabled)
         VALUES (?, ?, ?, ?, ?, ?)`, [id, orgId, delegationName, JSON.stringify(subjects), JSON.stringify(envelope), enabled ? 1 : 0]);
     }
+    await grants.persistSource(connection, orgId, 'delegation', id, source);
     await recordChange(connection, actor, orgId, before ? 'delegation_update' : 'delegation_create', id, before || null, after);
     return after;
   });
@@ -363,19 +427,26 @@ async function saveDelegation(input, orgId, guard) {
 
 async function prepareDelegationDeletion(connection, input, orgId, guard) {
     const actor = await guard.authorize(connection);
-    if (!actor || !actor.isSuper || actor.organizationId !== orgId || !actor.contextId) fail('authorization_forbidden');
+  if (!actor || actor.organizationId !== orgId || !actor.contextId || (!actor.isSuper && actor.unifiedAuthorization !== true)) fail('authorization_forbidden');
     const state = await lockOrganization(connection, orgId);
     if (Number(state.revision) !== revision(input.expectedRevision)) fail('authorization_conflict');
     const [rows] = await connection.query('SELECT * FROM authorization_delegations WHERE org_id = ? AND id = ? FOR UPDATE', [orgId, input.id]);
     if (!rows[0] || Number(rows[0].version) !== revision(input.version)) fail('authorization_conflict');
-    return { actor, state, before: decodeDelegation(rows[0]) };
+  const before = decodeDelegation(rows[0]);
+  if (actor.unifiedAuthorization === true) {
+    const runtime = await grants.readGrantSources(connection, orgId, [], true);
+    Object.assign(before, runtime.sources.get('delegation:' + before.id));
+    before.allowRedelegation = before.allowRedelegation === true;
+    if (!actor.isSuper) await guard.validateDelegationChange(connection, before, null);
+  }
+  return { actor, state, before };
 }
 
 async function previewDelegationDeletion(input, orgId, guard) {
   checkGuard(guard);
   return pool.withTransaction(async connection => {
-    const { state, before } = await prepareDelegationDeletion(connection, input, orgId, guard);
-    const directory = await candidates.read(connection, orgId);
+    const { actor, state, before } = await prepareDelegationDeletion(connection, input, orgId, guard);
+    const directory = await candidates.read(connection, orgId, { unified: actor.unifiedAuthorization === true });
     return { revision: Number(state.revision), delegation: before,
       impact: describeDelegationImpact(before, null, directory, orgId) };
   });
@@ -391,5 +462,5 @@ async function deleteDelegation(input, orgId, guard) {
   });
 }
 
-module.exports = { read, previewRule, saveRule, previewRuleDeletion, deleteRules, saveScheme, previewScheme, schemeVersions, publishScheme, listDelegations, listSchemes,
+module.exports = { read, setBasicCapability, previewRule, saveRule, previewRuleDeletion, deleteRules, saveScheme, previewScheme, schemeVersions, publishScheme, listDelegations, listSchemes,
   saveDelegation, previewDelegation, previewDelegationDeletion, deleteDelegation, lockOrganization, recordChange };

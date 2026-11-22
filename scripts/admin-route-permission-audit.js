@@ -21,6 +21,7 @@ const UNIFIED_RULE_ROUTES = new Map([
   ['/listAssignmentNatures', 'natures.list'], ['/saveAssignmentNature', 'natures.save'],
   ['/deleteAssignmentNature', 'natures.remove'],
   ['/getAuthorizationManagement', 'readManagement'], ['/getAuthorizationCandidates', 'readCandidates'],
+  ['/setAuthorizationBasicCapability', 'model.setBasicCapability'],
   ['/previewAuthorizationRule', 'model.previewRule'],
   ['/previewAuthorizationRuleDeletion', 'model.previewRuleDeletion'],
   ['/saveAuthorizationRule', 'model.saveRule'], ['/deleteAuthorizationRules', 'model.deleteRules'],

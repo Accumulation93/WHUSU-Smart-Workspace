@@ -2,6 +2,8 @@ import { expect, test } from '@playwright/test';
 import { mockApi } from './fixtures.js';
 import copy from '../../src/locales/zh-CN/index.js';
 import ui from '../../src/locales/zh-CN/shared/authorization.js';
+import portalCopy from '../../src/locales/zh-CN/shared/portal.js';
+import calendarCopy from '../../src/locales/zh-CN/shared/calendar.js';
 
 async function access(page, admin, grants, eligibility = {}) {
   await mockApi(page, { activeContextId: admin ? 'ctx-admin' : 'ctx-assignment' });
@@ -59,4 +61,37 @@ test('no granted governance or copy capability exposes neither portal entry', as
   await page.goto('/web/portal');
   await expect(page.getByRole('button', { name: copy.portal.permissions, exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: ui.configurationCopy.title, exact: true })).toHaveCount(0);
+});
+
+test('unified venue exposes one entry, matches legacy names, and opens permitted management', async ({ page }) => {
+  const context = { contextId: 'ctx-assignment', organizationId: 'org-1', role: 'user',
+    accountType: 'user', assignmentId: 'post-1', name: 'Member' };
+  await access(page, false, ['venue.openRules.update']);
+  await page.route('**/api/auth/contexts', route => {
+    expect(route.request().postDataJSON().identityModel).toBe('unified');
+    return route.fulfill({ json: { status: 'success', identityModel: 'unified', context, user: context } });
+  });
+  await page.goto('/web/portal');
+  const venue = page.getByRole('button', { name: portalCopy.cards.venue, exact: true });
+  await expect(venue).toHaveCount(1);
+  for (const alias of [portalCopy.cards.venueBooking, portalCopy.cards.venueManage]) {
+    await page.getByPlaceholder(copy.portal.view.searchPlaceholder).fill(alias);
+    await expect(venue).toBeVisible();
+  }
+  await venue.click();
+  await expect(page).toHaveURL(/venue\/bookings\?area=management/);
+  await expect(page.getByRole('tab', { name: portalCopy.cards.venueManage })).toHaveAttribute('aria-selected', 'true');
+});
+
+test('calendar rule-only access opens management inside calendar', async ({ page }) => {
+  const context = { contextId: 'ctx-assignment', organizationId: 'org-1', role: 'user', accountType: 'user', assignmentId: 'post-1' };
+  await access(page, false, ['calendar.rules.update']);
+  await page.route('**/api/auth/contexts', route => route.fulfill({ json: { status: 'success', identityModel: 'unified', context, user: context } }));
+  await page.route('**/api/getCalendarConfiguration', route => route.fulfill({ json: { status: 'success', permissions: { rules: true }, timezoneOffset: 480 } }));
+  await page.route('**/api/getCalendarRules', route => route.fulfill({ json: { status: 'success', rules: [] } }));
+  await page.route('**/api/getCalendar', route => route.fulfill({ json: { status: 'permission_denied' } }));
+  await page.goto('/web/portal');
+  await page.getByRole('button', { name: calendarCopy.title, exact: true }).click();
+  await expect(page).toHaveURL(/calendar\?area=management$/);
+  await expect(page.getByRole('heading', { name: calendarCopy.ruleManage, exact: true })).toBeVisible();
 });

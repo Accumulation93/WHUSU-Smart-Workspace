@@ -58,9 +58,10 @@ async function getLastSignature(fileId, round, conn) {
   const orgId = await getCurrentOrgId();
   const db = conn || pool;
   const [rows] = await db.query(
-    `SELECT * FROM audit_submission_signatures
-     WHERE file_id = ? AND round = ? AND org_id = ?
-     ORDER BY signed_at DESC, id DESC LIMIT 1`,
+    `SELECT sig.* FROM audit_submission_signatures sig
+     JOIN audit_submission_steps step ON step.id = sig.step_id AND step.org_id = sig.org_id
+     WHERE sig.file_id = ? AND sig.round = ? AND sig.org_id = ?
+     ORDER BY step.sort_order DESC, sig.signed_at DESC, sig.id DESC LIMIT 1`,
     [fileId, round, orgId]
   );
   return rows[0] || null;

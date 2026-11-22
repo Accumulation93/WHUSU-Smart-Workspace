@@ -24,7 +24,8 @@ const LARGE_JSON_ROUTES = new Set([
   // 以下接口会接收最长 2MB 的图片 Data URL（印章、手写签名、签名模板）。
   '/api/saveStamp',
   '/api/saveSignature',
-  '/api/approveStep'
+  '/api/approveStep',
+  '/api/directApproveSubmission'
 ]);
 
 function resolveJsonBodyLimit(routePath) {

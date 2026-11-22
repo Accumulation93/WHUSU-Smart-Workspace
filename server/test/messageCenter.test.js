@@ -37,6 +37,7 @@ const responses = [];
 const mockPool = {
   async withTransaction(work) { return work(this); },
   async query(sql, params) {
+    if (String(sql).includes('FROM authorization_runtime_transition WHERE id=1')) return [[{ phase: 'enforced', minimum_protocol: 2 }]];
     calls.push({ sql: String(sql), params });
     if (!responses.length) throw new Error('缺少模拟查询响应');
     return responses.shift();
@@ -125,7 +126,7 @@ async function testCrossOrganizationActorResolution() {
   assert.deepStrictEqual(contexts.map((item) => item.actor.id), ['hr-a', 'hr-b']);
   assert.strictEqual(contexts[0].isCurrentOrganization, true);
   assert.strictEqual(contexts[1].actor.userInfoId, undefined, '组织目录不得伪造微信绑定');
-  assert(calls.every((call) => call.params[0] === 'account-one'));
+  assert(calls.every((call) => call.params.at(-1) === 'account-one'));
   assert(calls.every((call) => !/openid|user_info|admin_info/.test(call.sql)), '只能按统一账号查询自然人的组织与岗位');
   assert(!calls.some((call) => /^\s*(INSERT|UPDATE)/i.test(call.sql)), '聚合查询不得创建或更新绑定');
 }
@@ -144,7 +145,7 @@ async function testAdminActorResolution() {
   assert.deepStrictEqual(contexts.map((item) => item.organizationId), ['org-a', 'org-b']);
   assert(contexts.every((item) => item.actor.type === 'admin' && item.actor.id === 'super-1'));
   assert.strictEqual(contexts[1].isCurrentOrganization, true);
-  assert(calls.every((call) => call.params[0] === 'account-one'));
+  assert(calls.every((call) => call.params.at(-1) === 'account-one'));
   assert(calls.every((call) => !/openid|user_info|admin_info/.test(call.sql)));
 }
 
@@ -206,8 +207,8 @@ function testMigrationAndFrontendContract() {
   const messageCenterStyle = fs.readFileSync(path.join(root, '../miniprogram/subpackages/message/pages/messageCenter/messageCenter.wxss'), 'utf8');
   assert.match(messageCenter, /messageScope/);
   assert.match(messageCenter, /organizationId/);
-  assert.match(messageCenterView, /organization-filter/);
-  assert.match(messageCenterView, /organization-meta-name/);
+  assert.match(messageCenterView, /class="organization-picker ui-list-filter ui-list-filter-row"/);
+  assert.match(messageCenterView, /bindtap="openOrganizationPicker"[\s\S]*\{\{selectedOrganizationName\}\}/);
   assert.match(messageCenterView, /部分组织的内容暂未加载，请重试/);
   assert.match(messageCenterView, /bindtap="retryOverview"/);
   assert.match(messageCenterStyle, /\.message-switch-mask[\s\S]*background:\s*rgba\(15,\s*23,\s*42,\s*0\.34\)/);

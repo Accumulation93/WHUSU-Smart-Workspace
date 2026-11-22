@@ -2,12 +2,24 @@ import { expect, test } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
 import copy from '../../src/locales/zh-CN/index.js';
 import text from '../../src/locales/zh-CN/shared/auditSigning.js';
+import directCopy from '../../src/locales/zh-CN/shared/approvalDirect.js';
+import common from '../../src/locales/zh-CN/shared/common.js';
 import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
 import { mockApi, submissionDetail, STORED_PASSPHRASE, STORED_STUDENT_ID } from './fixtures.js';
+
+const signingConfirmation = new RegExp('^(?:' + text.confirm + '|' + text.saveDraftAndReturn + ')$');
 
 async function setup(page, options = {}) {
   await mockApi(page);
   const state = { detail: submissionDetail({ actionType: options.actionType || 'sign' }), calls: [], failRead: false, failPreview: options.failPreview || false, refused: false };
+  if (options.direct) {
+    const first = state.detail.steps.find(step => step.status === 'pending');
+    const second = { ...first, id: 'direct-stamp', sortOrder: first.sortOrder + 1, actionType: 'estamp', stepName: '复核章' };
+    state.detail.steps.push(second);
+    state.detail.canApproveCurrentStep = false;
+    state.detail.canDirectApprove = true;
+    state.detail.directApprovalSteps = [first, second].map(step => ({ stepId: step.id, actionType: step.actionType }));
+  }
   if (options.twoFiles) state.detail.files.push({ ...state.detail.files[0], id: 'file-2', fileName: '第二附件.pdf', fileHash: 'hash-2' });
   await page.goto('/web/login');
   await page.getByLabel(copy.login.studentId).fill(STORED_STUDENT_ID);
@@ -26,7 +38,7 @@ async function setup(page, options = {}) {
   });
   await page.route('**/api/**', async route => {
     const name = new URL(route.request().url()).pathname.slice(5), body = route.request().postDataJSON();
-    if (!['getSubmissionDetail', 'getAuditFilePreview', 'approveStep', 'listMyStamps', 'getMyStampImage', 'listMySignatures', 'saveSignature'].includes(name)) return route.fallback();
+    if (!['getSubmissionDetail', 'getAuditFilePreview', 'approveStep', 'directApproveSubmission', 'listDirectApprovalStamps', 'listMyStamps', 'getMyStampImage', 'listMySignatures', 'saveSignature'].includes(name)) return route.fallback();
     state.calls.push({ name, body });
     let result;
     if (name === 'getSubmissionDetail') result = state.failRead ? { status: 'error' } : state.detail;
@@ -36,12 +48,43 @@ async function setup(page, options = {}) {
     if (name === 'saveSignature') { state.savedImage=body.imageData; result = { status: 'success', id: 'saved-template' }; }
     if (name === 'listMySignatures') result = { status: 'success', signatures: [{ id: 'template-a', name: '个人签名', imageData: state.savedImage || mark }] };
     if (name === 'approveStep') { result = state.refused ? { status: 'forbidden', message: '本步骤暂不能处理' } : { status: 'success' }; if (!state.refused) state.detail.canApproveCurrentStep = false; }
+    if (name === 'listDirectApprovalStamps') result = body.stampId
+      ? { status: 'success', stamp: { id: 'stamp-1', imageData: mark } }
+      : { status: 'success', sources: [{ assignmentId: 'own-stamp-role', label: '有权盖章的岗位', stamps: [{ id: 'stamp-1', name: '测试印章' }] }] };
+    if (name === 'directApproveSubmission') {
+      state.detail.canDirectApprove = false;
+      state.detail.submission.status = 'approved';
+      result = { status: 'success' };
+    }
     await route.fulfill({ json: result });
   });
   await page.goto('/web/audit/submission/submission-1');
-  await expect(page.getByRole('button', { name: text.addInk }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: options.direct ? directCopy.directApproveAction : text.addInk }).first()).toBeVisible();
   return state;
 }
+
+test('超管直批逐步骤签署并使用本人有权使用的印章', async ({ page }) => {
+  const state = await setup(page, { direct: true });
+  await page.getByRole('button', { name: directCopy.directApproveAction, exact: true }).click();
+  await expect(page.getByText(/请先补齐/)).toBeVisible();
+  await enter(page);
+  await stroke(page);
+  await page.getByRole('button', { name: signingConfirmation, exact: true }).click();
+  await expect(page).toHaveURL(/directStep=/);
+  await page.getByRole('button', { name: directCopy.directApproveAction, exact: true }).click();
+  await expect(page.getByText(/请先补齐.*复核章/)).toBeVisible();
+  await page.getByRole('button', { name: text.stamp, exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: /测试印章/ }).click();
+  await expect(page.getByRole('button', { name: signingConfirmation, exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: signingConfirmation, exact: true }).click();
+  await page.getByRole('button', { name: directCopy.directApproveAction, exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: directCopy.directApproveAction, exact: true }).click();
+  await expect.poll(() => state.calls.filter(item => item.name === 'directApproveSubmission').length).toBe(1);
+  const stored = state.calls.find(item => item.name === 'directApproveSubmission').body;
+  expect(stored.stepMaterials.map(step => step.signatures[0].signatureType)).toEqual(['signature', 'stamp']);
+  expect(stored.stampAssignmentId).toBe('own-stamp-role');
+  await expect(page.getByRole('button', { name: directCopy.directApproveAction, exact: true })).toHaveCount(0);
+});
 async function enter(page, index = 0) {
   await page.getByRole('button', { name: text.addInk, exact: true }).nth(index).click();
   await expect(page).toHaveURL(/audit\/signing$/);

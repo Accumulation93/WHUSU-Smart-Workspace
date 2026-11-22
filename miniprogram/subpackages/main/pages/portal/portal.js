@@ -7,7 +7,7 @@ const orgSession = require('../../../../utils/orgSession');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const adminPermissions = require('../../../../utils/adminPermissions');
 const { readCurrentAuthorizationAccess } = require('../../../../utils/authorizationAccess');
-const { canOpenAuthorization, canOpenConfigurationCopy } = require('../../../../utils/authorizationEntryView');
+const { canOpenAuthorization, canOpenConfigurationCopy, domainAccess, cardMatches } = require('../../../../utils/authorizationEntryView');
 const authorizationCopy = require('../../../../locales/zh-CN/authorization');
 const authContext = require('../../../../utils/authContext');
 const identityCardCopy = require('../../../../locales/zh-CN/identityCard');
@@ -74,8 +74,25 @@ const PORTAL_CARDS_ADMIN = [
   { key: 'permissions', label: copy.cards.permissions, iconName: 'shield', url: '/subpackages/org/pages/authorization/authorization', disabled: false }
 ];
 
+function unifiedPortalCards(access) {
+  return PORTAL_CARDS_USER.concat(PORTAL_CARDS_ADMIN.filter(card => card.key === 'system')).reduce((cards, card) => {
+    const permissions = domainAccess(access, card.key);
+    if (!permissions.business && !permissions.management) return cards;
+    let entry = card;
+    if (card.key === 'venue') entry = Object.assign({}, card, { label: copy.cards.venue, searchAliases: [copy.cards.venueBooking, copy.cards.venueManage] });
+    if (card.key === 'audit') entry = Object.assign({}, card, { searchAliases: [copy.cards.auditVerification] });
+    if (!permissions.business && permissions.management && card.key !== 'system') {
+      entry = Object.assign({}, entry, { url: entry.url + (entry.url.includes('?') ? '&' : '?') + 'area=management' });
+    }
+    cards.push(entry);
+    return cards;
+  }, []);
+}
+
 function getDisplayWorkContext(user, activeRole) {
   if (!user) return copy.workContext.signedOut;
+  if (user.accountType === 'super_admin') return copy.workContext.superAdmin;
+  if (user.accountType === 'user') return user.assignmentLabel || user.identity || copy.workContext.user;
   if (activeRole === 'admin') {
     return user.adminLevel === 'super_admin' ? copy.workContext.superAdmin : copy.workContext.admin;
   }
@@ -258,6 +275,7 @@ Page({
     if (organizationState.changed) {
       this._authorizationEntryAllowed = false;
       this._copyEntryAllowed = false;
+      this._modernAccess = null;
       this._todoFingerprint = ''; this._notificationFingerprint = '';
       this._messageOverviewLoading = false;
       orgSession.invalidateRequests(this);
@@ -283,7 +301,9 @@ Page({
     }
     const currentUserState = this.refreshCurrentUser();
     this.refreshAuthorizationEntry();
-    if (!currentUserState.hasUser) this.restoreCurrentUser(activeSession);
+    if (!currentUserState.hasUser || currentUserState.isAdminRole && currentUserState.user.identityModel !== 'unified') {
+      this.restoreCurrentUser(activeSession);
+    }
     if (currentUserState.isAdminRole) this.refreshAdminPermissionState();
     this.loadOrganizationName();
     if (currentUserState.hasUser) {
@@ -383,8 +403,10 @@ Page({
     const activeSession = orgSession.getSnapshot();
     const activeRole = activeSession.role || '';
     const user = activeRole ? authContext.getRuntimeProfile(activeRole) : null;
-    const isAdminRole = activeRole === 'admin';
-    const portalCards = isAdminRole ? adminPermissions.filterPortalCards(PORTAL_CARDS_ADMIN, user) : PORTAL_CARDS_USER.slice();
+    const isAdminRole = activeRole === 'admin' && !!user && (!user.accountType || user.accountType === 'super_admin');
+    const modern = user && user.identityModel === 'unified';
+    const portalCards = modern ? unifiedPortalCards(this._modernAccess)
+      : isAdminRole ? adminPermissions.filterPortalCards(PORTAL_CARDS_ADMIN, user) : PORTAL_CARDS_USER.slice();
     if (this._authorizationEntryAllowed && !portalCards.some(card => card.key === 'permissions')) {
       portalCards.push(PORTAL_CARDS_ADMIN.find(card => card.key === 'permissions'));
     }
@@ -409,8 +431,16 @@ Page({
 
   async restoreCurrentUser(expectedSession) {
     try {
-      await authContext.refreshCatalog();
+      const catalog = await authContext.refreshCatalog();
       if (!orgSession.isCurrent(expectedSession)) return;
+      if (catalog.needsContextSelection) {
+        this._modernAccess = null;
+        this._copyEntryAllowed = false;
+        this._authorizationEntryAllowed = false;
+        this.setData({ user: null, hasUser: false, portalCards: [], filteredPortalCards: [], todos: [], notifications: [] });
+        navigateToTrustedRoute('/subpackages/org/pages/identitySwitch/identitySwitch');
+        return;
+      }
       const restored = this.refreshCurrentUser();
       if (restored.isAdminRole) await this.refreshAdminPermissionState();
       if (restored.hasUser) {
@@ -436,12 +466,14 @@ Page({
   async refreshAuthorizationEntry() {
     this._authorizationEntryAllowed = false;
     this._copyEntryAllowed = false;
+    this._modernAccess = null;
     this.refreshCurrentUser();
     const request = orgSession.beginRequest(this, 'portalAuthorization');
     try {
       const access = await readCurrentAuthorizationAccess();
       if (!this._isPageVisible || !orgSession.isRequestCurrent(this, request) || !access) return;
       this._copyEntryAllowed = canOpenConfigurationCopy(access);
+      this._modernAccess = access;
       this._authorizationEntryAllowed = canOpenAuthorization(access);
       this.refreshCurrentUser();
     } catch (_) {}
@@ -583,10 +615,7 @@ Page({
       this.setData({ filteredPortalCards: cards });
       return;
     }
-    const filtered = cards.filter(function(c) {
-      const label = (c.label || '').toLowerCase();
-      return label.indexOf(keyword) >= 0;
-    });
+    const filtered = cards.filter(card => cardMatches(card, keyword));
     this.setData({ filteredPortalCards: filtered });
   },
 

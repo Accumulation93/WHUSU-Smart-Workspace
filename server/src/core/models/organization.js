@@ -2,16 +2,20 @@ const pool = require('../../config/db');
 const assignmentNature = require('./assignmentNature');
 const { assignmentNatureLabels } = require('../../locales/zh-CN/adminPersonnel');
 
-async function authorizeGovernance(connection, reference, action) {
+async function authorizeGovernance(connection, reference, action, targetId = reference?.organizationId) {
   if (!reference) return;
   const { authorizationError } = require('../services/authorizationError');
   const actor = await require('./authorizationIdentity').loadActor(connection, reference, true);
-  if (!actor || actor.role !== 'admin' || (action !== 'read' && !actor.isSuper)) throw authorizationError('authorization_forbidden');
+  if (!actor || (actor.role !== 'admin' && actor.unifiedAuthorization !== true)
+    || (!actor.isSuper && (targetId !== actor.organizationId || (action !== 'read' && !(action === 'update' && actor.unifiedAuthorization === true))))) {
+    throw authorizationError('authorization_forbidden');
+  }
   const session = await require('../services/authorizationSession').createAuthorizationSession(connection, reference, { lock: true });
   const decision = session.check({ capability: 'system.organizations.' + action,
     resource: { id: reference.organizationId, organizationId: reference.organizationId, type: 'system.organizations' },
     businessAllowed: true, legacyAllowed: true });
   if (!decision.allowed) throw authorizationError('authorization_forbidden');
+  return actor;
 }
 
 async function findDependencies(connection, organizationId) {
@@ -56,8 +60,10 @@ async function removeEmpty(id, authorize) {
 
 async function getAll(reference) {
   return pool.withTransaction(async connection => {
-    await authorizeGovernance(connection, reference, 'read');
-    const [rows] = await connection.query('SELECT * FROM organizations ORDER BY created_at DESC');
+    const actor = await authorizeGovernance(connection, reference, 'read');
+    const [rows] = actor?.unifiedAuthorization && !actor.isSuper
+      ? await connection.query('SELECT * FROM organizations WHERE id = ?', [actor.organizationId])
+      : await connection.query('SELECT * FROM organizations ORDER BY created_at DESC');
     return rows;
   });
 }
@@ -80,7 +86,7 @@ async function create(id, name, reference) {
 
 async function update(id, name, reference) {
   return pool.withTransaction(async connection => {
-    await authorizeGovernance(connection, reference, 'update');
+    await authorizeGovernance(connection, reference, 'update', id);
     const [result] = await connection.query('UPDATE organizations SET name = ? WHERE id = ?', [name, id]);
     return result.affectedRows === 1;
   });

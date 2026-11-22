@@ -71,8 +71,8 @@ const messageTemplate = fs.readFileSync(
   path.join(projectRoot, 'miniprogram/subpackages/message/pages/messageCenter/messageCenter.wxml'),
   'utf8'
 );
-assert.match(workspaceTemplate, /tone="\{\{isAdminRole \? 'admin' : 'blue'\}\}"/,
-  '业务工作台 Hero 必须按当前角色切换主题');
+assert.match(workspaceTemplate, /<workspace-hero\b[^>]*\btone="\{\{heroTone \|\| 'blue'\}\}"/,
+  '业务工作台 Hero 主题应独立于管理页签的旧版路由条件');
 assert.match(messageTemplate, /tone="\{\{isAdminRole \? 'admin' : 'blue'\}\}"/,
   '消息中心 Hero 必须按当前角色切换主题');
 

@@ -1,7 +1,7 @@
 <template>
   <div class="page stack">
     <WorkspaceHero
-      :page-name="copy.venue.title"
+      :page-name="session.identityModel === 'unified' ? portalCopy.cards.venue : copy.venue.title"
       :person-name="displayName"
       :identity-name="roleLine"
       :organization-name="orgName"
@@ -50,6 +50,7 @@ import VenueScheduleDialog from '@/components/VenueScheduleDialog.vue';
 import VenueNav from '@/components/VenueNav.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import AuthorizedManagementTabs from '@/components/AuthorizedManagementTabs.vue';
+import portalCopy from '@/locales/zh-CN/shared/portal.js';
 import copy from '@/locales/zh-CN/index.js';
 import venueCopy from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';

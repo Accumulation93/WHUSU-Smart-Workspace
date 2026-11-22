@@ -9,6 +9,10 @@ function candidateActor(candidate, organizationId, role) {
   else actor.assignment = { id: candidate.assignmentId, active: true, organizationId,
     personId: candidate.personId, natureId: candidate.natureId, departmentId: candidate.departmentId,
     identityCategoryId: candidate.identityCategoryId, workGroupId: candidate.workGroupId };
+  if (candidate.unifiedAuthorization === true) {
+    actor.unifiedAuthorization = true;
+    actor.legacyAdminGrantIds = candidate.legacyAdminGrantIds;
+  }
   return actor;
 }
 
@@ -50,27 +54,33 @@ function describeRuleImpact(before, after, directory, organizationId) {
     roleCount: impacts.length, roles: impacts, before, after };
 }
 
-// 委托改变的是继续分配权限的资格，不撤销此前已经发布的业务授权。
 function describeDelegationImpact(before, after, directory, organizationId) {
   function contributionFor(delegation, actor) {
     if (!delegation || !delegation.enabled || delegation.organizationId !== organizationId
       || !delegation.envelope.enabled
       || !delegation.subjects.some(subject => subjectMatches(subject, actor))) return null;
-    return delegation.envelope;
+    return delegation.allowRedelegation === undefined ? delegation.envelope
+      : { ...delegation.envelope, allowRedelegation: delegation.allowRedelegation };
   }
   const roles = [];
   const seen = new Set();
-  for (const candidate of directory.adminGrants) {
-    if (seen.has(candidate.adminGrantId)) continue;
-    seen.add(candidate.adminGrantId);
-    const actor = candidateActor(candidate, organizationId, 'admin');
+  function inspect(candidate, role) {
+    const id = role === 'admin' ? candidate.adminGrantId : candidate.assignmentId;
+    const key = role + ':' + id;
+    if (seen.has(key)) return;
+    seen.add(key);
+    const actor = candidateActor(candidate, organizationId, role);
     const previous = contributionFor(before, actor);
     const next = contributionFor(after, actor);
-    if (canonical(previous) === canonical(next)) continue;
-    roles.push({ role: 'admin', subjectId: candidate.adminGrantId, personId: candidate.personId,
-      name: candidate.name, before: previous, after: next });
+    if (canonical(previous) === canonical(next)) return;
+    roles.push({ role, subjectId: id, personId: candidate.personId,
+      name: candidate.name, natureName: candidate.natureName || '', departmentName: candidate.departmentName || '',
+      identityCategoryName: candidate.identityCategoryName || '', workGroupName: candidate.workGroupName || '',
+      before: previous, after: next });
   }
-  return { kind: 'delegation_bounds', existingRulesUnchanged: true,
+  directory.assignments.forEach(candidate => inspect(candidate, 'user'));
+  directory.adminGrants.forEach(candidate => inspect(candidate, 'admin'));
+  return { kind: 'delegation_bounds', existingRulesUnchanged: before?.allowRedelegation === undefined && after?.allowRedelegation === undefined,
     peopleCount: new Set(roles.map(item => item.personId)).size, roleCount: roles.length, roles, before, after };
 }
 

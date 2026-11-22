@@ -20,6 +20,7 @@ const { verifySubmissionFiles, verifyUnmatchedUpload } = require('../services/si
 const signingCopy = require('../../../locales/zh-CN/auditSigningEvidence');
 const { equalHex, decodeBase64 } = require('../utils/signingProtocol');
 const { inspectAuditImageData } = require('../utils/auditImageData');
+const directApprovalActor = require('../services/directApprovalActor');
 
 const MAX_SIGNATURE_NAME_CHARS = 100;
 
@@ -75,6 +76,18 @@ async function resolveVerificationAccess(req) {
 }
 
 async function withLockedSignatureOwner(req, callback) {
+  if (req.authContext?.role === 'admin' && req.authContext.adminLevel === 'super_admin') {
+    try {
+      const orgId = await getCurrentOrgId();
+      return await pool.withTransaction(async connection => {
+        const actor = await directApprovalActor.resolve(req, connection, orgId);
+        return callback(connection, { hrId: actor.assignmentId, orgId });
+      });
+    } catch (error) {
+      if (error.code === 'authorization_forbidden') return { forbidden: true };
+      throw error;
+    }
+  }
   const actorResult = await resolveCurrentActor(req);
   if (!actorResult.ok || actorResult.actor.type !== 'user') return { forbidden: true };
   return pool.withTransaction(async (connection) => {
@@ -103,15 +116,18 @@ function signatureOwnerForbidden(res) {
 // listMySignatures
 router.post('/listMySignatures', async (req, res) => {
   try {
-    const actorResult = await resolveCurrentActor(req);
-    if (!actorResult.ok || actorResult.actor.type !== 'user') {
-      return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
+    const orgId = await getCurrentOrgId();
+    let ownerId;
+    if (req.authContext?.role === 'admin' && req.authContext.adminLevel === 'super_admin') {
+      ownerId = (await directApprovalActor.resolve(req, pool, orgId, false)).assignmentId;
+    } else {
+      const actorResult = await resolveCurrentActor(req);
+      if (!actorResult.ok || actorResult.actor.type !== 'user') return signatureOwnerForbidden(res);
+      const assignment = await resolveActorAssignment(actorResult.actor, orgId);
+      if (!assignment) return signatureOwnerForbidden(res);
+      ownerId = assignment.hr_id;
     }
-    const assignment = await resolveActorAssignment(actorResult.actor, await getCurrentOrgId());
-    if (!assignment) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
-    const hrId = assignment.hr_id;
-
-    const signatures = await signatureTemplateModel.getByHrId(hrId);
+    const signatures = await signatureTemplateModel.getByHrId(ownerId);
     const result = signatures.map((s) => ({
       id: safeString(s.id),
       name: safeString(s.name),
@@ -122,6 +138,7 @@ router.post('/listMySignatures', async (req, res) => {
 
     res.json({ status: 'success', signatures: result });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return signatureOwnerForbidden(res);
     console.error('[audit:signature:list] failed:', e);
     res.json({ status: 'error', message: localeCopy.signatureOperationFailed });
   }

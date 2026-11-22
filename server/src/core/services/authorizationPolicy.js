@@ -70,7 +70,7 @@ function normalizeScope(value, path) {
     if (own(value, 'ids') || own(value, 'dimensions')) invalid(path);
     return { kind: value.kind };
   }
-  if (value.kind === 'records') {
+  if (value.kind === 'records' || value.kind === 'people') {
     if (own(value, 'dimensions')) invalid(path);
     return { kind: value.kind, ids: values(value.ids, path + '.ids') };
   }
@@ -112,7 +112,8 @@ function normalizePolicy(value, catalog) {
     const definition = catalog.get(capability);
     if (!definition) invalid('capabilities');
     if (result.scopes.some(scope => !definition.scopes.includes(scope.kind))) invalid('scopes');
-    if (result.subjects.some(subject => subject.kind !== 'adminGrants') && definition.governance) invalid('subjects');
+    if ((definition.systemControlled || definition.governance && definition.classification !== 'general')
+      && result.subjects.some(subject => subject.kind !== 'adminGrants')) invalid('subjects');
     if (result.fields && result.fields.some(field => !definition.fields.includes(field)
       && !(definition.profileFieldKeys && profileFieldKey(field)))) invalid('fields');
   }
@@ -134,10 +135,12 @@ function dimensionsMatch(conditions, assignment, viewerAssignment) {
 
 function subjectMatches(subject, actor) {
   if (subject.kind === 'adminGrants') {
-    return actor.role === 'admin' && subject.ids.includes(actor.adminGrantId);
+    return (actor.role === 'admin' && subject.ids.includes(actor.adminGrantId))
+      || (actor.unifiedAuthorization === true && Array.isArray(actor.legacyAdminGrantIds)
+        && actor.legacyAdminGrantIds.some(id => subject.ids.includes(id)));
   }
   const assignment = actor.assignment;
-  if (actor.role !== 'user' || !assignment || assignment.active !== true
+  if ((actor.role !== 'user' && actor.unifiedAuthorization !== true) || !assignment || assignment.active !== true
     || assignment.organizationId !== actor.organizationId || assignment.personId !== actor.personId) return false;
   return subject.kind === 'assignments' ? subject.ids.includes(assignment.id)
     : dimensionsMatch(subject.dimensions, assignment, null);
@@ -146,6 +149,7 @@ function subjectMatches(subject, actor) {
 function scopeMatches(scope, actor, resource, effect) {
   if (scope.kind === 'organization') return true;
   if (scope.kind === 'records') return scope.ids.includes(resource.id);
+  if (scope.kind === 'people') return Boolean(resource.ownerPersonId && scope.ids.includes(resource.ownerPersonId));
   if (scope.kind === 'self') return Boolean(resource.ownerPersonId && resource.ownerPersonId === actor.personId);
   if (resource.assignment && resource.assignment.configurationStatus === 'pending' && effect !== 'deny') return false;
   // 一次只判断资源当前这条岗位；不能在多个岗位之间拼接条件，也不能扩散字段授权。
@@ -155,6 +159,17 @@ function scopeMatches(scope, actor, resource, effect) {
 
 function denied(reason) {
   return { allowed: false, reason, fields: [], matchedAllowIds: [], matchedDenyIds: [] };
+}
+
+function isTrustedSuper(actor) {
+  return Boolean(actor && actor.role === 'admin' && actor.isSuper === true && actor.adminGrantId);
+}
+
+function restrictionFor(actor, definition) {
+  if (actor.unifiedAuthorization === true) {
+    return definition.classification === 'special' && !isTrustedSuper(actor) ? 'special_permission_required' : '';
+  }
+  return definition.governance && actor.role !== 'admin' ? 'governance_role_required' : '';
 }
 
 function preparePolicies(policies, catalog) {
@@ -178,9 +193,11 @@ function evaluate({ actor, resource, capability, policies, prepared, catalog, no
   if (!Array.isArray(requestedFields) || requestedFields.some(field => typeof field !== 'string'
     || !definition.fields.includes(field))) return denied('unknown_field');
   if (businessAllowed !== true) return denied('business_requirement');
-  if (definition.governance && actor.role !== 'admin') return denied('governance_role_required');
-  const fields = definition.fields.filter(field => !definition.adminOnlyFields.includes(field) || actor.role === 'admin');
-  if (actor.role === 'admin' && actor.isSuper === true && actor.adminGrantId) {
+  const restriction = restrictionFor(actor, definition);
+  if (restriction) return denied(restriction);
+  const fields = definition.fields.filter(field => actor.unifiedAuthorization === true
+    || !definition.adminOnlyFields.includes(field) || actor.role === 'admin');
+  if (isTrustedSuper(actor)) {
     return { allowed: true, reason: 'super_admin', fields, matchedAllowIds: [], matchedDenyIds: [] };
   }
   const compilation = prepared ? preparedSets.get(prepared) : preparedSets.get(preparePolicies(policies, catalog));
@@ -203,7 +220,10 @@ function evaluate({ actor, resource, capability, policies, prepared, catalog, no
   const relationshipGranted = businessGranted === true && Array.isArray(definition.businessRoles)
     && definition.businessRoles.includes(actor.role);
   const fullDeny = denies.some(policy => policy.fields === null);
-  const allowedFields = fields.filter(field => (relationshipGranted || allows.some(policy => policy.fields === null || policy.fields.includes(field)))
+  const explicitField = field => actor.unifiedAuthorization === true && definition.requiresExplicitFields?.includes(field);
+  const hasLegacyAdminSubject = policy => policy.subjects.some(subject => subject.kind === 'adminGrants' && subjectMatches(subject, actor));
+  const allowedFields = fields.filter(field => ((relationshipGranted && !explicitField(field)) || allows.some(policy =>
+    policy.fields === null ? !explicitField(field) || hasLegacyAdminSubject(policy) : policy.fields.includes(field)))
     && !denies.some(policy => policy.fields === null || policy.fields.includes(field)));
   const forbiddenFields = requestedFields.some(field => !allowedFields.includes(field));
   return {
@@ -231,13 +251,18 @@ function clauseSubset(child, parent, isSubject) {
   return true;
 }
 
-function canDelegate(policyInput, envelopeInput, catalog) {
+function subjectsWithin(subjects, parent) {
+  return subjects.every(subject => parent.some(clause => clauseSubset(subject, clause, true)));
+}
+
+function canDelegate(policyInput, envelopeInput, catalog, options = {}) {
   try {
     const policy = normalizePolicy(policyInput, catalog);
     const envelope = normalizePolicy(envelopeInput, catalog);
     if (policy.organizationId !== envelope.organizationId || !envelope.enabled || envelope.effect !== 'allow') return false;
-    if (policy.capabilities.some(key => !envelope.capabilities.includes(key) || catalog.get(key).delegation)) return false;
-    if (policy.subjects.some(subject => !envelope.subjects.some(parent => clauseSubset(subject, parent, true)))) return false;
+    if (policy.capabilities.some(key => !envelope.capabilities.includes(key)
+      || catalog.get(key).delegation || (options.unified === true && catalog.get(key).classification === 'special'))) return false;
+    if (!subjectsWithin(policy.subjects, envelope.subjects)) return false;
     if (policy.scopes.some(scope => !envelope.scopes.some(parent => clauseSubset(scope, parent, false)))) return false;
     if (envelope.fields && (!policy.fields || policy.fields.some(field => !envelope.fields.includes(field)))) return false;
     if (envelope.startsAt && (!policy.startsAt || policy.startsAt < envelope.startsAt)) return false;
@@ -257,4 +282,4 @@ function projectFields(record, decision) {
   return result;
 }
 
-module.exports = { DIMENSIONS, normalizePolicy, normalizeSubjects, preparePolicies, evaluate, canDelegate, projectFields, subjectMatches, scopeMatches };
+module.exports = { DIMENSIONS, normalizePolicy, normalizeSubjects, preparePolicies, evaluate, canDelegate, projectFields, subjectMatches, subjectsWithin, scopeMatches, isTrustedSuper, restrictionFor };

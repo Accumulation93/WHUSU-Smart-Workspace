@@ -68,17 +68,19 @@ test('人事详情与导出都能看到补充资料最后一次提交与当前�
   assert.match(hrBehavior, /source: 'auditStatus'/);
 });
 
-test('账号高危控件只由全局账号治理权限控制', () => {
+test('成员账号控件按行使用各自权限，缺少细分资料时兼容旧权限', () => {
   assert.doesNotMatch(wxml, /wx:if="\{\{canRecoverAccounts && detailHrGovernance/);
-  assert.match(wxml, /canGlobalAccountManage && detailHrGovernance\.canIssueRecovery/);
-  assert.match(wxml, /canGlobalAccountManage && detailHrGovernance\.personId/);
-  assert.match(authBehavior, /async toggleAuthAccountFrozen\(e\) \{\s+if \(!this\.data\.canGlobalAccountManage\) return;/);
-  assert.match(hrBehavior, /async unbindHrWechat\(e\) \{\s+if \(!this\.data\.canGlobalAccountManage\) return;/);
+  assert.match(wxml, /detailHrGovernance\.accountOperations\.freeze : canGlobalAccountManage/);
+  assert.match(wxml, /wx:if="\{\{detailHrGovernance\.canIssueRecovery\}\}"[^>]*catchtap="issueHrMemberRecoveryCode"/);
+  assert.match(wxml, /wx:if="\{\{detailHrGovernance\.canUnbindWechat\}\}"[^>]*catchtap="requestHrWechatUnbind"/);
+  assert.match(authBehavior, /async toggleAuthAccountFrozen\(e\) \{\s+if \(!this\.canOperateHrAccount\('freeze'\)\) return;/);
+  assert.match(hrBehavior, /async unbindHrWechat\(e\) \{\s+if \(!this\.canOperateHrAccount\('unbindWechat'\)\) return;/);
 });
 
 test('无账号成员可初始化口令且保存表单使用标准详情按钮规格', () => {
-  assert.match(hrBehavior, /canGlobalAccountManage && governance\.personId/);
-  assert.doesNotMatch(hrBehavior, /canGlobalAccountManage && governance\.personId && governance\.accountId/);
+  assert.match(hrBehavior, /!isFormer && this\.canLoadHrAccountSecurity\(governance\)/);
+  assert.match(authBehavior, /canLoadHrAccountSecurity\(row\) \{\s+if \(!row \|\| !row\.personId\) return false;/);
+  assert.match(authBehavior, /canLoadHrAccountSecurity\(row\)[\s\S]*?operations \? \[[^\]]*'resetPassphrase'/);
   const formStart = wxml.indexOf('class="hr-account-security-form"');
   const formEnd = wxml.indexOf('<view class="hr-account-devices"', formStart);
   assert.ok(formStart >= 0 && formEnd > formStart);
@@ -86,6 +88,7 @@ test('无账号成员可初始化口令且保存表单使用标准详情按钮�
   assert.match(form, /button-row hr-account-security-form-actions/);
   assert.match(form, /localeCopy\.savePassphrase/);
   assert.doesNotMatch(form, /compact-action/);
+  assert.match(authBehavior, /authMemberConfirmMessage: governanceCopy\.resetPassphraseConfirmation/);
   assert.match(authBehavior, /'detailHrSecurity\.accountExists': true/);
   assert.match(authBehavior, /'detailHrGovernance\.accountId': String\(result\.accountId/);
 });
@@ -96,7 +99,7 @@ test('认证码和恢复码撤销冻结目标并统一经过受控确认', () =>
   assert.match(authBehavior, /_authMemberConfirmPayload = Object\.freeze\(\{/);
   assert.match(authBehavior, /revokeHrMemberVerificationCode\(e\) \{\s+if \(!this\.data\.canVerifyIdentity\) return;/);
   assert.match(authBehavior, /revokeSelectedHrVerificationCodes\(\) \{\s+if \(!this\.data\.canVerifyIdentity\) return;/);
-  assert.match(authBehavior, /revokeHrMemberRecoveryCode\(e\) \{\s+if \(!this\.data\.canGlobalAccountManage\) return;/);
+  assert.match(authBehavior, /revokeHrMemberRecoveryCode\(e\) \{\s+if \(!this\.canOperateHrAccount\('manageRecoveryCode'\)\) return;/);
   assert.match(authBehavior, /revokeSelectedHrRecoveryCodes\(\) \{\s+if \(!this\.data\.canGlobalAccountManage\) return;/);
   assert.match(authBehavior, /_openCredentialRevokeConfirm\('verification', \[row\], false\)/);
   assert.match(authBehavior, /_openCredentialRevokeConfirm\('verification', rows, true\)/);
@@ -104,9 +107,9 @@ test('认证码和恢复码撤销冻结目标并统一经过受控确认', () =>
   assert.match(authBehavior, /_openCredentialRevokeConfirm\('recovery', rows, true\)/);
   assert.match(authBehavior, /closeAuthMemberConfirm\(\) \{[\s\S]*this\._authMemberConfirmPayload = null;/);
   assert.match(authBehavior, /action === 'verification-code-revoke'[\s\S]*!this\.data\.canVerifyIdentity/);
-  assert.match(authBehavior, /action === 'recovery-code-revoke'[\s\S]*!this\.data\.canGlobalAccountManage/);
+  assert.match(authBehavior, /action === 'recovery-code-revoke'[\s\S]*?payload\.isBatch \? this\.data\.canGlobalAccountManage : this\.canOperateHrAccount\('manageRecoveryCode'\)/);
   assert.match(authBehavior, /async _revokeHrVerificationTargets\(targets, isBatch\) \{\s+if \(!this\.data\.canVerifyIdentity/);
-  assert.match(authBehavior, /async _revokeHrRecoveryTargets\(targets, isBatch\) \{\s+if \(!this\.data\.canGlobalAccountManage/);
+  assert.match(authBehavior, /async _revokeHrRecoveryTargets\(targets, isBatch\) \{\s+if \(!\(isBatch \? this\.data\.canGlobalAccountManage : this\.canOperateHrAccount\('manageRecoveryCode'\)\)/);
   const openStart = authBehavior.indexOf('_openCredentialRevokeConfirm(kind, rows, isBatch)');
   const executeStart = authBehavior.indexOf('async _revokeHrVerificationTargets', openStart);
   const closeStart = authBehavior.indexOf('closeAuthMemberConfirm()');
@@ -248,7 +251,15 @@ test('认证治理降级目录可进入详情并构造完整岗位元组', () =>
   assert.match(hrBehavior, /canOpenGovernanceDetail = this\.data\.canReadAuthGovernance/);
   assert.match(hrBehavior, /if \(!hrId \|\| \(!this\.data\.canBrowseHrInfo && !canOpenGovernanceDetail\)\) return;/);
   assert.match(wxml, /canBrowseHrInfo \|\| canReadAuthGovernance/);
-  assert.match(adminJs, /canReadAuthGovernance: allowed\(\['auth\.identity\.verify', 'auth\.accounts\.recover', 'auth\.accounts\.global_manage'\], \['auth\.identity\.read', 'auth\.identity\.verify', 'auth\.recovery\.read', 'auth\.recovery\.update', 'auth\.accounts\.read', 'auth\.accounts\.update'\]\)/);
+  const governanceMatch = adminJs.match(/canReadAuthGovernance: allowed\(([^)]+)\)/);
+  assert.ok(governanceMatch);
+  const readGovernance = governanceMatch[1];
+  for (const key of ['auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage', 'auth.identity.read',
+    'auth.recovery.read', 'auth.recovery.update', 'auth.accounts.read', 'auth.accounts.update', 'auth.accounts.freeze',
+    'auth.accounts.unbindWechat', 'auth.accounts.resetPassphrase', 'auth.accounts.revokePassphrase',
+    'auth.accounts.revokeSession', 'auth.accounts.manageRecoveryCode', 'auth.accounts.approveRecovery']) {
+    assert.ok(readGovernance.includes("'" + key + "'"), key);
+  }
   assert.match(adminJs, /else if \(this\.data\.canReadAuthGovernance\)/);
 });
 

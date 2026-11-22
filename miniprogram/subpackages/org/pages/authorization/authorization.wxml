@@ -12,7 +12,7 @@
 <view class="permission-page authorization-page" style="min-height: calc(100vh - {{navTopPx}}px)">
   <workspace-hero class="workspace-hero-host" app-name="{{ui.appName}}" page-name="{{ui.title}}" tone="{{heroTone}}" />
   <view class="authorization-tabs">
-    <button wx:for="{{tabs}}" wx:key="*this" class="secondary-btn ui-motion-button authorization-tab {{tab === item ? 'authorization-tab-active' : ''}}" data-tab="{{item}}" bindtap="switchTab" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui[item]}}</button>
+    <button wx:for="{{tabs}}" wx:key="*this" class="secondary-btn ui-motion-button authorization-tab {{tab === item ? 'authorization-tab-active' : ''}}" data-tab="{{item}}" bindtap="switchTab" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{unified && ui.unified[item] || ui[item]}}</button>
   </view>
   <view wx:if="{{previewOnly}}" class="permission-empty">{{ui.previewOnly}}</view>
   <app-loading wx:if="{{loading}}" text="{{ui.loading}}" />
@@ -97,6 +97,13 @@
       </block>
     </block>
     <block wx:elif="{{tab === 'schemes'}}">
+      <view wx:if="{{unified && basicCapabilities.length}}" class="permission-card authorization-section">
+        <view class="permission-section-title">{{ui.unified.permissionBasicRole}}</view>
+        <view wx:for="{{basicCapabilities}}" wx:key="key" class="authorization-head">
+          <view class="authorization-label">{{item.label}}</view>
+          <switch aria-label="{{item.label}}" color="#3b82f6" checked="{{item.enabled}}" disabled="{{basicBusy || !isSuper}}" data-key="{{item.key}}" bindchange="setBasicCapability" />
+        </view>
+      </view>
       <view class="permission-admin-meta">{{ui.schemeLifecycleHelp}}</view>
       <view wx:if="{{!schemes.length}}" class="permission-empty">{{ui.noSchemes}}</view>
       <view wx:for="{{schemes}}" wx:key="id" class="permission-card authorization-body">
@@ -113,11 +120,11 @@
       <view class="permission-card authorization-toolbar">
         <view class="permission-section-head"><view class="permission-section-title">{{inspectionLabel}}</view><button class="secondary-btn ui-motion-button" disabled="{{inspecting}}" bindtap="inspect" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.refresh}}</button></view>
         <view class="permission-section-title">{{inspectingOther ? ui.effective : ui.ownPermissions}}</view>
-        <view wx:if="{{!inspectingOther}}" class="permission-admin-meta">{{ui.ownPermissionsHelp}}</view>
+        <view wx:if="{{!inspectingOther}}" class="permission-admin-meta">{{unified ? ui.unified.ownPermissionsHelp : ui.ownPermissionsHelp}}</view>
         <view wx:if="{{canInspectOthers}}" class="authorization-label">{{ui.inspectOthers}}</view>
         <view wx:if="{{canInspectOthers}}" class="authorization-actions">
           <button class="secondary-btn ui-motion-button" disabled="{{candidateLoading}}" data-role="user" bindtap="openInspection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.inspectAssignment}}</button>
-          <button class="secondary-btn ui-motion-button" disabled="{{candidateLoading}}" data-role="admin" bindtap="openInspection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.inspectAdmin}}</button>
+          <button wx:if="{{!unified}}" class="secondary-btn ui-motion-button" disabled="{{candidateLoading}}" data-role="admin" bindtap="openInspection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.inspectAdmin}}</button>
         </view>
         <button class="secondary-btn ui-motion-button" bindtap="ownInspection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.ownRole}}</button>
         <app-loading wx:if="{{inspecting || candidateLoading}}" text="{{ui.loading}}" />
@@ -135,6 +142,7 @@
           <view wx:for="{{item.items}}" wx:for-item="entry" wx:key="capability" class="authorization-section">
             <view class="authorization-disclosure ui-motion-card" data-key="{{'operation:' + entry.capability}}" bindtap="toggleEffectiveGroup" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><view>{{entry.label}}</view><text class="authorization-status {{entry.grantState !== 'granted' ? 'authorization-status-warning' : ''}}">{{entry.statusText}}</text><ui-icon wx:if="{{entry.rules.length}}" name="chevron-right" sizeRole="row-leading" /></view>
             <block wx:if="{{effectiveExpanded['operation:' + entry.capability]}}">
+            <view wx:if="{{unified}}" class="authorization-chips"><text class="authorization-chip">{{entry.categoryLabel}}</text><text wx:if="{{entry.grantBasis === 'basic_role'}}" class="authorization-chip">{{ui.unified.permissionBasicRole}}</text></view>
             <view wx:for="{{entry.rules}}" wx:for-item="rule" wx:key="id" class="authorization-group authorization-section"><view class="authorization-label">{{rule.name}}</view>
               <view class="authorization-chip">{{rule.sections.effectText}}</view>
               <view class="authorization-label">{{ui.scopes}}</view><view wx:for="{{rule.sections.scopes}}" wx:for-item="scope" wx:key="key"><view>{{scope.label}}</view><view wx:for="{{scope.lines}}" wx:for-item="line" wx:key="key">{{line.label}} {{line.value}}</view></view>

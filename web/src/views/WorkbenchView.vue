@@ -81,7 +81,8 @@ import MessageRow from '@/components/MessageRow.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi, errorText } from '@/runtime/api.js';
-import { cardsForRole } from '@/runtime/modules.js';
+import { cardsForContext } from '@/runtime/modules.js';
+import { readCurrentAuthorizationAccess } from '@/runtime/authorizationAccess.js';
 import {
   MODULE_BUILDING_BODY,
   MODULE_BUILDING_TITLE,
@@ -100,7 +101,16 @@ const todoTotal = ref(0);
 const unreadCount = ref(0);
 const loadNotice = ref('');
 
-const cards = computed(() => cardsForRole(session.activeRole));
+const access = ref(null);
+const cards = computed(() => cardsForContext(session.activeRole, session.identityModel, access.value));
+watch([() => session.context, () => session.identityModel], async ([context, model]) => {
+  access.value = null;
+  if (model !== 'unified' || !context) return;
+  try {
+    const result = await readCurrentAuthorizationAccess();
+    if (session.context === context) access.value = result;
+  } catch (_) {}
+}, { immediate: true });
 
 const moduleKey = computed(() => String(route.query.subApp || ''));
 

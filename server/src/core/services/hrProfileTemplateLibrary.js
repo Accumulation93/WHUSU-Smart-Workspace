@@ -217,6 +217,12 @@ async function getActiveSnapshot(orgId, connection = pool) {
   };
 }
 
+async function linkTemplateOrganization(connection, operator, id) {
+  if (!operator.templateOrganizationId) return;
+  await connection.query('INSERT IGNORE INTO authorization_shared_template_organizations (org_id, template_id) VALUES (?, ?)',
+    [operator.templateOrganizationId, id]);
+}
+
 async function saveDefinition(data, operator, authorize) {
   const id = safeString(data.id);
   const name = safeString(data.name).trim();
@@ -253,6 +259,7 @@ async function saveDefinition(data, operator, authorize) {
            VALUES (?, ?, ?, ?, ?, ?)`,
           [templateId, name, description, editMode, operator.id, operator.id]
         );
+        await linkTemplateOrganization(connection, operator, templateId);
       }
       await insertDefinitionFields(connection, templateId, fields);
       return { status: 'success', id: templateId };
@@ -298,6 +305,7 @@ async function duplicateDefinition(templateId, operator, authorize) {
       maxValue: field.max_value,
       options: parseOptions(field.options_json)
     })));
+    await linkTemplateOrganization(connection, operator, newId);
     return { status: 'success', id: newId };
   });
 }
@@ -731,6 +739,7 @@ async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, con
       );
     }
     await connection.query('UPDATE hr_profile_records SET template_snapshot_id = ? WHERE org_id = ?', [snapshotId, orgId]);
+    await linkTemplateOrganization(connection, operator, targetTemplateId);
     return { status: 'success', snapshotId, summary: { movedValueCount, hiddenValueCount, deletedValueCount } };
   });
 }

@@ -61,7 +61,9 @@ function assignmentSnapshot(assignment, context) {
     identityCategoryId: safeString(assignment.identity_id),
     identityCategory: safeString(assignment.identity_name),
     workGroupId: safeString(assignment.work_group_id),
-    workGroup: safeString(assignment.work_group_name)
+    workGroup: safeString(assignment.work_group_name),
+    ...(assignment.system_role === 'super_admin' ? { systemRole: assignment.system_role,
+      name: safeString(assignment.name), adminGrantId: safeString(assignment.admin_grant_id) } : {})
   };
 }
 
@@ -109,12 +111,17 @@ async function listActiveAssignments(orgId, options, db) {
   let extraWhere = '';
   const normalizedOptions = options || {};
   const assignmentId = safeString(normalizedOptions.assignmentId);
+  const personId = safeString(normalizedOptions.personId);
   const hrIds = Array.isArray(normalizedOptions.hrIds)
     ? [...new Set(normalizedOptions.hrIds.map(safeString).filter(Boolean))]
     : [];
   if (assignmentId) {
     extraWhere += ' AND ma.id = ?';
     params.push(assignmentId);
+  }
+  if (personId) {
+    extraWhere += ' AND om.person_id = ?';
+    params.push(personId);
   }
   if (Array.isArray(normalizedOptions.assignmentIds)) {
     const ids = [...new Set(normalizedOptions.assignmentIds.map(safeString).filter(Boolean))];

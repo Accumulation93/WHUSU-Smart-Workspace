@@ -1,7 +1,7 @@
 <page-meta page-style="{{(showUserDesigPopup || managementDialogVisible ? 'overflow: hidden;' : '') + ' --kb-height: ' + managementKeyboardHeight + 'px; --ui-navbar-height: ' + navTopPx + 'px;'}}"></page-meta>
 <ui-navbar title="{{navigationTitle}}" />
 <view class="page" style="min-height: calc(100vh - {{navTopPx}}px)">
-  <workspace-hero class="workspace-hero-host" app-name="{{copy.appName}}" page-name="{{heroSubtitle || copy.defaultPageName}}" tone="{{isAdminRole ? 'admin' : 'blue'}}"></workspace-hero>
+  <workspace-hero class="workspace-hero-host" app-name="{{copy.appName}}" page-name="{{heroSubtitle || copy.defaultPageName}}" tone="{{heroTone || 'blue'}}"></workspace-hero>
 
   <view class="tabs-card workspace-tabs" style="--workspace-tabs-sticky-top: {{navStickyTopPx}}px" wx:if="{{hasUser && !isAdminRole}}">
     <view

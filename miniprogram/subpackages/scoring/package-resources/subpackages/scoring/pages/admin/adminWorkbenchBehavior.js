@@ -1090,7 +1090,12 @@ module.exports = Behavior({
       canApproveProfileMigration: allowed(['hr.people', 'hr.profile_review'], ['hr.profileMigration.approve']),
       canExecuteProfileMigration: allowed([], ['hr.profileMigration.execute']),
       canVerifyIdentity: allowed(['auth.identity.verify'], ['auth.identity.verify']),
-      canReadAuthGovernance: allowed(['auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage'], ['auth.identity.read', 'auth.identity.verify', 'auth.recovery.read', 'auth.recovery.update', 'auth.accounts.read', 'auth.accounts.update']),
+      canReadAuthGovernance: allowed(['auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage'], [
+        'auth.identity.read', 'auth.identity.verify', 'auth.recovery.read', 'auth.recovery.update',
+        'auth.accounts.read', 'auth.accounts.update', 'auth.accounts.freeze', 'auth.accounts.unbindWechat',
+        'auth.accounts.resetPassphrase', 'auth.accounts.revokePassphrase', 'auth.accounts.revokeSession',
+        'auth.accounts.manageRecoveryCode', 'auth.accounts.approveRecovery'
+      ]),
       canEditAuthPolicy: allowed(['auth.policy.manage'], ['auth.policy.update']),
       canRecoverAccounts: allowed(['auth.accounts.recover'], ['auth.recovery.update']),
       canGlobalAccountManage: allowed(['auth.accounts.global_manage'], ['auth.accounts.update']),

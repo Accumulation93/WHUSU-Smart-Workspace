@@ -15,9 +15,11 @@ async function begin(connection, reference) {
   function decision(action, target, fields = []) {
     const sameOrganization = target ? (target.org_id === actor.organizationId
       || (actor.isSuper && target.admin_level === 'super_admin' && target.org_id === '')) : true;
+    const mutable = !session.unifiedIdentity || ['read', 'export'].includes(action)
+      || (actor.isSuper && (!target || target.admin_level === 'super_admin'));
     return session.check({ capability: 'system.adminAccounts.' + action,
       resource: { id: target?.id || '', organizationId: actor.organizationId, type: 'system.adminAccounts' },
-      businessAllowed: sameOrganization, legacyAllowed: false, requestedFields: fields });
+      businessAllowed: sameOrganization && mutable, legacyAllowed: false, requestedFields: fields });
   }
   function requireAction(action, target, fields) {
     const result = decision(action, target, fields);

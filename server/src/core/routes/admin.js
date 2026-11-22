@@ -1,5 +1,6 @@
 const localeCopy = require('../../locales/zh-CN/generated/core/routes/admin');
 const accountCopy = require('../../locales/zh-CN/core/adminAccount');
+const permissionCopy = require('../../locales/zh-CN/authorization');
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../utils/helpers');
@@ -9,6 +10,7 @@ const pool = require('../../config/db');
 const unifiedIdentityModel = require('../models/unifiedIdentity');
 const personIdentityOverviewModel = require('../models/personIdentityOverview');
 const adminAccountAuthorization = require('../models/adminAccountAuthorization');
+const identityTransition = require('../models/authorizationIdentityTransition');
 const { resolveRequestAdmin: ensureAdmin } = require('../services/adminRequestContext');
 const {
   AdminOrganizationAccessError,
@@ -51,8 +53,9 @@ function hasAccountRead(req, operator) {
     && req.adminPermissions.permissions['system.admin_accounts.read']);
 }
 
-function creatableLevels(operator, canWrite) {
+function creatableLevels(operator, canWrite, unified = false) {
   if (!canWrite) return [];
+  if (unified) return isSuperAdmin(operator) ? [{ value: 'super_admin', label: localeCopy.copy_ccd219e5f1 }] : [];
   if (isSuperAdmin(operator)) {
     return [
       { value: 'admin', label: localeCopy.copy_fd31650797 },
@@ -60,6 +63,11 @@ function creatableLevels(operator, canWrite) {
     ];
   }
   return [{ value: 'admin', label: localeCopy.copy_fd31650797 }];
+}
+
+async function requireUnifiedAdminWrite(connection, level) {
+  if (level === 'super_admin' || !await identityTransition.isUnified(connection)) return;
+  throw new AdminOrganizationAccessError('authorization_upgrade_required', permissionCopy.unified.legacyAuthEditReadOnly, 409);
 }
 
 async function createAdminRecord(connection, operator, orgId, body) {
@@ -98,8 +106,10 @@ router.post('/listAdmins', async (req, res) => {
       const result = await pool.withTransaction(async connection => {
         const access = await adminAccountAuthorization.list(connection, req.unifiedAuthorization.reference);
         const canCreate = access.decision('create', null, ['name', 'adminLevel']).allowed;
-        const authenticationStates = await unifiedIdentityModel.listLegacyAdminAuthenticationStates(access.rows.map(row => row.id), connection);
-        const list = access.rows.map(row => {
+        const unified = access.session.unifiedIdentity;
+        const rows = unified && req.body?.identityModel === 'unified' ? access.rows.filter(row => row.admin_level === 'super_admin') : access.rows;
+        const authenticationStates = await unifiedIdentityModel.listLegacyAdminAuthenticationStates(rows.map(row => row.id), connection);
+        const list = rows.map(row => {
           const permitted = access.decision('read', row);
           const fields = access.session.project({ name: row.name, adminLevel: row.admin_level }, permitted);
           const manageable = canManageTarget(access.admin, row, access.actor.organizationId);
@@ -111,7 +121,7 @@ router.post('/listAdmins', async (req, res) => {
             canManage: canEdit || canDelete, canEdit, canDelete, authenticationStatus,
             authenticationStatusLabel: getAuthenticationStatusLabel(authenticationStatus) };
         });
-        const levels = creatableLevels(access.admin, canCreate);
+        const levels = creatableLevels(access.admin, canCreate, unified);
         return { list, canRead: true, canWrite: canCreate || list.some(row => row.canManage),
           canManage: canCreate || list.some(row => row.canManage), canCreate, creatableLevels: levels,
           manageableLevel: levels.length === 1 ? levels[0].value : '' };
@@ -200,6 +210,7 @@ router.post('/saveAdmin', async (req, res) => {
         await connection.rollback();
         return res.json({ status: 'not_found', message: localeCopy.copy_1d64e33c49 });
       }
+      await requireUnifiedAdminWrite(connection, target.admin_level);
       const targetOrgId = target.admin_level === 'super_admin' ? requestedOrgId : safeString(target.org_id);
       if (authorization) authorization.requireAction('update', target, ['name']);
       if (authorization && studentId && studentId !== target.student_id) {
@@ -231,6 +242,7 @@ router.post('/saveAdmin', async (req, res) => {
       return res.json({ status: 'success', message: localeCopy.copy_feaecc6da6 });
     }
 
+    await requireUnifiedAdminWrite(connection, requestedLevel);
     if (authorization) {
       authorization.requireAction('create', null, ['name', 'adminLevel']);
       if (req.body.hrId) await adminAccountAuthorization.validateCandidate(connection, requestedOrgId, safeString(req.body.hrId));
@@ -284,6 +296,7 @@ router.post('/deleteAdmin', async (req, res) => {
       await connection.rollback();
       return res.json({ status: 'not_found', message: localeCopy.copy_1d64e33c49 });
     }
+    await requireUnifiedAdminWrite(connection, target.admin_level);
     const orgId = target.admin_level === 'super_admin'
       ? (safeString(req.body.organizationId) || currentOrgId)
       : safeString(target.org_id);

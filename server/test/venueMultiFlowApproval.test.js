@@ -302,6 +302,19 @@ async function run() {
   assert.strictEqual(adminApproval.snapshots.length, 1);
   assert.strictEqual(adminApproval.snapshots[0].flowId, 'flow-admin');
 
+  const superActor = { type: 'admin', adminLevel: 'super_admin', personId: 'p-super', contextId: 'ctx-super',
+    adminGrantId: 'g-super', assignmentId: 'super-position', name: 'Super approver', organizationId: ORG };
+  const direct = await engine.prepareApproval(booking, superActor, 'Approved', null, ORG, flowDept.id, undefined, true);
+  assert.strictEqual(direct.ok, true);
+  assert.strictEqual(direct.completedFlowId, flowDept.id);
+  assert.strictEqual(direct.processedStepCount, 2);
+  assert.strictEqual(direct.autoApprovedStepCount, 0);
+  assert(direct.snapshots.every(item => item.directApproval && item.approverPersonId === superActor.personId
+    && item.approverAssignmentId === superActor.assignmentId && !item.automatic));
+  assert.strictEqual(direct.state.flows[flowAdmin.id].stepIndex, 0);
+  const forged = await engine.prepareApproval(booking, userActor('hr-head'), '', null, ORG, flowDept.id, undefined, true);
+  assert.strictEqual(forged.ok, false);
+
   // 3) 负责人审批第1步 → 确定负责人路线，其他替代路线终止但不得伪装成完成
   const freshBooking = makeBooking(engine.buildInitialFlowState([flowDept, flowAdmin], null, null));
   const headApproval = await engine.prepareApproval(freshBooking, userActor('hr-head'), '同意', null, ORG);

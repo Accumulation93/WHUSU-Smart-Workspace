@@ -1,5 +1,6 @@
 const localeCopy = require('../package-resources/locales/zh-CN/generated/subpackages/venue/utils/flowTimeline');
 const factsCopy = require('../../../locales/zh-CN/venueFacts');
+const directCopy = require('../package-resources/locales/zh-CN/approvalDirect');
 const { formatAssignmentLabel } = require('./workContextPresentation');
 const { formatDetailTime } = require('../../../utils/dateTime');
 /**
@@ -50,6 +51,7 @@ function buildFlowTimeline(prog) {
       else                           { state = 'pending';  icon = String(si + 1); label = localeCopy.copy_9baefe7c49; }
     }
     if (state === 'done' && snap && snap.automatic) label = localeCopy.automaticApproved;
+    if (state === 'done' && snap && snap.directApproval) label = directCopy.directApprovalEvent;
 
     // Description line for collapsed view
     let meta = '';
@@ -75,7 +77,9 @@ function buildFlowTimeline(prog) {
         && assignmentSnapshot.departmentId
         && assignmentSnapshot.identityCategoryId
       );
-      if (hasImmutableSnapshot) {
+      if (snap.directApproval && assignmentSnapshot && assignmentSnapshot.assignmentLabel) {
+        approverAssignmentText = assignmentSnapshot.assignmentLabel;
+      } else if (hasImmutableSnapshot) {
         approverAssignmentText = formatAssignmentLabel(assignmentSnapshot, localeCopy.historyAssignmentMissing);
       } else if (snap.approverIdentityType === 'user' || snap.approverAssignmentId) {
         approverAssignmentText = localeCopy.historyAssignmentMissing;
@@ -93,6 +97,7 @@ function buildFlowTimeline(prog) {
       meta: meta,
       comment: comment,
       approverName: approverName,
+      approverLabel: snap && snap.directApproval ? directCopy.directApprovalActor : '',
       approverPersonId: snap && snap.approverPersonId || '',
       approverAssignmentId: snap && snap.approverAssignmentId || '',
       approverAssignmentText: approverAssignmentText,

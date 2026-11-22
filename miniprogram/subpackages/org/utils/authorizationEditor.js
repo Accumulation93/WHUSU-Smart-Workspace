@@ -9,7 +9,11 @@ function createDraft(rule) {
   const result = { id: rule.id, version: rule.version, name: rule.name,
     schemeId: rule.schemeId || '', policy: rule.policy };
   if (rule.delegationId) result.delegationId = rule.delegationId;
-  if (Array.isArray(rule.audience)) { result.audience = rule.audience; result.delegationEnabled = rule.delegationEnabled; }
+  if (Array.isArray(rule.audience)) {
+    result.audience = rule.audience;
+    result.delegationEnabled = rule.delegationEnabled;
+    result.allowRedelegation = rule.allowRedelegation === true;
+  }
   return clone(result);
 }
 
@@ -17,6 +21,8 @@ function createDelegationDraft(item) {
   const draft = item ? createDraft({ id: item.id, version: item.version, name: item.name, policy: item.envelope }) : createDraft();
   draft.audience = item ? clone(item.subjects) : [];
   draft.delegationEnabled = item ? item.enabled : true;
+  draft.allowRedelegation = Boolean(item && item.allowRedelegation);
+  if (item && item.parentDelegationId) draft.delegationId = item.parentDelegationId;
   return draft;
 }
 
@@ -62,12 +68,39 @@ function toggleCapability(draft, key, catalog) {
   return next;
 }
 
-function availableFields(draft, catalog) {
+function toggleCapabilityGroup(draft, keys, catalog) {
+  if (!keys.length || keys.some(key => !catalog.some(item => item.key === key))) return draft;
+  const next = clone(draft);
+  next.schemeId = '';
+  const values = new Set(next.policy.capabilities);
+  const remove = keys.every(key => values.has(key));
+  for (const key of keys) {
+    if (remove) values.delete(key);
+    else values.add(key);
+  }
+  next.policy.capabilities = Array.from(values);
+  return next;
+}
+
+function assignmentMethod(draft) {
+  const subjects = draft.policy.subjects;
+  const hasDynamic = subjects.some(item => item.kind === 'assignmentScope');
+  return hasDynamic && subjects.some(item => item.kind !== 'assignmentScope') ? ''
+    : hasDynamic ? 'dynamic' : 'fixed';
+}
+
+function subjectMatchCount(draft, assignments) {
+  const scopes = draft.policy.subjects.filter(item => item.kind === 'assignmentScope' && Object.keys(item.dimensions || {}).length);
+  return (assignments || []).filter(assignment => scopes.some(scope => Object.entries(scope.dimensions)
+    .every(([key, values]) => Array.isArray(values) && values.includes(assignment[key])))).length;
+}
+
+function availableFields(draft, catalog, unified = false) {
   const definitions = draft.policy.capabilities.map(key => catalog.find(item => item.key === key));
   if (!definitions.length || definitions.some(item => !item)) return [];
   const hasAssignments = draft.policy.subjects.some(subject => subject.kind !== 'adminGrants');
   return definitions[0].fields.filter(field => definitions.every(item => item.fields.includes(field)
-    && (!hasAssignments || !(item.adminOnlyFields || []).includes(field))));
+    && (unified || !hasAssignments || !(item.adminOnlyFields || []).includes(field))));
 }
 
 function availableScopes(draft, catalog) {
@@ -76,8 +109,8 @@ function availableScopes(draft, catalog) {
   return definitions[0].scopes.filter(scope => definitions.every(item => item.scopes.includes(scope)));
 }
 
-function toggleField(draft, key, catalog) {
-  if (!availableFields(draft, catalog).includes(key)) throw new Error('unknown_field');
+function toggleField(draft, key, catalog, unified = false) {
+  if (!availableFields(draft, catalog, unified).includes(key)) throw new Error('unknown_field');
   const next = clone(draft);
   const fields = next.policy.fields || [];
   next.policy.fields = fields.includes(key) ? fields.filter(value => value !== key) : fields.concat(key);
@@ -109,7 +142,7 @@ function prepareSimpleDraft(draft, schemes, copy, option) {
   return next;
 }
 
-function validation(draft, catalog) {
+function validation(draft, catalog, unified = false) {
   if (!draft.name.trim() || Array.from(draft.name.trim()).length > 80) return 'invalidName';
   const policy = draft.policy;
   if (!policy.subjects.length || !policy.capabilities.length || !policy.scopes.length) return 'invalidPolicy';
@@ -122,9 +155,10 @@ function validation(draft, catalog) {
     ? !Object.keys(subject.dimensions || {}).length || Object.keys(subject.dimensions).some(key =>
       !Array.isArray(subject.dimensions[key]) || !subject.dimensions[key].length)
     : !['assignments', 'adminGrants'].includes(subject.kind) || !subject.ids || !subject.ids.length)) return 'invalidPolicy';
-  if (definitions.some(item => item.governance && policy.subjects.some(subject => subject.kind !== 'adminGrants'))) return 'governanceSubjects';
+  if (unified && definitions.some(item => item.classification === 'special')) return 'specialPermissionUnavailable';
+  if (!unified && definitions.some(item => item.governance && policy.subjects.some(subject => subject.kind !== 'adminGrants'))) return 'governanceSubjects';
   if (definitions.some(item => policy.scopes.some(scope => !item.scopes.includes(scope.kind)))) return 'incompatibleScope';
-  if (policy.scopes.some(scope => scope.kind === 'records' ? !scope.ids || !scope.ids.length
+  if (policy.scopes.some(scope => ['records', 'people'].includes(scope.kind) ? !scope.ids || !scope.ids.length
     : scope.kind === 'assignmentScope' && (!Object.keys(scope.dimensions || {}).length
       || Object.keys(scope.dimensions).some(key => scope.dimensions[key] !== 'same'
         && (!Array.isArray(scope.dimensions[key]) || !scope.dimensions[key].length))))) return 'invalidPolicy';
@@ -135,29 +169,31 @@ function validation(draft, catalog) {
   return '';
 }
 
-function request(draft, expectedRevision, catalog) {
-  const error = validation(draft, catalog);
+function request(draft, expectedRevision, catalog, unified = false) {
+  const error = validation(draft, catalog, unified);
   if (error) throw Object.assign(new Error(error), { code: error });
   const value = clone(draft);
   value.name = value.name.trim();
   value.expectedRevision = expectedRevision;
+  if (unified) value.identityModel = 'unified';
   return value;
 }
 
-function delegationRequest(draft, expectedRevision, catalog) {
-  const error = validation(draft, catalog);
+function delegationRequest(draft, expectedRevision, catalog, unified = false) {
+  const error = validation(draft, catalog, unified);
   if (error) throw Object.assign(new Error(error), { code: error });
   if (!Array.isArray(draft.audience) || !draft.audience.length
     || draft.audience.some(item => !['assignments', 'adminGrants'].includes(item.kind) || !Array.isArray(item.ids) || !item.ids.length)
     || draft.policy.effect !== 'allow' || draft.policy.enabled !== true
     || typeof draft.delegationEnabled !== 'boolean'
     || draft.policy.capabilities.some(key => catalog.find(item => item.key === key).delegation)
-    || draft.audience.some(item => item.kind === 'assignments')
+    || !unified && draft.audience.some(item => item.kind === 'assignments')
       && draft.policy.capabilities.some(key => catalog.find(item => item.key === key).governance)) {
     throw Object.assign(new Error('invalidPolicy'), { code: 'invalidPolicy' });
   }
   return clone({ id: draft.id, version: draft.version, name: draft.name.trim(), enabled: draft.delegationEnabled,
-    subjects: draft.audience, envelope: draft.policy, expectedRevision });
+    subjects: draft.audience, envelope: draft.policy, expectedRevision,
+    ...(unified ? { identityModel: 'unified', allowRedelegation: draft.allowRedelegation === true, delegationId: draft.delegationId } : {}) });
 }
 
 function dimensionsWithin(child, parent) {
@@ -206,13 +242,13 @@ function delegationDirectory(directory, option) {
   });
 }
 
-function assignableSchemes(schemes, option, catalog = [], draft) {
+function assignableSchemes(schemes, option, catalog = [], draft, unified = false) {
   return schemes.filter(item => item.publishedVersion && (!option
     || item.publishedCapabilities.every(key => option.envelope.capabilities.includes(key)))
     && (draft && draft.schemeId === item.id || item.publishedCapabilities.every(key => {
       const definition = catalog.find(row => row.key === key);
-      return !definition || !definition.systemControlled && (!definition.governance || !draft
-        || !draft.policy.subjects.some(subject => subject.kind !== 'adminGrants'));
+      return !definition || !definition.systemControlled && (unified ? definition.classification !== 'special' : (!definition.governance || !draft
+        || !draft.policy.subjects.some(subject => subject.kind !== 'adminGrants')));
     })));
 }
 
@@ -220,6 +256,14 @@ function toggleScope(draft, kind) {
   const next = createDraft(draft);
   if (next.policy.scopes.some(item => item.kind === kind)) next.policy.scopes = next.policy.scopes.filter(item => item.kind !== kind);
   else next.policy.scopes = kind === 'organization' ? [{ kind }] : next.policy.scopes.filter(item => item.kind !== 'organization').concat({ kind });
+  return next;
+}
+
+function setPeopleScope(draft, selected) {
+  const next = createDraft(draft);
+  const ids = Array.from(new Set(selected.map(item => item.personId).filter(Boolean)));
+  next.policy.scopes = next.policy.scopes.filter(item => item.kind !== 'people' && (ids.length === 0 || item.kind !== 'organization'));
+  if (ids.length) next.policy.scopes.push({ kind: 'people', ids });
   return next;
 }
 
@@ -232,6 +276,6 @@ function canUseIdentityFlow(draft, option) {
   return canSimplify(copy) && withinDelegation(draft, option);
 }
 
-module.exports = { createDraft, copyDraft, createDelegationDraft, setDelegationRecipients, setPersonnel, toggleCapability,
+module.exports = { createDraft, copyDraft, createDelegationDraft, setDelegationRecipients, setPersonnel, toggleCapability, toggleCapabilityGroup, assignmentMethod, subjectMatchCount,
   availableFields, availableScopes, toggleField, allFields, canSimplify, prepareSimpleDraft, validation, request, delegationRequest,
-  withinDelegation, selectDelegation, delegationDirectory, assignableSchemes, toggleScope, canUseIdentityFlow };
+  withinDelegation, selectDelegation, delegationDirectory, assignableSchemes, toggleScope, setPeopleScope, canUseIdentityFlow };

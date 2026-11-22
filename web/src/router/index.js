@@ -239,6 +239,9 @@ export const router = createRouter({
 router.beforeEach(async (to) => {
   const status = await ensureSessionLoaded();
   if (to.meta.public) return true;
+  if (status === 'authenticated' && session.needsContextSelection && to.name !== 'workRole') {
+    return { name: 'workRole' };
+  }
   if (status === 'authenticated') return true;
   return { name: 'login', query: session.notice ? { reason: 'expired' } : {} };
 });

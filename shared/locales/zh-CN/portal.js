@@ -26,6 +26,8 @@ module.exports = Object.freeze({
     scoring: '考核评分',
     hr: '人事信息',
     audit: '审核',
+    venue: '场地',
+    auditVerification: '签章核验',
     venueBooking: '场地借用',
     system: '基本设置',
     venueManage: '场地管理',
@@ -34,6 +36,7 @@ module.exports = Object.freeze({
   workContext: Object.freeze({
     signedOut: '未登录',
     superAdmin: '超级管理员',
+    user: '普通用户',
     admin: '普通管理员',
     unset: '未设置岗位',
     welcome: '欢迎使用'

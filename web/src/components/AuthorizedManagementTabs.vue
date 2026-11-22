@@ -1,12 +1,12 @@
 <template>
   <div class="stack">
     <div v-if="available" class="tabs" role="tablist" :aria-label="businessLabel">
-      <button class="tab" :class="{ 'tab-active': mode === 'business' }" role="tab" :aria-selected="mode === 'business'" :disabled="busy || blocked" @click="mode = 'business'">{{ businessLabel }}</button>
-      <button class="tab" :class="{ 'tab-active': mode === 'management' }" role="tab" :aria-selected="mode === 'management'" :disabled="busy || blocked" @click="mode = 'management'">{{ copy.businessManagement }}</button>
+      <button v-if="businessAvailable" class="tab" :class="{ 'tab-active': mode === 'business' }" role="tab" :aria-selected="mode === 'business'" :disabled="busy || blocked" @click="mode = 'business'">{{ businessLabel }}</button>
+      <button class="tab" :class="{ 'tab-active': mode === 'management' }" role="tab" :aria-selected="mode === 'management'" :disabled="busy || blocked" @click="mode = 'management'">{{ subApp === 'venue' && session.identityModel === 'unified' ? portalCopy.cards.venueManage : copy.businessManagement }}</button>
     </div>
     <div v-if="failed" class="row row-wrap" role="status"><span class="muted">{{ copy.managementUnavailable }}</span><button class="btn-quiet" :disabled="loading" @click="refresh">{{ copy.retry }}</button></div>
     <component :is="subApp === 'venue' ? VenueManagement : AdminConsole" v-if="mode === 'management' && available" embedded :sub-app="subApp" @busy="busy = $event" />
-    <slot v-else />
+    <slot v-else-if="businessAvailable" />
   </div>
 </template>
 
@@ -14,15 +14,20 @@
 import { defineAsyncComponent, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue';
 import AppLoading from './AppLoading.vue';
 import copy from '@/locales/zh-CN/shared/authorization.js';
+import portalCopy from '@/locales/zh-CN/shared/portal.js';
 import { readCurrentAuthorizationAccess } from '@/runtime/authorizationAccess.js';
 import { adminTabs } from '@/runtime/adminNavigation.js';
 import { managementTabAllowed } from '@/shared/authorizationAccessView.js';
 import { session } from '@/runtime/session.js';
+import { domainAccess } from '@/shared/authorizationEntryView.js';
+import { useRoute } from 'vue-router';
 
 const AdminConsole = defineAsyncComponent({ loader: () => import('@/views/admin/AdminConsoleView.vue'), loadingComponent: AppLoading, delay: 0 });
 const VenueManagement = defineAsyncComponent({ loader: () => import('@/views/venue/VenueManageView.vue'), loadingComponent: AppLoading, delay: 0 });
 const props = defineProps({ subApp: { type: String, required: true }, businessLabel: { type: String, required: true }, blocked: Boolean });
+const route = useRoute();
 const available = ref(false), loading = ref(false), failed = ref(false), mode = ref('business'), busy = ref(false);
+const businessAvailable = ref(session.identityModel !== 'unified');
 let generation = 0, active = false, pageActive = false;
 const scope = () => [session.context?.organizationId, session.context?.contextId, props.subApp].join('|');
 
@@ -38,7 +43,9 @@ async function refresh() {
     available.value = access?.mode === 'enforced' && (props.subApp === 'venue'
       ? ['venue', 'bookings', 'pending', 'purposes'].some(tab => managementTabAllowed(access, tab))
       : adminTabs(props.subApp, { authorizationAccess: access }).length > 0);
+    businessAvailable.value = session.identityModel !== 'unified' || domainAccess(access, props.subApp).business;
     if (!available.value) mode.value = 'business';
+    else if (!businessAvailable.value || route.query.area === 'management') mode.value = 'management';
   } catch (_) {
     if (active && request === generation && expected === scope()) failed.value = true;
   } finally {
@@ -46,9 +53,9 @@ async function refresh() {
   }
 }
 function activate() { if (!pageActive || document.hidden || active) return; active = true; refresh(); }
-function deactivate() { active = false; generation++; available.value = false; mode.value = 'business'; busy.value = false; }
+function deactivate() { active = false; generation++; available.value = false; businessAvailable.value = session.identityModel !== 'unified'; mode.value = 'business'; busy.value = false; }
 function visibility() { if (document.hidden) deactivate(); else activate(); }
-watch(scope, () => { available.value = false; mode.value = 'business'; generation++; if (active) refresh(); });
+watch(scope, () => { available.value = false; businessAvailable.value = session.identityModel !== 'unified'; mode.value = 'business'; generation++; if (active) refresh(); });
 onMounted(() => { pageActive = true; document.addEventListener('visibilitychange', visibility); activate(); });
 onActivated(() => { pageActive = true; activate(); });
 onDeactivated(() => { pageActive = false; deactivate(); });

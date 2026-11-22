@@ -132,6 +132,7 @@ async function run() {
     assert.equal((await connection.query("SELECT mode FROM authorization_organizations WHERE org_id='future-org'"))[0][0].mode, 'enforced');
     await assert.rejects(migration.stage('migration-org'), error => error.code === 'authorization_migration_already_enforced');
     assert.equal((await connection.query("SELECT id FROM authorization_rules WHERE org_id='other-org'"))[0].length, 0);
+    await verifyUnifiedIdentityTransition(connection, pool);
     console.log('旧权限暂存与启用：双次建表、保存回读、委托边界、来源变化、人工规则拒绝、进程验证失败、事务中断整单回滚、全组织与事由同事务启用、重复执行、新组织继承及启用后拒绝旧写通过。');
   } finally {
     if (pool) await pool.end();
@@ -139,5 +140,112 @@ async function run() {
     await connection.query("DROP USER IF EXISTS ?@'%'", [username]);
     await connection.end();
   }
+}
+
+async function verifyUnifiedIdentityTransition(connection, pool) {
+  for (const filename of ['20261111100000_identity_nature_links.sql', '20261122153000_unified_identity_assignment_links.sql']) {
+    const sql = fs.readFileSync(path.join(__dirname, '../db/deploy', filename), 'utf8');
+    await connection.query(sql);
+    await connection.query(sql);
+  }
+  process.env.AUTH_IDENTITY_SECRET ||= crypto.randomBytes(32).toString('hex');
+  const transition = require('../src/core/models/authorizationIdentityTransition');
+  const { loadActor, loadEffectiveAssignmentsForAuthorization } = require('../src/core/models/authorizationIdentity');
+  const identity = require('../src/core/models/unifiedIdentity');
+  const { superAssignmentId } = require('../src/core/services/authorizationIdentityModel');
+  const first = await transition.stage(pool);
+  assert.equal(first.staged, false);
+  assert.deepEqual(first.blockers.map(row => row.adminGrantId), ['grant-a', 'grant-b']);
+  assert.equal(await transition.isUnified(connection), false);
+  await connection.query(`INSERT INTO accounts(id,person_id) VALUES ('account-a','migration-a'),('account-b','migration-b');
+    INSERT INTO organization_memberships(id,person_id,org_id,legacy_hr_id) VALUES
+      ('membership-a','migration-a','migration-org','hr-a'),('membership-b','migration-b','migration-org','hr-b');
+    INSERT INTO departments(id,name,org_id) VALUES ('d-migration','迁移部门','migration-org');
+    INSERT INTO identities(id,name,org_id) VALUES ('i-migration','迁移身份','migration-org');
+    INSERT INTO identity_nature_links(org_id,identity_id,nature_id) VALUES ('migration-org','i-migration','staff');
+    INSERT INTO membership_assignments(id,membership_id,org_id,assignment_kind,department_id,identity_id) VALUES
+      ('a-post-1','membership-a','migration-org','staff','d-migration','i-migration'),
+      ('a-post-2','membership-a','migration-org','staff','d-migration','i-migration'),
+      ('b-post','membership-b','migration-org','staff','d-migration','i-migration')`);
+  const staged = await transition.stage(pool);
+  assert.equal(staged.staged, true);
+  assert.equal(staged.assignmentCount, 3);
+  assert.equal((await transition.stage(pool)).changed, false);
+  assert.equal(await transition.isUnified(connection), false);
+  const [adminBefore] = (await identity.listContexts('account-a')).filter(context => context.role === 'admin');
+  assert.equal(identity.selectClientContexts(await identity.listContexts('account-a'), 'unified').identityModel, 'legacy');
+  const release = { compatibleSha: 'c'.repeat(40), fallbackSha: 'd'.repeat(40) };
+  const verifyDeployment = async request => request.protocol === 3;
+  const activate = () => transition.activate(pool, release, verifyDeployment, transition.compareAuthorization);
+  await connection.query("DELETE FROM authorization_identity_assignment_links WHERE assignment_id='a-post-2'");
+  await assert.rejects(activate(), error => error.code === 'authorization_migration_stale');
+  await transition.stage(pool);
+  await assert.rejects(transition.activate(pool, release, verifyDeployment, async () => ({ valid: false })),
+    error => error.code === 'authorization_migration_unreviewed');
+  const special = { id: 'fixture-special-conflict', organizationId: 'migration-org', effect: 'allow', enabled: true,
+    subjects: [{ kind: 'adminGrants', ids: ['grant-a'] }], capabilities: ['auth.policy.update'],
+    scopes: [{ kind: 'organization' }], fields: null };
+  await connection.query("INSERT INTO authorization_rules(id,org_id,name,policy_json) VALUES (?,'migration-org','旧全局设置',?)",
+    [special.id, JSON.stringify(special)]);
+  const specialChange = await transition.compareAuthorization(connection, await transition.inspect(connection));
+  assert.equal(specialChange.valid, true);
+  assert(specialChange.specialRestrictions.some(row => row.capability === 'auth.policy.update' && row.reason === 'special_permission_required'));
+  const deny = { ...special, id: 'fixture-previous-role-deny', effect: 'deny',
+    subjects: [{ kind: 'assignments', ids: ['a-post-2'] }], capabilities: ['venue.purposes.read'] };
+  await connection.query("INSERT INTO authorization_rules(id,org_id,name,policy_json) VALUES (?,'migration-org','岗位禁止',?)",
+    [deny.id, JSON.stringify(deny)]);
+  const conflict = await transition.compareAuthorization(connection, await transition.inspect(connection));
+  assert(conflict.differences.some(row => row.assignmentId === 'a-post-2' && row.capability === 'venue.purposes.read' && row.reason === 'explicit_deny'));
+  await assert.rejects(activate(), error => error.code === 'authorization_migration_unreviewed');
+  await connection.query('DELETE FROM authorization_rules WHERE id=?', [deny.id]);
+  const activated = await activate();
+  assert(activated.equivalence.specialRestrictions.some(row => row.policyId === special.id));
+  assert.equal(activated.assignmentCount, 3);
+  assert.equal(activated.equivalence.valid, true);
+  assert(activated.equivalence.comparisons > 0);
+  const contexts = await identity.listContexts('account-a');
+  assert(contexts.some(context => context.contextId === adminBefore.contextId));
+  const modern = identity.selectClientContexts(contexts, 'unified');
+  assert.equal(modern.identityModel, 'unified');
+  assert.equal(modern.contexts.length, 2);
+  assert(modern.contexts.every(context => context.accountType === 'user' && context.role === 'user'));
+  await connection.query(`INSERT INTO auth_sessions(id,account_id,openid_hash,context_id,context_type,context_subject_id,
+    organization_id,role,token_version,expires_at)
+    VALUES ('session-legacy','account-a','',?,'admin','grant-a','migration-org','admin',1,UTC_TIMESTAMP() + INTERVAL 1 DAY)`, [adminBefore.contextId]);
+  const ref = { accountId: 'account-a', personId: 'migration-a', sessionId: 'session-legacy', contextId: adminBefore.contextId, organizationId: 'migration-org' };
+  const legacyActor = await loadActor(connection, ref);
+  assert.equal(legacyActor.role, 'admin');
+  assert.deepEqual(legacyActor.legacyAdminGrantIds, ['grant-a']);
+  assert.equal(legacyActor.assignment.id, 'a-post-1');
+  await assert.rejects(identity.activateSelection('session-legacy', 'account-a', { contextId: adminBefore.contextId, identityModel: 'unified' }),
+    error => error.code === 'context_forbidden');
+  const assigned = modern.contexts.find(context => context.assignmentId === 'a-post-2');
+  await identity.activateSelection('session-legacy', 'account-a', { contextId: assigned.contextId, identityModel: 'unified' });
+  const ordinary = await loadActor(connection, { ...ref, contextId: assigned.contextId });
+  assert.equal(ordinary.role, 'user');
+  assert.equal(ordinary.assignment.id, 'a-post-2');
+  assert.deepEqual(ordinary.legacyAdminGrantIds, ['grant-a']);
+  await connection.query(`INSERT INTO membership_assignments(id,membership_id,org_id,assignment_kind,department_id,identity_id)
+    VALUES ('a-future-post','membership-a','migration-org','staff','d-migration','i-migration')`);
+  const effective = await loadEffectiveAssignmentsForAuthorization(connection, 'migration-org', ['a-post-1', 'a-future-post']);
+  assert.deepEqual(effective.map(item => [item.assignment.id, item.legacyAdminGrantIds]), [['a-future-post', []], ['a-post-1', ['grant-a']]]);
+  await connection.query("UPDATE membership_assignments SET status='inactive' WHERE id='a-post-1'");
+  assert.deepEqual(await loadEffectiveAssignmentsForAuthorization(connection, 'migration-org', ['a-post-1']), []);
+  await connection.query(`INSERT INTO persons(id,name,student_id,normalized_student_id)
+      VALUES ('super-person','测试超管','SUPER-MIGRATION','super-migration');
+    INSERT INTO accounts(id,person_id) VALUES ('super-account','super-person');
+    INSERT INTO admin_grants(id,person_id,org_id,admin_level) VALUES ('grant-super','super-person','migration-org','super_admin')`);
+  const scopedSuper = (await identity.listContexts('super-account')).find(context => context.organizationId === 'other-org');
+  assert.equal(scopedSuper.accountType, 'super_admin');
+  assert.equal(scopedSuper.effectiveAssignmentId, superAssignmentId('grant-super', 'other-org'));
+  await connection.query(`INSERT INTO auth_sessions(id,account_id,openid_hash,context_id,context_type,context_subject_id,
+    organization_id,role,token_version,expires_at)
+    VALUES ('session-super','super-account','',?,'admin','grant-super','other-org','admin',1,UTC_TIMESTAMP() + INTERVAL 1 DAY)`, [scopedSuper.contextId]);
+  const superActor = await loadActor(connection, { accountId: 'super-account', personId: 'super-person',
+    sessionId: 'session-super', contextId: scopedSuper.contextId, organizationId: 'other-org' });
+  assert.equal(superActor.isSuper, true);
+  assert.equal(superActor.assignment.systemRole, 'super_admin');
+  assert.equal(superActor.assignment.id, scopedSuper.effectiveAssignmentId);
+  console.log('普通身份合并：无岗阻断、固定岗位范围、无差异启用、旧身份切换兼容、增岗不继承、超管跨组织及来源岗位失效检查通过。');
 }
 run().catch(error => { console.error(error); process.exitCode = 1; });

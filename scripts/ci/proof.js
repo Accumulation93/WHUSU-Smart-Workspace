@@ -33,10 +33,23 @@ function readVerified(root, sha) {
     return verify(proof, expected(root, sha), keys) ? proof : null;
   } catch (_) { return null; }
 }
+function validationSource(root, sha, event, forceRemote = false) {
+  const local = !forceRemote && event !== 'pull_request' && Boolean(readVerified(root, sha));
+  let requested = event === 'workflow_dispatch' || local;
+  if (event === 'push' && !requested) {
+    const entries = git(root, ['notes', '--ref=' + REF, 'list']);
+    requested = entries.split('\n').some(entry => entry.split(' ')[1] === sha);
+  }
+  return { local, requested };
+}
 if (require.main === module) {
   const root = path.resolve(__dirname, '../..'), sha = process.env.GITHUB_SHA || git(root, ['rev-parse', 'HEAD']);
-  const local = process.env.FORCE_REMOTE !== 'true' && process.env.GITHUB_EVENT_NAME !== 'pull_request' && Boolean(readVerified(root, sha));
-  if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, 'local=' + local + '\n');
-  console.log(local ? '采用本机完整验证结果，提交与签名匹配' : '执行远端完整 CI');
+  const event = process.env.GITHUB_EVENT_NAME;
+  const { local, requested } = validationSource(root, sha, event, process.env.FORCE_REMOTE === 'true');
+  if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `local=${local}\nrequested=${requested}\n`);
+  if (local) console.log('采用本机完整验证结果，提交与签名匹配');
+  else if (requested && event === 'push') console.error('提交的本机验证证明无效');
+  else if (requested) console.log('执行远端完整 CI');
+  else console.log('本次没有请求完整 CI');
 }
-module.exports = { REF, git, policy, verify, expected, readVerified };
+module.exports = { REF, git, policy, verify, expected, readVerified, validationSource };

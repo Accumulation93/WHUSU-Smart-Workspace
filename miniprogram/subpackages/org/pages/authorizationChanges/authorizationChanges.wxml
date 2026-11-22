@@ -6,7 +6,7 @@
   <view wx:if="{{notice}}" class="permission-card authorization-toolbar"><view>{{notice}}</view><button class="secondary-btn ui-motion-button" disabled="{{busy}}" bindtap="load" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.refresh}}</button></view>
   <block wx:if="{{ready}}">
     <view wx:if="{{previewOnly}}" class="permission-empty">{{ui.previewOnly}}</view>
-    <view class="permission-card"><view class="permission-section-title">{{targetName}}</view><view class="authorization-label">{{impactText}}</view><view class="permission-admin-meta">{{deletingDelegation ? ui.deleteDelegationNotice : deleting ? ui.deleteRuleNotice : ui.publishSchemeNotice}}</view><view class="authorization-chips"><text wx:for="{{labels}}" wx:key="*this" class="authorization-chip">{{item}}</text></view></view>
+    <view class="permission-card"><view class="permission-section-title">{{targetName}}</view><view class="authorization-label">{{impactText}}</view><view class="permission-admin-meta">{{deletingDelegation ? (unified ? ui.unified.revokeDelegationCascadeNotice : ui.deleteDelegationNotice) : deleting ? ui.deleteRuleNotice : ui.publishSchemeNotice}}</view><view class="authorization-chips"><text wx:for="{{labels}}" wx:key="*this" class="authorization-chip">{{item}}</text></view></view>
     <view wx:for="{{cards}}" wx:key="id" class="permission-card authorization-section">
       <view class="permission-section-title">{{item.name}}</view>
       <view class="authorization-comparison">

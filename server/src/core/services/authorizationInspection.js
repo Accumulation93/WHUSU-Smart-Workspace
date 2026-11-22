@@ -14,14 +14,14 @@ function forbidden() { throw Object.assign(new Error('authorization_forbidden'),
 async function inspect(connection, reference, input = {}) {
   const actor = await identity.loadActor(connection, reference);
   if (!actor) forbidden();
-  const state = await storage.read(connection, actor.organizationId);
+  const state = await storage.read(connection, actor.organizationId, false, actor.unifiedAuthorization === true);
   const policies = state.rules.map(rule => rule.policy);
   const now = Date.now();
   let selected = { actor, accountAvailable: true };
   const ownSubject = actor.role === 'admin' ? actor.adminGrantId : actor.assignment && actor.assignment.id;
   if (input.subjectId || input.role) {
     if (input.subjectId !== ownSubject || input.role !== actor.role) {
-      selected = await targets.target(connection, actor.organizationId, input.role, input.subjectId);
+      selected = await targets.target(connection, actor.organizationId, input.role, input.subjectId, actor.unifiedAuthorization === true);
       if (!selected) forbidden();
       const decision = evaluate({ actor, resource: { id: input.subjectId, type: 'authorization.effective',
         organizationId: actor.organizationId, ownerPersonId: selected.actor.personId, assignment: selected.actor.assignment },
@@ -30,7 +30,7 @@ async function inspect(connection, reference, input = {}) {
     }
   }
   const explanationCatalog = await require('../models/authorizationProfileFields').catalog(connection, actor.organizationId, CATALOG);
-  const capabilities = selected.accountAvailable ? explainCapabilities(selected.actor, state.rules, explanationCatalog, now)
+  const capabilities = selected.accountAvailable ? explainCapabilities(selected.actor, state.rules, explanationCatalog, now, state.disabledBasic)
     : [...CATALOG.keys()].map(capability => ({ capability, status: 'denied', reason: 'account_unavailable', rules: [],
       grantState: 'unavailable', grantBasis: 'none', hasRestrictions: false, businessEntry: false }));
   const usedDimensions = new Map();
@@ -39,7 +39,9 @@ async function inspect(connection, reference, input = {}) {
     const definition = explanationCatalog.get(capability.capability);
     for (const rule of capability.rules) {
       rule.displayFields = definition.fields.filter(field => (rule.fields === null || rule.fields.includes(field))
-        && (selected.actor.role === 'admin' || !definition.adminOnlyFields.includes(field)));
+        && (selected.actor.role === 'admin'
+          || !definition.adminOnlyFields.includes(field)
+          || (selected.actor.unifiedAuthorization === true && Array.isArray(rule.fields) && rule.fields.includes(field))));
       for (const field of rule.displayFields) usedFields.add(field);
       for (const scope of rule.scopes) {
         for (const [key, values] of Object.entries(scope.dimensions || {})) {
@@ -67,6 +69,8 @@ async function inspect(connection, reference, input = {}) {
       ? selected.actor.adminGrantId : selected.actor.assignment && selected.actor.assignment.id || '',
     scopeDirectory, fieldLabels,
     capabilities: capabilities.map(item => ({ ...item, systemControlled: CATALOG.get(item.capability).systemControlled,
+      classification: CATALOG.get(item.capability).classification,
+      specialCategory: CATALOG.get(item.capability).specialCategory,
       supportsFields: explanationCatalog.get(item.capability).fields.length > 0 })) };
 }
 
@@ -74,7 +78,7 @@ async function inspect(connection, reference, input = {}) {
 async function inspectableCandidates(connection, reference) {
   const actor = await identity.loadActor(connection, reference);
   if (!actor) forbidden();
-  const state = await storage.read(connection, actor.organizationId);
+  const state = await storage.read(connection, actor.organizationId, false, actor.unifiedAuthorization === true);
   const policies = state.rules.map(rule => rule.policy);
   const capability = 'authorization.effective.read';
   if (!actor.isSuper && !policies.some(policy => policy.enabled && policy.capabilities.includes(capability))) {

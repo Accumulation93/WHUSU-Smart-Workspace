@@ -41,14 +41,16 @@ async function assignmentPermission(req, organizationId, connection) {
   return requireAdminOrganizationPermission(req, organizationId, ['hr.people'], connection);
 }
 
-async function personGovernanceActor(req, organizationId) {
+async function personGovernanceActor(req, organizationId, operation = 'auth.accounts.update') {
   const reference = req.unifiedAuthorization?.reference;
   if (reference) {
     if (organizationId !== reference.organizationId) throw Object.assign(new Error('authorization_forbidden'), { code: 'authorization_forbidden' });
     const model = require('../models/accountGovernanceAuthorization');
-    await model.authorize(reference, 'auth.accounts.update');
+    const actor = await require('../models/authorizationIdentity').loadActor(pool, reference);
+    const capability = actor?.unifiedAuthorization === true ? operation : 'auth.accounts.update';
+    await model.authorize(reference, capability);
     return { personId: req.authAccount.personId, contextId: req.authContext.contextId,
-      authorizeGovernance: (connection, target) => model.check(connection, reference, 'auth.accounts.update', target) };
+      authorizeGovernance: (connection, target) => model.check(connection, reference, capability, target) };
   }
   await requireAdminOrganizationPermission(req, organizationId, ['auth.accounts.global_manage']);
   return { personId: req.authAccount && req.authAccount.personId, contextId: req.authContext && req.authContext.contextId,
@@ -743,7 +745,7 @@ router.post('/mergePersons', async (req, res) => {
       return res.status(400).json({ status: 'confirmation_required', message: personnelCopy.personMergeConfirmationRequired });
     }
     const organizationId = safeString(req.body.organizationId) || req.unifiedAuthorization?.reference.organizationId || await getCurrentOrgId();
-    const actor = await personGovernanceActor(req, organizationId);
+    const actor = await personGovernanceActor(req, organizationId, 'auth.persons.merge');
     const result = await personGovernanceModel.mergePersons({
       sourcePersonId: safeString(req.body.sourcePersonId),
       targetPersonId: safeString(req.body.targetPersonId),
@@ -876,7 +878,7 @@ router.post('/unbindHrWechat', async (req, res) => {
     if (!hrId) return res.json({ status: 'invalid_params', message: localeCopy.copy_eb00430bd4 });
 
     const orgId = safeString(req.body.organizationId) || req.unifiedAuthorization?.reference.organizationId || await getCurrentOrgId();
-    const actor = await personGovernanceActor(req, orgId);
+    const actor = await personGovernanceActor(req, orgId, 'auth.accounts.unbindWechat');
     connection = await pool.getConnection();
     await connection.beginTransaction();
     const unifiedResult = await unifiedIdentityModel.resetAccountByLegacyHr(

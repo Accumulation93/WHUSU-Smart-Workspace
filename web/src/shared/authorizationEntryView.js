@@ -4,6 +4,35 @@
 const COPY_KINDS = ['scoring.templates', 'hr.departments', 'hr.identities', 'hr.workGroups', 'hr.assignmentNatures',
   'hr.directoryRules', 'audit.templates', 'venue.approvals', 'venue.bookingRules', 'venue.bookingWindows',
   'venue.openRules', 'venue.activityRules', 'venue.purposes', 'calendar.rules', 'authorization.schemes'];
+import accessView from './authorizationAccessView.js';
+const DOMAIN_ENTRIES = Object.freeze({
+  audit: { business: ['audit.submissions.read', 'audit.submissions.create', 'audit.submissions.approve', 'audit.verification.verify'],
+    management: ['auditTemplates', 'auditStamps', 'auditSubmissions', 'auditVerification'] },
+  venue: { business: ['venue.resources.read', 'venue.schedule.read', 'venue.bookings.read', 'venue.bookings.create', 'venue.bookings.approve'],
+    management: ['venue', 'bookings', 'pending', 'purposes'] },
+  hr: { business: ['contacts.entries.read'], management: ['hrInfo', 'hrTemplates', 'departments', 'workGroups', 'identities', 'assignmentNatures'] },
+  scoring: { business: ['scoring.participation.read', 'scoring.publishedResults.read', 'scoring.meritSelections.read'],
+    management: ['activities', 'templates', 'rules', 'results', 'publications'] },
+  system: { business: [], management: ['settings'] },
+  calendar: { business: ['calendar.events.read', 'calendar.events.create'], management: ['calendarRules'] },
+  identityCard: { business: ['identity.cards.read', 'identity.cards.create'], management: [] },
+  messages: { business: ['notifications.items.read'], management: [] }
+});
+
+function domainAccess(access, key) {
+  const domain = DOMAIN_ENTRIES[key];
+  if (!domain) return { business: true, management: false };
+  if (!access || access.mode !== 'enforced') return { business: false, management: false };
+  const accountSelfService = key === 'hr';
+  return {
+    business: accountSelfService || domain.business.some(capability => accessView.hasCapability(access, capability, false)),
+    management: domain.management.some(tab => accessView.managementTabAllowed(access, tab))
+  };
+}
+
+function cardMatches(card, keyword) {
+  return [card.label].concat(card.searchAliases || []).some(label => String(label || '').toLowerCase().includes(keyword));
+}
 
 function canOpenAuthorization(access) {
   return !!access && access.mode === 'enforced'
@@ -27,7 +56,7 @@ function configurationCopyOptions(access, preferredKind, preferredTab) {
   return { kinds, kind, tabs, tab: tabs.includes(preferredTab) ? preferredTab : tabs[0] || '' };
 }
 
-const sharedModule = Object.freeze({ canOpenAuthorization, canOpenConfigurationCopy, configurationCopyOptions });
+const sharedModule = Object.freeze({ canOpenAuthorization, canOpenConfigurationCopy, configurationCopyOptions, domainAccess, cardMatches });
 
-export { canOpenAuthorization, canOpenConfigurationCopy, configurationCopyOptions };
+export { canOpenAuthorization, canOpenConfigurationCopy, configurationCopyOptions, domainAccess, cardMatches };
 export default sharedModule;

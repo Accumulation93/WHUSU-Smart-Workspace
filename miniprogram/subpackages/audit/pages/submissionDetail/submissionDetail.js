@@ -13,7 +13,8 @@ const workContextView = require('../../utils/workContextView');
 const { calculateWorkflowProgress } = require('../../utils/workflowProgress');
 const signingDrafts = require('../../../../utils/auditSigningDrafts');
 const signingCopy = require('../../package-resources/locales/zh-CN/auditSigning');
-const { presentAuditStep, groupAuditRounds } = require('../../utils/auditStepView');
+const directApprovalCopy = require('../../package-resources/locales/zh-CN/approvalDirect');
+const { presentAuditStep, groupAuditRounds, materialsOfAuditDraft, auditMaterialInput, directAuditStampChoices, missingAuditMaterial } = require('../../utils/auditStepView');
 const { buildConditions } = require('../../package-resources/utils/auditConditionView');
 const conditionCopy = require('../../package-resources/locales/zh-CN/auditConditions');
 
@@ -71,7 +72,8 @@ Page({
     navigationTitle: localeCopy.navigationTitle,
     navTopPx: 0,
     localeCopy,
-    signingCopy, signingReadFailed: false, pendingActionRead: false,
+    signingCopy, directApprovalCopy, signingReadFailed: false, pendingActionRead: false,
+    directSteps: [], directMaterialSteps: [], directStepId: '', directApprovalNotice: '', directApproving: false,
     stampLoading: false, stampNotice: '', stampImageBusy: false,
     showWithdrawnHistory: false,
     // 弹窗标志位清单：页面卸载时统一复位，避免页面被 page-meta 的 overflow:hidden 锁住。
@@ -1445,6 +1447,10 @@ Page({
               flowNodeClass = 'flow-node-pending'; flowDotClass = 'flow-dot-pending'; flowIcon = 'number';
               flowStatusLabel = signingCopy.future; flowTagClass = 'flow-tag-pending';
             }
+            if (presented.bypassed) {
+              flowNodeClass = 'flow-node-pending'; flowDotClass = 'flow-dot-pending'; flowIcon = 'number';
+              flowStatusLabel = directApprovalCopy.audit.bypassedUntilDirectDecision; flowTagClass = 'flow-tag-pending';
+            }
             let actualComment = eventInfo.comment || step.comment || '';
             let actualProcessedAt = eventInfo.time || (step.processedAt
               ? formatAuditTime(step.processedAt, step.processedAtReviewStatus)
@@ -1460,6 +1466,8 @@ Page({
               approverHrId: step.approverHrId,
               approverName: step.approverName,
               operatorName: actualOperatorName,
+              directApproval: presented.directApproval,
+              originalApproversText: (step.originalApproverNames || []).join(' · '),
               operatorPersonId: eventInfo.operatorPersonId || '',
               approverIdentityId: step.approverIdentityId,
               approverIdentityName: step.approverIdentityName,
@@ -1549,7 +1557,7 @@ Page({
             _key: 'lifecycle_final_approved', round: lastApproveEvt ? lastApproveEvt.round || 1 : Math.max(1, ...rawSteps.map(step => step.round || 1)),
             type: 'lifecycle',
             event: 'approved',
-            label: localeCopy.copy_126a0e1f4c,
+            label: lastApproveEvt && lastApproveEvt.operatorContextSnapshot && lastApproveEvt.operatorContextSnapshot.directApproval ? directApprovalCopy.directApprovalEvent : localeCopy.copy_126a0e1f4c,
             subLabel: localeCopy.copy_1188f4f2ad,
             time: lastApproveEvt
               ? formatAuditTime(lastApproveEvt.createdAt, lastApproveEvt.createdAtReviewStatus)
@@ -1663,12 +1671,17 @@ Page({
         }
 
         if (!orgSession.isRequestCurrent(this, request)) return;
-        if (res.canApproveCurrentStep && activeApprovalStep) {
-          const scope = orgSession.getSnapshot();
-          signingDrafts.store.bind(JSON.stringify([scope.orgId, scope.contextId, scope.role]));
-          const key = [this.data.submissionId, activeApprovalStep.id, activeApprovalStep.round || 1,
-            ...(res.files || []).map(file => file.id + ':' + file.fileHash)].join('|');
-          this._signingDraft = signingDrafts.store.open(key); this._signingStepId = activeApprovalStep.id;
+        const directSteps = res.canDirectApprove ? (res.directApprovalSteps || []).map(item => {
+          const step = flowTimeline.find(node => node.id === item.stepId);
+          return step && { ...step, actionType: item.actionType, stepText: item.name || localeCopy.stepNumber(item.index) };
+        }).filter(Boolean) : [];
+        const directMaterialSteps = directSteps.filter(step => step.actionType !== 'pass');
+        const selectedDirect = directMaterialSteps.find(step => step.id === this.data.directStepId);
+        this._ordinaryApprovalStep = activeApprovalStep;
+        if (selectedDirect) { activeApprovalStep = selectedDirect; computedActiveStepId = selectedDirect.id; }
+        if ((res.canApproveCurrentStep || selectedDirect) && activeApprovalStep) {
+          this._signingDraft = this.openStepDraft(activeApprovalStep, res.files || [], !!selectedDirect);
+          this._signingStepId = activeApprovalStep.id;
           this._signingDraft.pendingRead = false;
         } else if (this._signingDraft) { this._signingDraft.locked = true; this._signingDraft.pendingRead = false; }
         flowTimeline.forEach(node => {
@@ -1697,6 +1710,7 @@ Page({
           flowProgressText: flowProgressText,
           activeApprovalStepId: computedActiveStepId,
           activeApprovalStep: activeApprovalStep,
+          directSteps, directMaterialSteps, directStepId: selectedDirect ? selectedDirect.id : '',
           designatedNextPersons: this._signingDraft && !this._signingDraft.locked ? this._signingDraft.designatedNext || [] : [],
           nextStepInfo: nextStepInfo,
           approvalVisible: false,
@@ -1716,10 +1730,10 @@ Page({
         });
 
         // 阅读游标只属于当前岗位发起的申请；审批人和管理员查看详情时不写入。
-        if (res.canApproveCurrentStep && activeApprovalStep) {
+        if ((res.canApproveCurrentStep || selectedDirect) && activeApprovalStep) {
           const draft = this._signingDraft, files = res.files || [];
           wx.nextTick(() => { if (this._pageActive && draft === this._signingDraft && !draft.locked) signingAssets.warm(draft, files, []); });
-          if (['stamp', 'estamp', 'both', 'either'].includes(activeApprovalStep.actionType)) this.loadAvailableStamps();
+          if (!selectedDirect && ['stamp', 'estamp', 'both', 'either'].includes(activeApprovalStep.actionType)) this.loadAvailableStamps();
         }
         if (res.userIsSubmitter && orgSession.isRequestCurrent(this, request)) {
           try {
@@ -1863,7 +1877,7 @@ Page({
     signingDrafts.setHandoff({ draft: { files: {}, materials: [], locked: false }, file, pad: true,
       sourceFile: this.data.files.find(item => item.id === fileId),
       allowSaveTemplate: true, mode: 'pen', submissionId: this.data.submissionId,
-      stepId, round: this.data.activeApprovalStep.round || 1,
+      stepId, round: this.data.activeApprovalStep.round || 1, directApproval: !!this.data.directStepId,
       confirm: exports => {
         if (!orgSession.isCurrent(scope) || !this.data.activeApprovalStep || this.data.activeApprovalStep.id !== stepId || !exports.length) return;
         this.setData({ sigSaveNew: false });
@@ -1872,22 +1886,21 @@ Page({
     navigateToTrustedRoute('/subpackages/audit/pages/signing/signing');
   },
 
-  ensureSigningDraft() {
+  openStepDraft(step, files, directApproval) {
     const snapshot = orgSession.getSnapshot();
     signingDrafts.store.bind(JSON.stringify([snapshot.orgId, snapshot.contextId, snapshot.role]));
-    const step = this.data.activeApprovalStep;
-    if (!step || !this.data.canApproveCurrentStep) return null;
     const key = [this.data.submissionId, step.id, step.round || 1,
-      ...(this.data.files || []).map(file => file.id + ':' + file.fileHash)].join('|');
-    this._signingDraft = signingDrafts.store.open(key); this._signingStepId = step.id;
+      ...files.map(file => file.id + ':' + file.fileHash)].join('|');
+    return signingDrafts.store.open(directApproval ? key + '|direct' : key);
+  },
+  ensureSigningDraft() {
+    const step = this.data.activeApprovalStep;
+    if (!step || this.data.directApproving || (!this.data.canApproveCurrentStep && this.data.directStepId !== step.id)) return null;
+    this._signingDraft = this.openStepDraft(step, this.data.files, !!this.data.directStepId);
+    this._signingStepId = step.id;
     return this._signingDraft;
   },
-  signingMaterials() {
-    const draft = this._signingDraft;
-    if (!draft) return [];
-    return draft.materials.concat(...Object.keys(draft.files).map(key => draft.files[key].exports || []))
-      .sort((a, b) => (a.layerOrder || 0) - (b.layerOrder || 0));
-  },
+  signingMaterials() { return materialsOfAuditDraft(this._signingDraft); },
   signingMaterialViews() {
     return this.signingMaterials().reverse().map(item => {
       const view = Object.assign({}, item, { isInk: String(item._idx).startsWith('ink_'), posText: this._computeSigPosText(item) });
@@ -1925,14 +1938,14 @@ Page({
     const previewRequest = prepared && prepared.fileId === fileId && prepared.fileHash === file.fileHash && orgSession.isCurrent(prepared.scope)
       ? prepared : this.prepareSigningPreview(fileId);
     this._preparedSigningPreview = null;
-    signingDrafts.setHandoff({ draft, file, mode: mode || 'browse', active: active || '', rollback,
+    signingDrafts.setHandoff({ draft, file, mode: mode || 'browse', active: active || '', rollback, directApproval: !!this.data.directStepId,
       previewRequest,
       submissionId: this.data.submissionId, stepId: this.data.activeApprovalStep.id, round: this.data.activeApprovalStep.round || 1,
       confirm: () => { if (this._pageActive && this._signingStepId === this.data.activeApprovalStepId) this.restoreSigningMaterials(); } });
     navigateToTrustedRoute('/subpackages/audit/pages/signing/signing');
   },
   directSignForFile(event) {
-    if (!this.ensureActiveAssignment()) return;
+    if (!this.data.directStepId && !this.ensureActiveAssignment()) return;
     this.openSigningWorkspace(event.currentTarget.dataset.fileId, 'pen');
   },
 
@@ -2187,6 +2200,7 @@ Page({
 
   // Load stamps available to the current user
   async loadAvailableStamps() {
+    if (this.data.directStepId) return this.loadDirectApprovalStamps();
     if (this._stampRequest) return this._stampRequest;
     if (this._stampDirectoryAt && Date.now() - this._stampDirectoryAt < 5000 && !this.data.stampNotice) return;
     const request = orgSession.beginRequest(this, 'availableStamps');
@@ -2200,10 +2214,10 @@ Page({
       const draft = this.ensureSigningDraft();
       if (!draft) return;
       const res = (await signingAssets.directory(draft)).response;
-      if (!orgSession.isRequestCurrent(this, request)) return;
+      if (!orgSession.isRequestCurrent(this, request) || this.data.directStepId || draft !== this._signingDraft) return;
       if (res.status === 'success') {
         this._stampDirectoryAt = started;
-        this.setData({ availableStamps: res.stamps || [] });
+        this.setData({ availableStamps: (res.stamps || []).map(item => ({ ...item, selectionId: item.id })) });
         signingAssets.warm(draft, [], res.stamps || []);
       } else this.setData({ stampNotice: signingCopy.stampFailed });
     } catch (e) {
@@ -2211,6 +2225,23 @@ Page({
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ stampLoading: false });
     }
+  },
+
+  async loadDirectApprovalStamps() {
+    const request = orgSession.beginRequest(this, 'directApprovalStamps');
+    const stepId = this.data.directStepId;
+    const current = () => orgSession.isRequestCurrent(this, request) && this.data.directStepId === stepId;
+    this.setData({ stampLoading: true, stampNotice: '', availableStamps: [] });
+    try {
+      const res = await callFunction({ name: 'listDirectApprovalStamps', data: {} });
+      if (!current()) return;
+      if (res.status !== 'success') { this.setData({ stampNotice: signingCopy.stampFailed }); return; }
+      const existingStamp = this.data.directMaterialSteps.flatMap(step => materialsOfAuditDraft(this.openStepDraft(step, this.data.files, true)))
+        .find(item => item.signatureType === 'stamp' && item.stampAssignmentId);
+      this.setData({ availableStamps: directAuditStampChoices(res.sources, existingStamp && existingStamp.stampAssignmentId) });
+    } catch (_) {
+      if (current()) this.setData({ stampNotice: signingCopy.stampFailed });
+    } finally { if (current()) this.setData({ stampLoading: false }); }
   },
 
   closeStampPicker() {
@@ -2223,13 +2254,19 @@ Page({
     let stampId = e.currentTarget.dataset.stampId;
     let stampName = e.currentTarget.dataset.stampName;
     let stampImage = e.currentTarget.dataset.stampImage;
+    const stampAssignmentId = e.currentTarget.dataset.stampAssignmentId;
+    const directStepId = this.data.directStepId;
     const stampScope = orgSession.getSnapshot(), selectedFileId = this.data.stampPickFileId;
     if (this.data.stampImageBusy) return;
     this._preparedSigningPreview = this.prepareSigningPreview(selectedFileId);
     this.setData({ stampImageBusy: true, stampNotice: '' });
     try {
-      const response = (await signingAssets.stamp(this.ensureSigningDraft(), stampId)).response;
-      if (!orgSession.isCurrent(stampScope) || !this.data.stampPickerVisible || selectedFileId !== this.data.stampPickFileId) return;
+      const response = directStepId
+        ? await callFunction({ name: 'listDirectApprovalStamps', data: { stampId, stampAssignmentId } })
+        : (await signingAssets.stamp(this.ensureSigningDraft(), stampId)).response;
+      if (!orgSession.isCurrent(stampScope) || !this.data.stampPickerVisible || selectedFileId !== this.data.stampPickFileId
+        || directStepId !== this.data.directStepId) return;
+      if (directStepId && response.stamp) response.imageData = response.stamp.imageData;
       if (response.status !== 'success' || !response.imageData) throw new Error('stamp_unavailable');
       stampImage = response.imageData;
     } catch (_) { if (orgSession.isCurrent(stampScope) && this._pageActive) this.setData({ stampNotice: signingCopy.imageFailed }); return; }
@@ -2243,6 +2280,7 @@ Page({
       signatureType: 'stamp',
       stampName: stampName,
       stampId: stampId,
+      stampAssignmentId,
       imageData: stampImage,
       positionX: 0.5,
       positionY: 0.3,
@@ -2664,6 +2702,73 @@ Page({
     let key = e.currentTarget.dataset.nodeKey;
     let current = this.data.expandedNodeKey;
     this.setData({ expandedNodeKey: current === key ? '' : key });
+  },
+
+  selectDirectApprovalStep(e) {
+    const id = e.currentTarget.dataset.id;
+    if (!this.data.directApproving && !this.data.signingReadFailed) {
+      this.activateDirectApprovalStep(this.data.directStepId === id ? '' : id);
+    }
+  },
+
+  activateDirectApprovalStep(id) {
+    const step = id ? this.data.directMaterialSteps.find(item => item.id === id) : this._ordinaryApprovalStep;
+    this._signingDraft = step && (id || this.data.canApproveCurrentStep) ? this.openStepDraft(step, this.data.files, !!id) : null;
+    this._signingStepId = this._signingDraft ? step.id : '';
+    this._stampDirectoryAt = 0;
+    this._preparedSigningPreview = null;
+    const draft = this._signingDraft;
+    this.setData({ directStepId: id, activeApprovalStep: step || null, activeApprovalStepId: step ? step.id : '',
+      approvalComment: draft && draft.comment || '', designatedNextPersons: draft && draft.designatedNext || [],
+      pendingSignatures: this.signingMaterialViews(), availableStamps: [], stampNotice: '', approvalWarning: '' });
+    if (draft) signingAssets.warm(draft, this.data.files, []);
+  },
+
+  async submitDirectApproval() {
+    const { directSteps, directMaterialSteps, files, submissionId } = this.data;
+    if (!directSteps.length || this.data.directApproving || this.data.loading || this.data.signingReadFailed) return;
+    const plans = directMaterialSteps.map(step => {
+      const draft = this.openStepDraft(step, files, true);
+      return { step, draft, materials: materialsOfAuditDraft(draft) };
+    });
+    const requirements = { sign: signingCopy.signature, stamp: signingCopy.stamp, estamp: signingCopy.stamp,
+      both: localeCopy.copy_a63d02480e, either: signingCopy.either };
+    for (const item of plans) {
+      const missing = missingAuditMaterial(item.step.actionType, files, item.materials);
+      if (!missing) continue;
+      if (this.data.directStepId !== item.step.id) this.activateDirectApprovalStep(item.step.id);
+      this.setData({ directApprovalNotice: directApprovalCopy.audit.directApproveMissing
+        .replace('{stepTitle}', item.step.stepText).replace('{requirement}', requirements[missing]) });
+      return;
+    }
+    const request = orgSession.beginRequest(this, 'auditDirectApproval');
+    const current = () => orgSession.isRequestCurrent(this, request);
+    this.setData({ directApproving: true, directApprovalNotice: '' });
+    try {
+      const answer = await new Promise(resolve => wx.showModal({ title: directApprovalCopy.directApproveAction,
+        content: directApprovalCopy.audit.directApproveConfirm, confirmText: directApprovalCopy.directApproveAction,
+        success: resolve, fail: () => resolve({ confirm: false }) }));
+      if (!answer.confirm || !current()) return;
+      for (const item of plans) {
+        await inkHistory.prepareSignatureWidths(item.materials, files, (file, page) => signingAssets.preview(item.draft, file, page));
+      }
+      if (!current()) return;
+      const selectedStamp = plans.flatMap(item => item.materials).find(item => item.signatureType === 'stamp');
+      const result = await callFunction({ name: 'directApproveSubmission', data: { submissionId, stepId: directSteps[0].id,
+        comment: this.data.approvalComment, stampAssignmentId: selectedStamp ? selectedStamp.stampAssignmentId : '',
+        stepMaterials: plans.map(item => ({ stepId: item.step.id, signatures: item.materials.map(auditMaterialInput) })) } });
+      if (!current()) return;
+      if (result.status !== 'success') {
+        this.setData({ directApprovalNotice: getErrorText(result, directApprovalCopy.directApproveChanged) });
+        return;
+      }
+      plans.forEach(item => { item.draft.locked = true; item.draft.pendingRead = true; });
+      if (this._signingDraft) this._signingDraft.locked = true;
+      showShortToast(directApprovalCopy.audit.directApproveSucceeded);
+      await this.loadDetail();
+    } catch (error) {
+      if (current()) this.setData({ directApprovalNotice: getErrorText(error, directApprovalCopy.directApproveChanged) });
+    } finally { if (current()) this.setData({ directApproving: false }); }
   },
 
   // Direct approval from the inline approval card (no popup)

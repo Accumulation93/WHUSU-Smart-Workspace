@@ -6,12 +6,13 @@ const view=require('../../package-resources/utils/calendarView');
 const time=require('../../../../utils/dateTime');
 const timeCopy=require('../../../../locales/zh-CN/time');
 const messageCopy=require('../../../../locales/zh-CN/messageFacts');
-const {callFunction}=require('../../../../utils/api');
+const {callFunction,createResultError,getErrorText}=require('../../../../utils/api');
 const orgSession=require('../../../../utils/orgSession');
 const eventBus=require('../../../../utils/eventBus');
 Page({
   data:{copy,common,navTopPx:0,navigationTitle:copy.title+' - '+common.brandName,loading:false,notice:'',selected:'',mode:'month',modes:['month','week','day','list'],query:'',source:'',sourceIndex:0,sources:['','manual','venue_booking','venue_activity'],sourceLabels:[copy.allSources,copy.manual,copy.venue_booking,copy.venue_activity],managed:false,metadata:{permissions:{},timezoneOffset:480},days:[],items:[],visibleItems:[]},
-  onLoad:function(){
+  onLoad:function(options){
+    this._openRuleManagement=options&&options.area==='management';
     this.setData({navTopPx:getNavigationBarMetrics().totalHeight});
     this._contextChanged=()=>{this.clear();if(this._visible)this.load();};
     eventBus.on('auth:contextChanged',this._contextChanged);eventBus.on('auth:selectionChanged',this._contextChanged);eventBus.on('org:changed',this._contextChanged);
@@ -27,13 +28,19 @@ Page({
     this.setData({loading:true,notice:''});
     try{
       const config=await callFunction({name:'getCalendarConfiguration',data:{}});if(!current())return;
-      if(config.status!=='success')throw new Error(config.message||copy.operationFailed);
+      if(config.status!=='success')throw createResultError(config,copy.operationFailed);
+      this.setData({metadata:config});
+      const openRuleManagement=this._openRuleManagement;
+      this._openRuleManagement=false;
+      if(openRuleManagement&&config.permissions&&config.permissions.rules){
+        this.setData({loading:false});this.rules();return;
+      }
       const range=view.period(this.data.selected,this.data.mode,config.timezoneOffset);
       const result=await callFunction({name:'getCalendar',data:Object.assign({},range,{managed:this.data.managed})});if(!current())return;
-      if(result.status!=='success')throw new Error(result.message||copy.operationFailed);
+      if(result.status!=='success')throw createResultError(result,copy.operationFailed);
       this._items=result.items.map(item=>Object.assign({},item,{key:item.id+':'+item.occurrenceDate,timeText:view.timeText(item,config.timezoneOffset,time,timeCopy,messageCopy)}));
-      this.setData({metadata:config,loading:false});this.render();
-    }catch(error){if(current())this.setData({loading:false,notice:error.message||copy.operationFailed});}
+      this.setData({loading:false});this.render();
+    }catch(error){if(current())this.setData({loading:false,notice:getErrorText(error,copy.operationFailed)});}
   },
   render:function(){
     const query=this.data.query.trim().toLowerCase();

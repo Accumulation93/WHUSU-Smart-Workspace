@@ -4,6 +4,7 @@ const authContext = require('../../../../utils/authContext');
 const contextRouteGuard = require('../../package-resources/utils/contextRouteGuard');
 const orgSession = require('../../../../utils/orgSession');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
+const portalCopy = require('../../../../locales/zh-CN/portal');
 
 function normalizeText(value) {
   return String(value || '').trim();
@@ -15,6 +16,8 @@ function decorateOrganizations(organizations, currentOrganizationId, draftOrgani
     return !query || normalizeText(item.name).toLowerCase().indexOf(query) >= 0;
   }).map(function(item) {
     return Object.assign({}, item, {
+      name: item.accountType === 'super_admin' ? portalCopy.workContext.superAdmin : item.name,
+      accountTypeLabel: item.accountType === 'user' ? portalCopy.workContext.user : '',
       current: item.id === currentOrganizationId,
       selected: item.id === draftOrganizationId
     });
@@ -33,8 +36,8 @@ function decorateWorkContexts(workContexts, draftOrganizationId, selection) {
     });
   });
   return {
-    assignments: applicable.filter(function(item) { return item.role !== 'admin'; }),
-    admins: applicable.filter(function(item) { return item.role === 'admin'; })
+    assignments: applicable.filter(function(item) { return item.role !== 'admin' || item.accountType === 'super_admin'; }),
+    admins: applicable.filter(function(item) { return item.role === 'admin' && item.accountType !== 'super_admin'; })
   };
 }
 

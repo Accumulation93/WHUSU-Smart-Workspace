@@ -297,6 +297,10 @@
       },
       {
         "type": "file",
+        "value": "locales/zh-CN/approvalDirect.js"
+      },
+      {
+        "type": "file",
         "value": "locales/zh-CN/assignmentNatures.js"
       },
       {

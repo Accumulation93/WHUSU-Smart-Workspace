@@ -64,13 +64,15 @@ test('人事资料字符限制按 Unicode 字符而不是 UTF-16 单元计算', 
 });
 
 test('全局人员纠错仍需校验目标组织权限和来源成员关系', () => {
-  ['previewPersonIdentityCorrection', 'applyPersonIdentityCorrection', 'mergePersons'].forEach((routeName) => {
+  ['previewPersonIdentityCorrection', 'applyPersonIdentityCorrection'].forEach((routeName) => {
     const source = routeSegment(hrRouteSource, routeName);
     assert.match(source, /personGovernanceActor\(req, (organizationId|orgId)\)/);
   });
+  assert.match(routeSegment(hrRouteSource, 'mergePersons'), /personGovernanceActor\(req, organizationId, 'auth\.persons\.merge'\)/);
   const authorizationHelper = hrRouteSource.slice(hrRouteSource.indexOf('async function personGovernanceActor'), hrRouteSource.indexOf('function authenticationStatus'));
   assert.match(authorizationHelper, /organizationId !== reference\.organizationId/);
-  assert.match(authorizationHelper, /model\.check\(connection, reference, 'auth\.accounts\.update', target\)/);
+  assert.match(authorizationHelper, /const capability = actor\?\.unifiedAuthorization === true \? operation : 'auth\.accounts\.update'/);
+  assert.match(authorizationHelper, /model\.check\(connection, reference, capability, target\)/);
   assert.match(authorizationHelper, /requireAdminOrganizationPermission\(req, organizationId, \['auth\.accounts\.global_manage'\]\)/);
   assert.match(governanceSource, /WHERE person_id = \? AND org_id = \?/);
   assert.match(governanceSource, /sourceMembershipsInOrganization/);

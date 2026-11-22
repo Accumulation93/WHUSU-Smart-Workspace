@@ -38,6 +38,23 @@ const { findMyVenueApproval, matchesApprovalContext } = require('../services/ven
 const { getActivitySlots: buildActivitySlots } = require('../services/venueActivitySchedule');
 const { evaluateBookingRuleWorkContexts } = require('../services/venueBookingRuleAuthorization');
 const { matchesAnyRule } = require('../utils/venueApprovalRuleMatcher');
+const directApprovalActor = require('../../audit/services/directApprovalActor');
+
+async function resolveBookingUser(req, organizationId) {
+  if (req.authContext?.role === 'admin' && req.authContext.adminLevel === 'super_admin') {
+    try {
+      const actor = await directApprovalActor.resolve(req, pool, organizationId, false);
+      return { ok: true, actor };
+    } catch (error) {
+      if (error.code !== 'authorization_forbidden') throw error;
+    }
+  }
+  const result = await resolveCurrentActor(req);
+  if (!result.ok || result.actor.type !== 'user') return { ...result, ok: false };
+  const assignment = await resolveCurrentActorAssignment(result.actor, organizationId);
+  return assignment ? { ...result, ok: true, actor: { ...result.actor, assignment } }
+    : { ok: false, status: 'forbidden' };
+}
 
 function readDesignationAssignmentIds(body, listKey, legacyKey) {
   const source = body || {};
@@ -631,8 +648,8 @@ router.post('/getVenueApprovalFlowOptions', async (req, res) => {
 router.post('/listVenueApproverCandidates', async (req, res) => {
   try {
     const orgId = await getCurrentOrgId();
-    const actorResult = await resolveCurrentActor(req);
-    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+    const actorResult = await resolveBookingUser(req, orgId);
+    if (!actorResult.ok) {
       return res.json({ status: 'forbidden', message: localeCopy.copy_bba7f8b8ba });
     }
     const bookingId = safeString(req.body.bookingId);
@@ -667,7 +684,7 @@ router.post('/listVenueApproverCandidates', async (req, res) => {
     if (!venueId || !flowId) {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_legacyApproverSelection });
     }
-    const assignment = await resolveCurrentActorAssignment(actorResult.actor, orgId);
+    const assignment = actorResult.actor.assignment;
     const flow = await venueApprovalFlowModel.getById(flowId);
     if (!assignment || !flow || safeString(flow.venue_id) !== venueId
       || Number(flow.allow_designate_first) !== 1 || Number(flow.is_active) !== 1) {
@@ -699,16 +716,15 @@ router.post('/listVenueApproverCandidates', async (req, res) => {
 router.post('/createVenueBooking', async (req, res) => {
   const conn = await pool.getConnection();
   try {
-    const actorResult = await resolveCurrentActor(req);
-    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+    const orgId = await getCurrentOrgId();
+    const actorResult = await resolveBookingUser(req, orgId);
+    if (!actorResult.ok) {
       return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_bba7f8b8ba });
     }
-    const orgId = await getCurrentOrgId();
-    const applicantAssignment = await resolveCurrentActorAssignment(actorResult.actor, orgId);
-    if (!applicantAssignment) {
-      return res.json({ status: 'forbidden', message: localeCopy.copy_bba7f8b8ba });
-    }
+    const superUser = actorResult.actor.adminLevel === 'super_admin';
+    const applicantAssignment = actorResult.actor.assignment;
     const hrId = applicantAssignment.legacyHrId;
+    const actorKey = superUser ? applicantAssignment.assignmentId : 'user:' + hrId;
 
     const venueId = safeString(req.body.venueId);
     const title = safeString(req.body.title);
@@ -795,7 +811,8 @@ router.post('/createVenueBooking', async (req, res) => {
     ownerPermission.require('create', { creator_person_id: applicantAssignment.personId, creator_org_id: orgId,
       creator_assignment_id: applicantAssignment.assignmentId,
       creator_context_snapshot: toAssignmentSnapshot(applicantAssignment) });
-    await unifiedIdentityModel.lockActiveBusinessSubjects(conn, [{
+    if (superUser) await directApprovalActor.resolve(req, conn, orgId);
+    else await unifiedIdentityModel.lockActiveBusinessSubjects(conn, [{
       personId: applicantAssignment.personId,
       legacyHrId: applicantAssignment.legacyHrId,
       organizationId: orgId,
@@ -809,7 +826,7 @@ router.post('/createVenueBooking', async (req, res) => {
         safeString(req.body.firstApproverAssignmentId), safeString(req.body.firstApproverHrId)])]) : generateId();
     const dedupClaim = await requestDeduplication.claim(conn, {
       orgId,
-      actorKey: 'user:' + hrId,
+      actorKey,
       operationType: 'create_venue_booking',
       clientRequestId,
       resourceId: id
@@ -1066,7 +1083,8 @@ router.post('/createVenueBooking', async (req, res) => {
       venueId, userHrId: hrId, title, description,
       creatorPersonId: applicantAssignment.personId,
       creatorAssignmentId: applicantAssignment.assignmentId,
-      creatorContextSnapshot: Object.assign({ role: 'user' }, toAssignmentSnapshot(Object.assign(
+      creatorAdminGrantId: superUser ? actorResult.actor.adminGrantId : null,
+      creatorContextSnapshot: Object.assign({ role: superUser ? 'admin' : 'user' }, toAssignmentSnapshot(Object.assign(
         {},
         applicantAssignment,
         { contextId: actorResult.actor.contextId }
@@ -1093,7 +1111,7 @@ router.post('/createVenueBooking', async (req, res) => {
       ...dedupClaim,
       resourceId: id,
       orgId,
-      actorKey: 'user:' + hrId,
+      actorKey,
       operationType: 'create_venue_booking'
     }, response);
     await conn.commit();
@@ -1124,17 +1142,18 @@ router.post('/createVenueBooking', async (req, res) => {
 
 router.post('/listMyVenueBookings', async (req, res) => {
   try {
-    const actorResult = await resolveCurrentActor(req);
-    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+    const orgId = await getCurrentOrgId();
+    const actorResult = await resolveBookingUser(req, orgId);
+    if (!actorResult.ok) {
       return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_bba7f8b8ba });
     }
-    const orgId = await getCurrentOrgId();
-    const currentAssignment = await resolveCurrentActorAssignment(actorResult.actor, orgId);
-    if (!currentAssignment) return res.json({ status: 'forbidden', message: localeCopy.copy_bba7f8b8ba });
+    const currentAssignment = actorResult.actor.assignment;
     const hrId = currentAssignment.legacyHrId;
     const bookings = await require('../models/venueBookingAuthorization').ownedRead(orgId,
       require('../../../core/services/authorizationReference').referenceFromRequest(req),
-      await venueBookingModel.getByUserId(hrId));
+      actorResult.actor.adminLevel === 'super_admin'
+        ? await venueBookingModel.getByCreatorAssignment(orgId, currentAssignment.personId, currentAssignment.assignmentId)
+        : await venueBookingModel.getByUserId(hrId));
     const applicantAssignments = await resolveBookingApplicantAssignments(bookings);
     const orgNameMap = await resolveVenueOrgNames(
       bookings.map(b => safeString(b.creator_org_id) || safeString(b.approval_org_id))
@@ -1669,15 +1688,13 @@ router.post('/getVenueApprovalHistoryDetail', async (req, res) => {
 
 router.post('/cancelVenueBooking', async (req, res) => {
   try {
-    const actorResult = await resolveCurrentActor(req);
-    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+    const currentOrgId = await getCurrentOrgId();
+    const actorResult = await resolveBookingUser(req, currentOrgId);
+    if (!actorResult.ok) {
       return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
     const actor = actorResult.actor;
-    const currentOrgId = await getCurrentOrgId();
-    const assignment = await resolveCurrentActorAssignment(actor, currentOrgId);
-    if (!assignment) return res.json({ status: 'forbidden', message: localeCopy.copy_4e84385ce1 });
-    actor.assignment = assignment;
+    const assignment = actor.assignment;
     actor.profile = toRuleProfile(assignment);
     const hrId = assignment.legacyHrId;
     const id = safeString(req.body.id);
@@ -1717,14 +1734,13 @@ router.post('/cancelVenueBooking', async (req, res) => {
 
 router.post('/endVenueBooking', async (req, res) => {
   try {
-    const actorResult = await resolveCurrentActor(req);
-    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+    const currentOrgId = await getCurrentOrgId();
+    const actorResult = await resolveBookingUser(req, currentOrgId);
+    if (!actorResult.ok) {
       return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_bba7f8b8ba });
     }
     const actor = actorResult.actor;
-    const currentOrgId = await getCurrentOrgId();
-    const assignment = await resolveCurrentActorAssignment(actor, currentOrgId);
-    if (!assignment) return res.json({ status: 'forbidden', message: localeCopy.copy_bba7f8b8ba });
+    const assignment = actor.assignment;
     const hrId = assignment.legacyHrId;
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_62d2cac4df });

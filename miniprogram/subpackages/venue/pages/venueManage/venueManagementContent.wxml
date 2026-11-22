@@ -146,8 +146,9 @@
             <button class="primary-btn approve-btn ui-motion-button" data-id="{{item.id}}" catchtap="openApprovePopup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_1bb7eb3e1a}}</button>
             <button class="danger-btn reject-btn ui-motion-button" data-id="{{item.id}}" catchtap="openRejectPopup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0c90eb0204}}</button>
           </view>
-          <view class="card-actions" wx:if="{{canDeleteVenueBookings && item.adminCanDelete}}">
-            <button class="danger-btn ui-motion-button" data-id="{{item.id}}" catchtap="deleteVenueBooking" disabled="{{!!deletingVenueBooking}}"  hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{deletingVenueBooking === item.id}}" />{{governanceCopy.deleteConfirm}}</button>
+          <view class="card-actions" wx:if="{{item.canDirectApprove || (canDeleteVenueBookings && item.adminCanDelete)}}">
+            <button wx:if="{{item.canDirectApprove}}" class="secondary-btn ui-motion-button" data-id="{{item.id}}" catchtap="directApproveBooking" disabled="{{!!directApprovingBooking || !!deletingVenueBooking}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{directApprovingBooking === item.id}}" />{{directApprovalCopy.directApproveAction}}</button>
+            <button wx:if="{{canDeleteVenueBookings && item.adminCanDelete}}" class="danger-btn ui-motion-button" data-id="{{item.id}}" catchtap="deleteVenueBooking" disabled="{{!!deletingVenueBooking || !!directApprovingBooking}}"  hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{deletingVenueBooking === item.id}}" />{{governanceCopy.deleteConfirm}}</button>
           </view>
         </view>
       </scroll-view>

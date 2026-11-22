@@ -1,6 +1,8 @@
 'use strict';
 
 const { assignmentPredicate } = require('./identityNatureEligibility');
+const identityTransition = require('./authorizationIdentityTransition');
+const { superAssignmentId } = require('../services/authorizationIdentityModel');
 
 // 读取授权事实时不使用客户端岗位、姓名或微信标识；写事务可锁定同一会话重新核实。
 async function loadActor(connection, reference, lock = false) {
@@ -24,19 +26,30 @@ async function loadActor(connection, reference, lock = false) {
 
 async function loadRole(connection, session, lock) {
   const suffix = lock ? ' FOR UPDATE' : '';
+  const unifiedAuthorization = await identityTransition.isUnified(connection);
   const actor = { accountId: session.accountId, personId: session.personId, sessionId: session.sessionId,
     contextId: session.contextId, organizationId: session.organizationId, role: session.role,
-    active: true, assignment: null, adminGrantId: null, isSuper: false };
+    active: true, assignment: null, adminGrantId: null, isSuper: false,
+    unifiedAuthorization, legacyAdminGrantIds: [] };
   if (session.role === 'admin' && session.contextType === 'admin') {
     const [grants] = await connection.query(`SELECT id, admin_level, legacy_admin_id FROM admin_grants
       WHERE id = ? AND person_id = ? AND status = 'active'
-        AND (org_id = ? OR (admin_level = 'super_admin' AND org_id = ''))${suffix}`,
-    [session.subjectId, session.personId, session.organizationId]);
+        AND (org_id = ? OR (admin_level = 'super_admin' AND (org_id = '' OR ? = 1)))${suffix}`,
+    [session.subjectId, session.personId, session.organizationId, unifiedAuthorization ? 1 : 0]);
     const grant = grants[0];
     if (!grant || !['admin', 'super_admin'].includes(grant.admin_level)) return null;
     actor.adminGrantId = grant.id;
     actor.legacyAdminId = grant.legacy_admin_id || grant.id;
     actor.isSuper = grant.admin_level === 'super_admin';
+    if (actor.isSuper) {
+      actor.assignment = { id: superAssignmentId(grant.id, actor.organizationId),
+        organizationId: actor.organizationId, personId: actor.personId, active: true, systemRole: 'super_admin' };
+    } else if (unifiedAuthorization) {
+      const positions = await identityTransition.linkedAssignments(connection, actor.organizationId, grant.id, actor.personId, lock);
+      if (!positions.length) return null;
+      actor.assignment = { ...positions[0], active: true };
+      actor.legacyAdminGrantIds = [grant.id];
+    }
     return actor;
   }
   if (session.role !== 'user' || !['assignment', 'membership'].includes(session.contextType)) return null;
@@ -65,7 +78,38 @@ async function loadRole(connection, session, lock) {
   [session.subjectId, session.organizationId, session.personId]);
   if (!assignments[0]) return null;
   actor.assignment = Object.assign({}, assignments[0], { active: true });
+  if (unifiedAuthorization) actor.legacyAdminGrantIds = await identityTransition.linkedGrants(connection, actor, lock);
   return actor;
+}
+
+// 委托来源按原授予岗位校验。结果没有会话，不能用于接受业务请求。
+async function loadEffectiveAssignmentsForAuthorization(connection, organizationId, assignmentIds, lock = false) {
+  if (!Array.isArray(assignmentIds) || !assignmentIds.length) return [];
+  const ids = [...new Set(assignmentIds)];
+  const [rows] = await connection.query(`SELECT a.id, a.org_id AS organizationId, m.person_id AS personId,
+    account.id AS accountId, a.assignment_kind AS natureId, a.department_id AS departmentId,
+    a.identity_id AS identityCategoryId, a.work_group_id AS workGroupId
+    FROM membership_assignments a
+    JOIN organization_memberships m ON m.id=a.membership_id AND m.org_id=a.org_id AND m.status='active'
+    JOIN persons p ON p.id=m.person_id AND p.status='active'
+    JOIN accounts account ON account.person_id=p.id AND account.status='verified'
+    JOIN departments d ON d.id=a.department_id AND d.org_id=a.org_id
+    JOIN identities i ON i.id=a.identity_id AND i.org_id=a.org_id
+    JOIN assignment_natures n ON n.id=a.assignment_kind COLLATE utf8mb4_unicode_ci
+      AND n.org_id=a.org_id COLLATE utf8mb4_unicode_ci
+    LEFT JOIN work_groups w ON w.id=a.work_group_id AND w.org_id=a.org_id AND w.department_id=a.department_id
+    WHERE a.org_id=? AND a.id IN (${ids.map(() => '?').join(',')}) AND a.status='active'
+      AND ${assignmentPredicate('a')}
+      AND (a.work_group_id IS NULL OR a.work_group_id='' OR w.id IS NOT NULL)
+    ORDER BY a.id${lock ? ' FOR UPDATE' : ''}`, [organizationId, ...ids]);
+  const unifiedAuthorization = await identityTransition.isUnified(connection);
+  const grants = unifiedAuthorization
+    ? await identityTransition.linkedGrantsForAssignments(connection, organizationId, rows.map(row => row.id), lock) : new Map();
+  return rows.map(({ accountId, ...position }) => ({
+    accountId, personId: position.personId, organizationId, role: 'user', active: true,
+    assignment: { ...position, active: true }, adminGrantId: null, isSuper: false, unifiedAuthorization,
+    legacyAdminGrantIds: grants.get(position.id) || []
+  }));
 }
 
 // 只供消息聚合逐角色读取；不激活角色，不允许用其结果执行任何业务写入。
@@ -115,4 +159,4 @@ async function loadIdentityCardActor(connection, tokenHash) {
   return actor ? { actor, context: target } : null;
 }
 
-module.exports = { loadActor, loadMessageActor, loadCalendarSubscriptionActor, loadIdentityCardActor };
+module.exports = { loadActor, loadEffectiveAssignmentsForAuthorization, loadMessageActor, loadCalendarSubscriptionActor, loadIdentityCardActor };

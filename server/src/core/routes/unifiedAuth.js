@@ -8,6 +8,7 @@ const identityModel = require('../models/unifiedIdentity');
 const sessionDeviceModel = require('../models/sessionDevice');
 const systemConfigModel = require('../models/systemConfig');
 const unifiedAuth = require('../services/unifiedAuth');
+const { selectClientContexts } = require('../services/authorizationIdentityModel');
 const governanceAuthorization = require('../models/accountGovernanceAuthorization');
 const webSessionCookie = require('../services/webSessionCookie');
 const { resolveUnifiedSession, readRequestToken } = require('../../middleware/auth');
@@ -93,17 +94,21 @@ function remainingSessionSeconds(session) {
 
 async function requireAdminPermission(req, permissionKey) {
   requireUnifiedSession(req);
-  if (req.authContext.role !== 'admin') {
-    throw new identityModel.IdentityError('admin_role_required', localeCopy.copy_278fb8d3d0, 403);
-  }
   if (req.unifiedAuthorization?.reference) {
     const reference = req.unifiedAuthorization.reference;
     const action = safeString(req.body?.action);
     const read = req.method === 'GET' || ['', 'list', 'get', 'eligible', 'eligible_accounts'].includes(action);
+    const accountAction = {
+      '/admin/auth/security': 'read',
+      '/admin/auth/security/sessions/revoke': 'revokeSession',
+      '/admin/auth/security/passphrase': 'resetPassphrase',
+      '/admin/auth/security/passphrase/revoke': 'revokePassphrase'
+    }[req.path] || ({ freeze: 'freeze', unfreeze: 'freeze', issue_codes: 'manageRecoveryCode',
+      revoke_codes: 'manageRecoveryCode', approve: 'approveRecovery' }[action] || 'update');
     const capability = {
       'auth.identity.verify': 'auth.identity.' + (read ? 'read' : 'verify'),
       'auth.accounts.recover': 'auth.recovery.' + (read ? 'read' : 'update'),
-      'auth.accounts.global_manage': 'auth.accounts.' + (req.path === '/admin/auth/security' ? 'read' : 'update'),
+      'auth.accounts.global_manage': 'auth.accounts.' + accountAction,
       'auth.accounts.audit': 'auth.audit.read',
       'auth.policy.manage': 'auth.policy.' + (req.method === 'GET' || action === 'get' ? 'read' : 'update')
     }[permissionKey];
@@ -114,9 +119,14 @@ async function requireAdminPermission(req, permissionKey) {
     }
     const actor = await governanceAuthorization.authorize(reference, capability);
     return { ...req.authContext, adminLevel: actor.isSuper ? 'super_admin' : 'admin',
+      unifiedAuthorization: actor.unifiedAuthorization === true,
       organizationId: reference.organizationId,
       authorizeGovernance: (connection, target) => governanceAuthorization.check(connection, reference, capability, target),
-      recheckGovernance: target => governanceAuthorization.authorize(reference, capability, target) };
+      recheckGovernance: target => governanceAuthorization.authorize(reference, capability, target),
+      scopeGovernanceRows: rows => governanceAuthorization.filterAuthorizedPeople(reference, capability, rows) };
+  }
+  if (req.authContext.role !== 'admin') {
+    throw new identityModel.IdentityError('admin_role_required', localeCopy.copy_278fb8d3d0, 403);
   }
   const context = await unifiedAuth.decorateContext(req.authContext);
   const permissions = context.permissions || [];
@@ -127,6 +137,10 @@ async function requireAdminPermission(req, permissionKey) {
     require('../models/authorizationBusinessRoute').requireLegacyWrite(connection, req.authContext.organizationId);
   return { ...context, authorizeLegacyGovernance,
     recheckGovernance: () => pool.withTransaction(authorizeLegacyGovernance) };
+}
+
+function scopedGovernanceRows(actor, rows) {
+  return actor.scopeGovernanceRows ? actor.scopeGovernanceRows(rows) : rows;
 }
 
 function governanceOrganization(actor, requested) {
@@ -266,7 +280,7 @@ router.post('/auth/claims/verify', async (req, res) => {
       req.body && req.body.verificationCode,
       metadata(req)
     );
-    const result = await unifiedAuth.createAuthenticatedSession(account, '', metadata(req));
+    const result = await unifiedAuth.createAuthenticatedSession(account, { identityModel: req.body && req.body.identityModel }, metadata(req));
     if (account.rotatedRecoveryCode) result.recoveryCode = account.rotatedRecoveryCode;
     return res.json(await withSystemTimezone(result));
   } catch (error) {
@@ -284,7 +298,7 @@ router.post('/auth/claims/redeem', async (req, res) => {
       code: req.body && (req.body.code || req.body.verificationCode)
     }, metadata(req));
     return res.json(await withSystemTimezone(
-      await unifiedAuth.createAuthenticatedSession(account, '', metadata(req))
+      await unifiedAuth.createAuthenticatedSession(account, { identityModel: req.body && req.body.identityModel }, metadata(req))
     ));
   } catch (error) {
     return sendError(req, res, error);
@@ -318,7 +332,8 @@ router.post('/auth/password/session', async (req, res) => {
     const payload = await unifiedAuth.createAuthenticatedSession(account, {
       contextId: req.body && req.body.preferredContextId,
       organizationId: req.body && req.body.preferredOrganizationId,
-      identityId: req.body && req.body.preferredIdentityId
+      identityId: req.body && req.body.preferredIdentityId,
+      identityModel: req.body && req.body.identityModel
     }, metadata(req), temporaryOptions);
     if (!webSession && !account.openid_hash && openid && bindingAvailable) {
       payload.bindingOffer = {
@@ -395,18 +410,20 @@ router.post('/auth/security/bind-current-wechat', async (req, res) => {
   }
 });
 
-router.get('/auth/contexts', async (req, res) => {
+async function sendContexts(req, res) {
   try {
     requireUnifiedSession(req);
-    const contexts = await unifiedAuth.decorateContexts(
-      await identityModel.listContexts(req.authAccount.id)
-    );
-    const currentContext = contexts.find((item) => item.contextId === req.authContext.contextId)
-      || req.authContext;
+    const requestedModel = req.method === 'GET' ? req.query.identityModel : req.body && req.body.identityModel;
+    const client = selectClientContexts(await identityModel.listContexts(req.authAccount.id), requestedModel);
+    const contexts = await unifiedAuth.decorateContexts(client.contexts);
+    const currentContext = contexts.find(item => item.contextId === req.authContext.contextId)
+      || (client.identityModel === 'unified' ? null : req.authContext);
     const catalog = unifiedAuth.buildContextCatalog(contexts, currentContext);
     return res.json(await withSystemTimezone({
       status: 'success',
-      currentContextId: req.authContext.contextId,
+      identityModel: client.identityModel,
+      needsContextSelection: currentContext === null,
+      currentContextId: currentContext?.contextId || '',
       context: currentContext,
       user: unifiedAuth.profileFromContext(currentContext),
       contexts,
@@ -418,32 +435,10 @@ router.get('/auth/contexts', async (req, res) => {
   } catch (error) {
     return sendError(req, res, error);
   }
-});
+}
 
-router.post('/auth/contexts', async (req, res) => {
-  try {
-    requireUnifiedSession(req);
-    const contexts = await unifiedAuth.decorateContexts(
-      await identityModel.listContexts(req.authAccount.id)
-    );
-    const currentContext = contexts.find((item) => item.contextId === req.authContext.contextId)
-      || req.authContext;
-    const catalog = unifiedAuth.buildContextCatalog(contexts, currentContext);
-    return res.json(await withSystemTimezone({
-      status: 'success',
-      currentContextId: req.authContext.contextId,
-      context: currentContext,
-      user: unifiedAuth.profileFromContext(currentContext),
-      contexts,
-      workContexts: catalog.workContexts,
-      selection: catalog.selection,
-      organizations: catalog.organizations,
-      identities: catalog.identities
-    }));
-  } catch (error) {
-    return sendError(req, res, error);
-  }
-});
+router.get('/auth/contexts', sendContexts);
+router.post('/auth/contexts', sendContexts);
 
 router.post('/auth/contexts/activate', async (req, res) => {
   try {
@@ -451,6 +446,7 @@ router.post('/auth/contexts/activate', async (req, res) => {
     const requestedContextId = safeString(req.body && (req.body.contextId || req.body.workContextId));
     const requestedOrganizationId = safeString(req.body && req.body.organizationId);
     const requestedIdentityId = safeString(req.body && req.body.identityId);
+    const requestedModel = req.body && req.body.identityModel;
     if (!requestedContextId && (!requestedOrganizationId || !requestedIdentityId)) {
       throw new identityModel.IdentityError('invalid_params', personnelCopy.organizationSelectionExpired, 400);
     }
@@ -461,13 +457,13 @@ router.post('/auth/contexts/activate', async (req, res) => {
       {
         contextId: requestedContextId,
         organizationId: requestedOrganizationId,
-        identityId: requestedIdentityId
+        identityId: requestedIdentityId,
+        identityModel: requestedModel
       }
     );
     const decorated = await unifiedAuth.decorateContext(context);
-    const contexts = await unifiedAuth.decorateContexts(
-      await identityModel.listContexts(req.authAccount.id)
-    );
+    const client = selectClientContexts(await identityModel.listContexts(req.authAccount.id), requestedModel);
+    const contexts = await unifiedAuth.decorateContexts(client.contexts);
     const catalog = unifiedAuth.buildContextCatalog(contexts, decorated);
     await identityModel.appendAuditEvent({
       eventType: 'auth_context_activated',
@@ -490,6 +486,7 @@ router.post('/auth/contexts/activate', async (req, res) => {
     });
     const activated = await withSystemTimezone({
       status: 'success',
+      identityModel: client.identityModel,
       token: unifiedAuth.signAccessToken(
         Object.assign({}, req.authSession, { context: decorated }),
         {
@@ -671,10 +668,13 @@ router.post('/admin/auth/security', async (req, res) => {
       }
     }
     const accountExists = Boolean(account.account_id);
+    const accountOperations = actor.unifiedAuthorization
+      ? await governanceAuthorization.readAccountOperations(req.unifiedAuthorization.reference,
+        { personId: account.person_id, accountId: account.account_id }) : null;
     const sessions = accountExists ? scopeAccountSessions(
       await identityModel.listSessions(account.account_id),
       actor.organizationId,
-      canGlobalManage
+      canGlobalManage && (!actor.unifiedAuthorization || actor.adminLevel === 'super_admin')
     ) : [];
     const devices = groupSessionsByDevice(sessions, req.authSession.device_key_hash);
     const passphraseSet = accountExists
@@ -683,10 +683,11 @@ router.post('/admin/auth/security', async (req, res) => {
     if (actor.recheckGovernance) await actor.recheckGovernance({ personId: account.person_id, accountId: account.account_id });
     return res.json(await withSystemTimezone({
       status: 'success',
-      account: { name: account.name, studentId: account.student_id },
+      account: { name: account.name, ...(!actor.unifiedAuthorization ? { studentId: account.student_id } : {}) },
       accountExists,
       bindingStatus: accountExists ? safeString(account.account_status) : 'unbound',
       canGlobalManage,
+      ...(accountOperations ? { accountOperations } : {}),
       passphraseSet,
       sessions: sessions.map(mapSecuritySession),
       devices: devices.map(mapSecurityDevice)
@@ -878,7 +879,7 @@ router.post('/auth/recovery/complete', async (req, res) => {
       req.body && req.body.credential,
       metadata(req)
     );
-    const result = await unifiedAuth.createAuthenticatedSession(account, '', metadata(req));
+    const result = await unifiedAuth.createAuthenticatedSession(account, { identityModel: req.body && req.body.identityModel }, metadata(req));
     if (account.rotatedRecoveryCode) result.recoveryCode = account.rotatedRecoveryCode;
     return res.json(result);
   } catch (error) {
@@ -891,8 +892,7 @@ router.get('/admin/auth/claims', async (req, res) => {
     const actor = await requireAdminPermission(req, 'auth.identity.verify');
     const orgId = governanceOrganization(actor, req.query && req.query.organizationId);
     const rows = await identityModel.listClaims(orgId, { limit: req.query && req.query.limit, exactOrganization: Boolean(actor.authorizeGovernance) });
-    if (actor.recheckGovernance) await actor.recheckGovernance();
-    return res.json({ status: 'success', list: rows });
+    return res.json({ status: 'success', list: await scopedGovernanceRows(actor, rows) });
   } catch (error) {
     return sendError(req, res, error);
   }
@@ -905,14 +905,12 @@ router.post('/admin/auth/claims', async (req, res) => {
     if (action === 'list') {
       const orgId = governanceOrganization(actor, req.body && req.body.organizationId);
       const rows = await identityModel.listClaims(orgId, { limit: req.body && req.body.limit, exactOrganization: Boolean(actor.authorizeGovernance) });
-      if (actor.recheckGovernance) await actor.recheckGovernance();
-      return res.json({ status: 'success', list: rows });
+      return res.json({ status: 'success', list: await scopedGovernanceRows(actor, rows) });
     }
     if (action === 'eligible') {
       const orgId = governanceOrganization(actor, req.body && req.body.organizationId);
       const rows = await identityModel.listEligibleInitialInvitePeople(orgId, req.body || {});
-      if (actor.recheckGovernance) await actor.recheckGovernance();
-      return res.json({ status: 'success', list: rows });
+      return res.json({ status: 'success', list: await scopedGovernanceRows(actor, rows) });
     }
     if (action === 'issue_invites') {
       const orgId = governanceOrganization(actor, req.body && req.body.organizationId);
@@ -979,8 +977,7 @@ router.get('/admin/auth/recoveries', async (req, res) => {
     const actor = await requireAdminPermission(req, 'auth.accounts.recover');
     const orgId = governanceOrganization(actor, req.query && req.query.organizationId);
     const rows = await identityModel.listRecoveryRequests(orgId, { limit: req.query && req.query.limit, exactOrganization: Boolean(actor.authorizeGovernance) });
-    if (actor.recheckGovernance) await actor.recheckGovernance();
-    return res.json({ status: 'success', list: rows });
+    return res.json({ status: 'success', list: await scopedGovernanceRows(actor, rows) });
   } catch (error) {
     return sendError(req, res, error);
   }
@@ -993,13 +990,11 @@ router.post('/admin/auth/recoveries', async (req, res) => {
     if (action === 'list') {
       const orgId = governanceOrganization(actor, req.body && req.body.organizationId);
       const rows = await identityModel.listRecoveryRequests(orgId, { limit: req.body && req.body.limit, exactOrganization: Boolean(actor.authorizeGovernance) });
-      if (actor.recheckGovernance) await actor.recheckGovernance();
-      return res.json({ status: 'success', list: rows });
+      return res.json({ status: 'success', list: await scopedGovernanceRows(actor, rows) });
     }
     if (action === 'eligible_accounts') {
       const orgId = governanceOrganization(actor, req.body && req.body.organizationId);
-      const rows = await identityModel.listEligibleRecoveryAccounts(orgId, req.body || {});
-      if (actor.recheckGovernance) await actor.recheckGovernance();
+      const rows = await scopedGovernanceRows(actor, await identityModel.listEligibleRecoveryAccounts(orgId, req.body || {}));
       return res.json({ status: 'success', list: rows.map((row) => ({
         accountId: safeString(row.account_id), personId: safeString(row.person_id), name: safeString(row.name),
         studentId: safeString(row.student_id), accountStatus: safeString(row.status),
@@ -1049,8 +1044,8 @@ router.post('/admin/auth/accounts', async (req, res) => {
     const action = safeString(req.body && req.body.action) || 'list';
     if (action === 'list') {
       const orgId = governanceOrganization(actor, req.body && req.body.organizationId);
-      const rows = await identityModel.listAccounts(orgId, { limit: req.body && req.body.limit, search: req.body && req.body.search });
-      if (actor.recheckGovernance) await actor.recheckGovernance();
+      const rows = await scopedGovernanceRows(actor, await identityModel.listAccounts(orgId,
+        { limit: req.body && req.body.limit, search: req.body && req.body.search }));
       return res.json({
         status: 'success',
         list: rows.map((row) => ({

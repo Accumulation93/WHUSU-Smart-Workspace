@@ -176,6 +176,7 @@ function requestWechatSessionDirect(callbacks, preferredSelection) {
           },
           data: {
             code: code,
+            identityModel: 'unified',
             preferredContextId: preferred.contextId || '',
             preferredOrganizationId: preferred.organizationId || ''
           },
@@ -376,6 +377,7 @@ Page({
         data: {
           studentId: this.data.passwordStudentId,
           passphrase: this.data.password,
+          identityModel: 'unified',
           requestBindingOffer: true
         }
       });
@@ -601,6 +603,7 @@ Page({
         const inviteResult = await callFunction({
           name: 'auth/claims/redeem',
           data: {
+            identityModel: 'unified',
             organizationId: organization && organization.id,
             name: this.data.name,
             studentId: this.data.studentId,
@@ -618,6 +621,7 @@ Page({
       const result = await callFunction({
         name: 'auth/claims/verify',
         data: {
+          identityModel: 'unified',
           claimId: this.data.claimId,
           verificationCode: this.data.verificationCode
         }
@@ -681,6 +685,7 @@ Page({
       const result = await callFunction({
         name: 'auth/recovery/complete',
         data: {
+          identityModel: 'unified',
           recoveryRequestId: this.data.recoveryRequestId,
           method: this.data.recoveryMethod,
           credential: this.data.recoveryCredential

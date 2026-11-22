@@ -32,7 +32,8 @@ async function perform(id, action, actor, reference, timeEnd) {
     const booking = await model.getByIdForUpdate(id, connection);
     if (!booking) throw new Error(localeCopy.copy_3508043e2a);
     if (![booking.creator_org_id, booking.approval_org_id].includes(actor.organizationId)
-      || (booking.creator_person_id ? booking.creator_person_id !== actor.personId : booking.user_hr_id !== actor.id)) {
+      || (booking.creator_person_id ? booking.creator_person_id !== actor.personId : booking.user_hr_id !== actor.id)
+      || (actor.adminLevel === 'super_admin' && !actor.id && booking.creator_assignment_id !== actor.assignmentId)) {
       throw authorizationError('authorization_forbidden');
     }
     permission.require('read', booking);

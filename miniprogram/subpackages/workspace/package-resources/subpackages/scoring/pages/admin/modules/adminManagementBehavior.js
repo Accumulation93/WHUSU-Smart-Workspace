@@ -5,6 +5,7 @@ const utils = require('./adminUtils');
 const { emptyAdminForm } = utils;
 const { writeAndOpen } = require('../../../../../utils/filePreview');
 const orgSession = require('../../../../../../../../utils/orgSession');
+const authContext = require('../../../../../../../../utils/authContext');
 const personnelCopy = require('../../../../../locales/zh-CN/adminPersonnel');
 const { filterAdminCandidates } = require('./adminCandidateView');
 
@@ -42,7 +43,9 @@ module.exports = Behavior({
       const request = orgSession.beginRequest(this, 'adminList');
       this.setLoading('admins', true);
       try {
-        const result = await this.callCloud('listAdmins');
+        const activeRole = orgSession.getSnapshot().role;
+        const profile = authContext.getRuntimeProfile(activeRole);
+        const result = await this.callCloud('listAdmins', profile && profile.identityModel === 'unified' ? { identityModel: 'unified' } : {});
         if (!orgSession.isRequestCurrent(this, request)) return;
         this.setData({
           adminList: result.list || [],

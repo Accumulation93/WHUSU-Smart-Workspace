@@ -1,6 +1,6 @@
 'use strict';
 
-const { normalizePolicy, subjectMatches } = require('./authorizationPolicy');
+const { normalizePolicy, subjectMatches, isTrustedSuper, restrictionFor } = require('./authorizationPolicy');
 const { authorizationError } = require('./authorizationError');
 
 function column(value) {
@@ -33,9 +33,9 @@ function createScopeCompiler(input) {
   function scopePredicate(scope, actor, effect) {
     if (scope.kind === 'organization') return { sql: '1 = 1', params: [] };
     if (scope.kind === 'records') return membership(descriptor.id, scope.ids);
-    if (scope.kind === 'self') {
+    if (scope.kind === 'self' || scope.kind === 'people') {
       if (!descriptor.ownerPersonId) throw authorizationError('authorization_scope_not_supported');
-      return membership(descriptor.ownerPersonId, [actor.personId]);
+      return membership(descriptor.ownerPersonId, scope.kind === 'self' ? [actor.personId] : scope.ids);
     }
     if (!descriptor.assignmentValid || Object.keys(scope.dimensions).some(key => !descriptor.dimensions[key])) {
       // 尤其不能把无法解释的禁止条件当作“不匹配”，否则会扩大读取范围。
@@ -56,9 +56,9 @@ function createScopeCompiler(input) {
     const definition = catalog instanceof Map && catalog.get(capability);
     if (!definition || !actor || actor.active !== true || !actor.organizationId || !actor.personId || !Number.isFinite(now)
       || definition.resourceType !== descriptor.resourceType || !['user', 'admin'].includes(actor.role)
-      || (definition.governance && actor.role !== 'admin')) return { sql: '1 = 0', params: [] };
+      || restrictionFor(actor, definition)) return { sql: '1 = 0', params: [] };
     const organization = membership(descriptor.organization, [actor.organizationId]);
-    if (actor.role === 'admin' && actor.isSuper === true && actor.adminGrantId) return organization;
+    if (isTrustedSuper(actor)) return organization;
     try {
       if (!Array.isArray(policies)) return { sql: '1 = 0', params: [] };
       const allows = [];

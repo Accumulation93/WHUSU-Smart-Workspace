@@ -223,8 +223,21 @@
         </view>
       </view>
 
+      <view class="card approval-card" wx:if="{{!editMode && directSteps.length}}">
+        <view wx:if="{{directMaterialSteps.length}}" class="approval-sig-section">
+          <view class="section-title approval-card-title">{{directApprovalCopy.audit.directApprovePendingMaterials}}</view>
+          <view class="approval-file-actions">
+            <button wx:for="{{directMaterialSteps}}" wx:key="id" class="{{directStepId === item.id ? 'primary-btn' : 'secondary-btn'}} ui-motion-button" data-id="{{item.id}}" disabled="{{directApproving || signingReadFailed}}" bindtap="selectDirectApprovalStep" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.stepText}}</button>
+          </view>
+        </view>
+        <view wx:if="{{directApprovalNotice}}" class="approval-warning">{{directApprovalNotice}}</view>
+        <view class="button-row">
+          <button class="secondary-btn ui-motion-button" disabled="{{loading || signingReadFailed || directApproving}}" bindtap="submitDirectApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{directApproving}}" />{{directApprovalCopy.directApproveAction}}</button>
+        </view>
+      </view>
+
       <!-- ═══════════ Active Approval Card (shown when current user can approve) ═══════════ -->
-      <view id="active-approval-card" class="card approval-card" wx:if="{{!editMode && hasActiveAssignment && submission.status === 'in_progress' && activeApprovalStepId && canApproveCurrentStep}}">
+      <view id="active-approval-card" class="card approval-card" wx:if="{{!editMode && submission.status === 'in_progress' && activeApprovalStepId && ((hasActiveAssignment && canApproveCurrentStep) || directStepId)}}">
         <view class="section-title approval-card-title">{{localeCopy.copy_7bc6908a17}}</view>
         <view class="approval-step-info">
           {{activeApprovalStep.stepText}} · {{activeApprovalStep.actionLabel}}
@@ -286,13 +299,13 @@
         </view>
 
         <!-- Rejection reason -->
-        <view class="approval-field">
+        <view class="approval-field" wx:if="{{!directStepId}}">
           <view class="approval-field-label">{{localeCopy.copy_47a12cc974}}</view>
           <textarea class="approval-textarea" auto-height maxlength="-1" value="{{rejectionReason}}" bindinput="onRejectionReasonInput" placeholder="{{localeCopy.copy_cc26adb7da}}" adjust-position="{{false}}" cursor-spacing="24" ></textarea>
         </view>
 
         <!-- Designate next-step approvers (optional) -->
-        <view class="approval-designate-row" wx:if="{{nextStepInfo && nextStepInfo.allowApproverDesignation}}">
+        <view class="approval-designate-row" wx:if="{{!directStepId && nextStepInfo && nextStepInfo.allowApproverDesignation}}">
           <view class="approval-designate-header">
             <view class="approval-designate-label">{{localeCopy.copy_3fc6899daa}}</view>
             <text class="audit-link-btn approval-designate-link ui-motion-chip" bindtap="openDesignateNextPersonPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{designatedNextPersons.length ? localeCopy.copy_00e277a673 : localeCopy.copy_c47f370afa}}</text>
@@ -307,7 +320,7 @@
 
         <!-- Action buttons -->
         <view wx:if="{{signingReadFailed || pendingActionRead}}" class="approval-warning">{{pendingActionRead ? signingCopy.pendingRead : signingCopy.failed}}<button class="secondary-btn" bindtap="loadDetail" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{signingCopy.retry}}</button></view>
-        <view class="button-row">
+        <view class="button-row" wx:if="{{!directStepId}}">
           <button class="primary-btn approval-btn-approve ui-motion-button" disabled="{{loading || signingReadFailed || pendingActionRead}}"  bindtap="confirmApprovalDirect" data-action="approve" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loading}}" />✓ {{localeCopy.copy_1bb7eb3e1a}}</button>
           <button class="secondary-btn danger-btn approval-btn-reject ui-motion-button" disabled="{{loading || signingReadFailed || pendingActionRead}}"  bindtap="confirmApprovalDirect" data-action="reject" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loading}}" />✗ {{localeCopy.copy_0c90eb0204}}</button>
         </view>
@@ -388,7 +401,8 @@
                 <view class="flow-step-label">{{node.stepText}} · {{node.actionLabel || localeCopy.copy_c9695bb971}}<text class="flow-round-badge" wx:if="{{node.round > 1}}">{{node.roundText}}</text></view>
                 <view class="flow-step-status-tag {{node.flowTagClass}}">{{node.flowStatusLabel}}</view>
                 <!-- Always show approver name + time if processed -->
-                <view class="flow-step-meta" wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}">
+                <view class="flow-step-meta" wx:if="{{node.directApproval || node.flowIcon === 'check' || node.flowIcon === 'cross'}}">
+                  <text wx:if="{{node.directApproval}}">{{directApprovalCopy.directApprovalActor}} · </text>
                   <person-link name="{{node.operatorName || signingCopy.actorUnknown}}" person-id="{{node.operatorPersonId}}" /> · {{node.processedAtText || ''}}
                 </view>
                 <!-- Expand indicator -->
@@ -397,9 +411,10 @@
                 <!-- Expanded detail section -->
                 <view wx:if="{{expandedNodeKey === node._key}}" class="flow-expand-detail">
                   <!-- Processed info -->
-                  <view wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}" class="flow-detail-processed-text">
-                    <text class="flow-detail-label">{{localeCopy.copy_1fac292fcb}}</text><person-link name="{{node.operatorName || signingCopy.actorUnknown}}" person-id="{{node.operatorPersonId}}" />
+                  <view wx:if="{{node.directApproval || node.flowIcon === 'check' || node.flowIcon === 'cross'}}" class="flow-detail-processed-text">
+                    <text class="flow-detail-label">{{node.directApproval ? directApprovalCopy.directApprovalActor : localeCopy.copy_1fac292fcb}}</text><person-link name="{{node.operatorName || signingCopy.actorUnknown}}" person-id="{{node.operatorPersonId}}" />
                   </view>
+                  <view wx:if="{{node.directApproval && node.originalApproversText}}" class="flow-detail-processed-text"><text class="flow-detail-label">{{directApprovalCopy.audit.originalApprover}}</text>{{node.originalApproversText}}</view>
                   <view wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}" class="flow-detail-processed-meta">
                     {{localeCopy.copy_aa5c293ca5}}{{node.processedAtText || ''}}
                   </view>
@@ -419,7 +434,7 @@
                 </view>
 
                 <!-- Approval action buttons (only for active step + authorized user) -->
-                <view class="flow-actions" wx:if="{{node.flowNodeClass === 'flow-node-active' && hasActiveAssignment && canApproveCurrentStep}}">
+                <view class="flow-actions" wx:if="{{!directStepId && node.flowNodeClass === 'flow-node-active' && hasActiveAssignment && canApproveCurrentStep}}">
                   <text class="flow-action-btn ui-motion-chip" data-step-id="{{node.id}}" catchtap="openApprove" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✓ {{localeCopy.copy_1bb7eb3e1a}}</text>
                   <text class="flow-action-btn flow-action-danger ui-motion-chip" data-step-id="{{node.id}}" catchtap="openReject" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✗ {{localeCopy.copy_0c90eb0204}}</text>
                 </view>
@@ -658,13 +673,13 @@
           <view wx:elif="{{stampNotice}}" class="stamp-empty">{{stampNotice}}<button class="secondary-btn" bindtap="loadAvailableStamps" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{signingCopy.retry}}</button></view>
           <view wx:elif="{{!availableStamps.length}}" class="stamp-empty">{{signingCopy.stampEmpty}}</view>
           <view wx:if="{{stampImageBusy}}" class="stamp-empty"><app-loading text="{{signingCopy.imageLoading}}" /></view>
-          <view wx:for="{{availableStamps}}" wx:key="id" wx:if="{{!stampLoading}}"
+          <view wx:for="{{availableStamps}}" wx:key="selectionId" wx:if="{{!stampLoading}}"
                 class="stamp-picker-item ui-motion-card"
-                data-stamp-id="{{item.id}}" data-stamp-name="{{item.name}}" data-stamp-image="{{item.imageData}}"
+                data-stamp-id="{{item.id}}" data-stamp-name="{{item.name}}" data-stamp-image="{{item.imageData}}" data-stamp-assignment-id="{{item.assignmentId}}"
                 catchtap="onStampSelect" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <image wx:if="{{item.imageData}}" src="{{item.imageData}}" mode="aspectFit" class="stamp-picker-thumb" />
             <view wx:else class="stamp-picker-placeholder"><view class="stamp-placeholder-mark"></view></view>
-            <text class="stamp-picker-name">{{item.name}}</text>
+            <text class="stamp-picker-name">{{item.name}}<text wx:if="{{item.assignmentLabel}}"> · {{item.assignmentLabel}}</text></text>
             <view class="stamp-picker-select">{{localeCopy.copy_896f105132}}</view>
           </view>
         </view>

@@ -5,6 +5,8 @@ const orgSession = require('../../../../../utils/orgSession');
 const dateTime = require('../../../../../utils/dateTime');
 const { describeProfile } = require('../../../package-resources/utils/hrProfileStatusView');
 const homeCopy = require('../../../../../locales/zh-CN/home').text;
+const authorizationCopy = require('../../../../../locales/zh-CN/authorization');
+const governanceCopy = authorizationCopy.unified;
 const { buildCsv, saveAndShareFile } = require('../../../package-resources/utils/tableFile');
 
 const DIRECTORY_LIMIT = 2000;
@@ -399,19 +401,36 @@ module.exports = Behavior({
       const enforced = this.data.authorizationEnforced;
       const verify = this.data.canVerifyIdentity && (!enforced || current.canVerifyIdentity === true);
       const globalManage = this.data.canGlobalAccountManage && (!enforced || current.canGlobalAccountManage === true);
-      const recover = globalManage && (!enforced || (this.data.canRecoverAccounts && current.canRecoverAccount === true));
+      const recover = current.accountOperations ? current.accountOperations.manageRecoveryCode === true
+        : globalManage && (!enforced || (this.data.canRecoverAccounts && current.canRecoverAccount === true));
       const authorized = Object.assign({}, current, {
         canIssueVerification: Boolean(verify && current.canIssueVerification),
         canRevokeVerification: Boolean(verify && current.canRevokeVerification),
         canIssueRecovery: Boolean(recover && current.canIssueRecovery),
         canRevokeRecovery: Boolean(recover && current.canRevokeRecovery),
-        canUnbindWechat: Boolean(globalManage && current.canUnbindWechat)
+        canUnbindWechat: Boolean((current.accountOperations ? current.accountOperations.unbindWechat : globalManage) && current.canUnbindWechat)
       });
       const canSelect = Boolean(row && row.membershipStatus !== 'left' && (
         authorized.canIssueVerification || authorized.canRevokeVerification
         || authorized.canIssueRecovery || authorized.canRevokeRecovery
       ));
       return Object.assign(authorized, { canSelectForAuth: canSelect });
+    },
+
+    canOperateHrAccount(action, suppliedRow) {
+      const row = suppliedRow || this.data.detailHrGovernance;
+      const security = this.data.detailHrSecurity;
+      if (row && row.accountOperations) {
+        return row.accountOperations[action] === true && (!security || !security.accountOperations || security.accountOperations[action] === true);
+      }
+      return this.data.canGlobalAccountManage && (action !== 'approveRecovery' || !this.data.authorizationEnforced || this.data.canRecoverAccounts);
+    },
+
+    canLoadHrAccountSecurity(row) {
+      if (!row || !row.personId) return false;
+      const operations = row.accountOperations;
+      return operations ? ['read', 'unbindWechat', 'resetPassphrase', 'revokePassphrase', 'revokeSession'].some(action => operations[action] === true)
+        : this.data.canGlobalAccountManage;
     },
 
     buildHrMemberActionState(rows, selectedIds) {
@@ -640,7 +659,7 @@ module.exports = Behavior({
     _openCredentialRevokeConfirm(kind, rows, isBatch) {
       const isVerification = kind === 'verification';
       if ((isVerification && !this.data.canVerifyIdentity)
-        || (!isVerification && !this.data.canGlobalAccountManage)) return;
+        || (!isVerification && !(isBatch ? this.data.canGlobalAccountManage : this.canOperateHrAccount('manageRecoveryCode')))) return;
       const targets = freezeCredentialTargets(rows);
       if (!targets.length || this.data.authActionLoadingKey) return;
       this._authMemberConfirmPayload = Object.freeze({
@@ -748,10 +767,9 @@ module.exports = Behavior({
     },
 
     async issueHrMemberRecoveryCode(e) {
-      if (!this.data.canGlobalAccountManage) return;
       const hrId = String(e.currentTarget.dataset.hrId || '');
       const row = (this._hrProfileRawRows || []).find((item) => String(item.id || '') === hrId);
-      if (!row || !row.accountId || this.data.authActionLoadingKey) return;
+      if (!row || !this.canOperateHrAccount('manageRecoveryCode', row) || !row.accountId || this.data.authActionLoadingKey) return;
       this.setData({ authActionLoadingKey: 'member-recovery-' + hrId });
       try {
         const result = await callFunction({ name: 'admin/auth/recoveries', data: {
@@ -821,7 +839,7 @@ module.exports = Behavior({
     },
 
     revokeHrMemberRecoveryCode(e) {
-      if (!this.data.canGlobalAccountManage) return;
+      if (!this.canOperateHrAccount('manageRecoveryCode')) return;
       const hrId = String(e.currentTarget.dataset.hrId || '');
       const row = (this._hrProfileRawRows || []).find((item) => String(item.id || '') === hrId);
       if (!row || !row.accountId || !row.canRevokeRecovery || this.data.authActionLoadingKey) return;
@@ -829,7 +847,8 @@ module.exports = Behavior({
     },
 
     async _revokeHrRecoveryTargets(targets, isBatch) {
-      if (!this.data.canGlobalAccountManage || !targets || !targets.length || this.data.authActionLoadingKey) return;
+      if (!(isBatch ? this.data.canGlobalAccountManage : this.canOperateHrAccount('manageRecoveryCode'))
+        || !targets || !targets.length || this.data.authActionLoadingKey) return;
       const loadingKey = isBatch ? 'member-recovery-revoke' : 'member-recovery-revoke-' + targets[0].hrId;
       const batchRequest = this.beginAuthBatchOperation(loadingKey);
       try {
@@ -1206,8 +1225,7 @@ module.exports = Behavior({
     },
 
     openAuthRecoveryDialog(e) {
-      if (!this.data.canGlobalAccountManage) return;
-      if (this.data.authorizationEnforced && !this.data.canRecoverAccounts) return;
+      if (!this.canOperateHrAccount('approveRecovery')) return;
       const id = String(e.currentTarget.dataset.id || '');
       const pending = (this._authRecoveryRequestsRaw || []).find((item) => item.id === id)
         || (() => {
@@ -1223,7 +1241,7 @@ module.exports = Behavior({
     },
 
     async loadDetailHrSecurity(personId, detailRequestId) {
-      if (!this.data.canGlobalAccountManage) return;
+      if (!this.canLoadHrAccountSecurity(this.data.detailHrGovernance)) return;
       if (!personId || this.data.authActionLoadingKey) return;
       const expectedPersonId = String(personId);
       const expectedRequestId = Number(detailRequestId || this._hrPersonDetailRequestId || 0);
@@ -1271,8 +1289,9 @@ module.exports = Behavior({
           detailHrSecurity: {
             account: result.account || null,
             accountExists: Boolean(result.accountExists),
+            accountOperations: result.accountOperations || null,
             bindingStatus: result.bindingStatus || '',
-            passphraseSet: Boolean(result.passphraseSet),
+            passphraseSet: typeof result.passphraseSet === 'boolean' ? result.passphraseSet : null,
             sessions,
             devices
           }
@@ -1287,7 +1306,7 @@ module.exports = Behavior({
     },
 
     toggleDetailPassphraseForm() {
-      if (!this.data.canGlobalAccountManage) return;
+      if (!this.canOperateHrAccount('resetPassphrase')) return;
       this.setData({
         showDetailPassphraseForm: !this.data.showDetailPassphraseForm,
         detailHrPassphraseInput: ''
@@ -1295,12 +1314,28 @@ module.exports = Behavior({
     },
 
     onDetailPassphraseInput(e) {
-      if (!this.data.canGlobalAccountManage) return;
+      if (!this.canOperateHrAccount('resetPassphrase')) return;
       this.setData({ detailHrPassphraseInput: String(e.detail.value || '') });
     },
 
-    async saveDetailMemberPassphrase() {
-      if (!this.data.canGlobalAccountManage) return;
+    saveDetailMemberPassphrase() {
+      if (!this.canOperateHrAccount('resetPassphrase') || this.data.authActionLoadingKey) return;
+      const row = this.data.detailHrGovernance || {};
+      if (!this.data.detailHrPassphraseInput) return showShortToast(localeCopy.copy_65d888be46);
+      this.setData({
+        authMemberConfirmVisible: true,
+        authMemberConfirmAction: 'passphrase-reset',
+        authMemberConfirmActionLabel: authorizationCopy.capabilityNames['auth.accounts.resetPassphrase'],
+        authMemberConfirmTitle: authorizationCopy.capabilityNames['auth.accounts.resetPassphrase'],
+        authMemberConfirmMessage: governanceCopy.resetPassphraseConfirmation,
+        authMemberConfirmPersonId: String(row.personId || ''),
+        authMemberConfirmHrId: String(this.data.detailHrId || ''),
+        authMemberConfirmName: String(row.name || localeCopy.copy_b04a71edad)
+      });
+    },
+
+    async submitDetailMemberPassphrase() {
+      if (!this.canOperateHrAccount('resetPassphrase')) return;
       const security = this.data.detailHrSecurity;
       const value = this.data.detailHrPassphraseInput;
       const personId = String(this.data.detailHrGovernance && this.data.detailHrGovernance.personId || '');
@@ -1332,7 +1367,7 @@ module.exports = Behavior({
     },
 
     requestMemberDeviceRevoke(e) {
-      if (!this.data.canGlobalAccountManage) return;
+      if (!this.canOperateHrAccount('revokeSession')) return;
       const rowKey = String((e.currentTarget.dataset || {}).rowKey || '');
       const security = this.data.detailHrSecurity;
       const row = this.getHrGovernanceRow(this.data.detailHrId);
@@ -1354,7 +1389,7 @@ module.exports = Behavior({
     },
 
     requestMemberPassphraseClear() {
-      if (!this.data.canGlobalAccountManage) return;
+      if (!this.canOperateHrAccount('revokePassphrase')) return;
       const row = this.getHrGovernanceRow(this.data.detailHrId);
       if (!row || !this.data.detailHrSecurity || this.data.authActionLoadingKey) return;
       this.setData({
@@ -1362,7 +1397,7 @@ module.exports = Behavior({
         authMemberConfirmAction: 'passphrase-clear',
         authMemberConfirmActionLabel: localeCopy.copy_5cde2d7c64,
         authMemberConfirmTitle: localeCopy.copy_f8990cda8e,
-        authMemberConfirmMessage: localeCopy.copy_6eb4c651be,
+        authMemberConfirmMessage: governanceCopy.revokePassphraseConfirmation,
         authMemberConfirmPersonId: String(row.personId || ''),
         authMemberConfirmHrId: String(this.data.detailHrId || ''),
         authMemberConfirmName: String(row.name || localeCopy.copy_b04a71edad),
@@ -1372,7 +1407,7 @@ module.exports = Behavior({
     },
 
     async revokeMemberDevice(rowKey) {
-      if (!this.data.canGlobalAccountManage) return;
+      if (!this.canOperateHrAccount('revokeSession')) return;
       const row = this.getHrGovernanceRow(this.data.detailHrId);
       const personId = String(row && row.personId || '');
       const security = this.data.detailHrSecurity || {};
@@ -1405,7 +1440,7 @@ module.exports = Behavior({
     },
 
     async clearMemberPassphrase() {
-      if (!this.data.canGlobalAccountManage) return;
+      if (!this.canOperateHrAccount('revokePassphrase')) return;
       const row = this.getHrGovernanceRow(this.data.detailHrId);
       const personId = String(row && row.personId || '');
       if (!personId || this.data.authActionLoadingKey) return;
@@ -1425,31 +1460,27 @@ module.exports = Behavior({
     },
 
     requestAuthAccountFreeze(e) {
-      if (!this.data.canGlobalAccountManage) return;
+      if (!this.canOperateHrAccount('freeze')) return;
       const personId = String(e.currentTarget.dataset.id || '');
       const frozen = e.currentTarget.dataset.frozen === true
         || e.currentTarget.dataset.frozen === 'true';
       if (!personId || this.data.authActionLoadingKey) return;
-      if (frozen) {
-        this.toggleAuthAccountFrozen(e);
-        return;
-      }
       const row = this.getHrGovernanceRow(e.currentTarget.dataset.hrId);
       this.setData({
         authMemberConfirmVisible: true,
         authMemberConfirmAction: 'freeze',
-        authMemberConfirmActionLabel: localeCopy.copy_b88a1260e3,
-        authMemberConfirmTitle: localeCopy.copy_eb1ebe5d11,
-        authMemberConfirmMessage: localeCopy.copy_8724ac4ea3,
+        authMemberConfirmActionLabel: frozen ? localeCopy.copy_b059d32042 : localeCopy.copy_b88a1260e3,
+        authMemberConfirmTitle: frozen ? localeCopy.copy_b059d32042 : localeCopy.copy_eb1ebe5d11,
+        authMemberConfirmMessage: frozen ? governanceCopy.unfreezeAccountConfirmation : governanceCopy.freezeAccountConfirmation,
         authMemberConfirmPersonId: personId,
         authMemberConfirmHrId: String(e.currentTarget.dataset.hrId || ''),
         authMemberConfirmName: String(row && row.name || localeCopy.copy_b04a71edad),
-        authMemberConfirmFrozen: false
+        authMemberConfirmFrozen: frozen
       });
     },
 
     requestHrWechatUnbind(e) {
-      if (!this.data.canGlobalAccountManage) return;
+      if (!this.canOperateHrAccount('unbindWechat')) return;
       const hrId = String(e.currentTarget.dataset.hrId || this.data.detailHrId || '');
       const row = this.getHrGovernanceRow(hrId);
       if (!row || !row.canUnbindWechat || this.data.authActionLoadingKey) return;
@@ -1458,7 +1489,7 @@ module.exports = Behavior({
         authMemberConfirmAction: 'unbind',
         authMemberConfirmActionLabel: localeCopy.copy_b86e259dd7,
         authMemberConfirmTitle: localeCopy.copy_71962e6b30,
-        authMemberConfirmMessage: localeCopy.copy_4c2f44d390,
+        authMemberConfirmMessage: governanceCopy.unbindWechatConfirmation,
         authMemberConfirmPersonId: String(row.personId || ''),
         authMemberConfirmHrId: hrId,
         authMemberConfirmName: String(row.name || localeCopy.copy_b04a71edad),
@@ -1492,13 +1523,13 @@ module.exports = Behavior({
       if (action === 'verification-code-revoke') {
         if (!this.data.canVerifyIdentity || !payload || payload.action !== action) return;
       } else if (action === 'recovery-code-revoke') {
-        if (!this.data.canGlobalAccountManage || !payload || payload.action !== action) return;
+        if (!payload || payload.action !== action || !(payload.isBatch ? this.data.canGlobalAccountManage : this.canOperateHrAccount('manageRecoveryCode'))) return;
       }
       this._authMemberConfirmPayload = null;
       this.setData({ authMemberConfirmVisible: false });
       if (action === 'freeze') {
         this.toggleAuthAccountFrozen({
-          currentTarget: { dataset: { id: personId, hrId, frozen: false } }
+          currentTarget: { dataset: { id: personId, hrId, frozen: this.data.authMemberConfirmFrozen } }
         });
       } else if (action === 'unbind') {
         this.unbindHrWechat({ currentTarget: { dataset: { hrId } } });
@@ -1506,6 +1537,8 @@ module.exports = Behavior({
         this.revokeMemberDevice(this.data.authMemberConfirmDeviceRowKey);
       } else if (action === 'passphrase-clear') {
         this.clearMemberPassphrase();
+      } else if (action === 'passphrase-reset' && this.data.detailHrId === hrId) {
+        this.submitDetailMemberPassphrase();
       } else if (action === 'verification-code-revoke') {
         this._revokeHrVerificationTargets(payload.targets, payload.isBatch);
       } else if (action === 'recovery-code-revoke') {
@@ -1514,8 +1547,7 @@ module.exports = Behavior({
     },
 
     async approveAuthRecovery() {
-      if (!this.data.canGlobalAccountManage) return;
-      if (this.data.authorizationEnforced && !this.data.canRecoverAccounts) return;
+      if (!this.canOperateHrAccount('approveRecovery')) return;
       const pending = this.data.pendingAuthRecovery;
       if (!pending || this.data.authActionLoadingKey) return;
       this.setData({ authActionLoadingKey: 'recovery-' + pending.id });
@@ -1543,7 +1575,7 @@ module.exports = Behavior({
     },
 
     async toggleAuthAccountFrozen(e) {
-      if (!this.data.canGlobalAccountManage) return;
+      if (!this.canOperateHrAccount('freeze')) return;
       const personId = String(e.currentTarget.dataset.id || '');
       const frozen = e.currentTarget.dataset.frozen === true
         || e.currentTarget.dataset.frozen === 'true';

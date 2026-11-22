@@ -15,7 +15,7 @@ Page({
     ready: false, canCopy: false, notice: '', keyword: '', cards: [], schemes: [], effective: [], inspecting: false, recipientCards: [], showRules: false,
     previewOnly: false, expanded: {}, effectiveGroups: [], effectiveExpanded: {}, effectiveRange: 'granted', dynamicRules: [], isSuper: false, delegations: [], showDelegations: false,
     inspectionLabel: ui.ownRole, picker: '', pickerOptions: [], pickerValue: [], candidateLoading: false, inspectionLoaded: false, inspectionUnavailable: false, inspectingOther: false, controlledEffective: [],
-    selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '' },
+    selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '', unified: false, basicCapabilities: [], basicBusy: false },
   onLoad: function(options) { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight, tab: options && options.tab === 'schemes' ? 'schemes' : 'rules' }); },
   onResize: function() { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight }); },
   onShow: function() { this._active = true; orgSession.consume(this); this.setData({ heroTone: orgSession.getSnapshot().role === 'admin' ? 'admin' : 'blue' }); this.load(); },
@@ -24,7 +24,7 @@ Page({
   clear: function() {
     this._active = false; orgSession.invalidateRequests(this); this._state = null; this._directory = null;
     this._inspectionTarget = null;
-    this.setData({ recipientCards: [], showRules: false, selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '',
+    this.setData({ recipientCards: [], showRules: false, selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '', unified: false, basicCapabilities: [], basicBusy: false,
       inspectionLabel: ui.ownRole, picker: '', pickerOptions: [], pickerValue: [], candidateLoading: false, inspectionLoaded: false, inspectionUnavailable: false, inspectingOther: false, controlledEffective: [],
       ready: false, canCopy: false, keyword: '', cards: [], schemes: [], dynamicRules: [], effective: [], effectiveGroups: [], effectiveRange: 'granted', effectiveExpanded: {}, expanded: {}, inspecting: false, isSuper: false, delegations: [], showDelegations: false });
   },
@@ -45,16 +45,40 @@ Page({
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
       for (const result of results) if (result.status !== 'success') throw createResultError(result, ui.operationFailed);
       this._state = results[0]; this._directory = results[1];
-      this.setData({ canManage: management.canManage !== false, canInspectOthers: management.canInspectOthers === true, canManageDelegations: management.canManageDelegations === true, tabs: management.canManage === false ? ['effective'] : ['rules', 'schemes', 'effective'],
+      this.setData({ canManage: management.canManage !== false, canInspectOthers: management.canInspectOthers === true, canManageDelegations: management.canManageDelegations === true, tabs: management.canManage === false ? ['effective'] : management.unifiedIdentity ? ['schemes', 'rules', 'effective'] : ['rules', 'schemes', 'effective'],
         tab: management.canManage === false ? 'effective' : this.data.tab });
       this.setData({ ready: true, previewOnly: results[0].mode === 'shadow', isSuper: !!results[0].isSuper,
-        delegations: results[0].isSuper ? (results[0].delegations || []).map(item => ({ id: item.id, name: item.name, enabledText: item.enabled ? ui.enabled : ui.disabled })) : [] });
+        unified: management.unifiedIdentity === true,
+        basicCapabilities: (management.basicCapabilities || []).map(item => Object.assign({}, item, {
+          label: presentation.capabilityLabel(item.key, management.catalog, ui)
+        })),
+        delegations: management.canManageDelegations ? (management.delegations || []).map(item => ({ id: item.id, name: item.name, enabledText: item.enabled ? ui.enabled : ui.disabled })) : [] });
       this.refreshCards();
       if (this.data.tab === 'effective') await this.inspect();
     } catch (error) {
       if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ notice: getErrorText(error, ui.operationFailed) });
     } finally {
       if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
+    }
+  },
+  setBasicCapability: async function(event) {
+    const item = this.data.basicCapabilities.find(row => row.key === event.currentTarget.dataset.key);
+    const enabled = event.detail.value === true;
+    if (this.data.basicBusy || !this.data.isSuper || !item || item.enabled === enabled) return;
+    const request = orgSession.beginRequest(this, 'authorizationBasicCapability');
+    this.setData({ basicBusy: true });
+    try {
+      const result = await callFunction({ name: 'setAuthorizationBasicCapability',
+        data: { identityModel: 'unified', enabled, capability: item.key, expectedRevision: this._state.revision } });
+      if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
+      if (result.status !== 'success') throw createResultError(result, ui.operationFailed);
+      await this.load();
+    } catch (error) {
+      if (this._active && orgSession.isRequestCurrent(this, request)) {
+        this.setData({ notice: getErrorText(error, ui.operationFailed), basicCapabilities: this.data.basicCapabilities.slice() });
+      }
+    } finally {
+      if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ basicBusy: false });
     }
   },
   refreshCards: function() {

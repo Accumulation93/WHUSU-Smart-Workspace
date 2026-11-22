@@ -6,10 +6,11 @@ const DIMENSION_LABELS = { natureId: 'nature', departmentId: 'department', ident
 const NAME_KEYS = { natureId: 'natureName', departmentId: 'departmentName', identityCategoryId: 'identityCategoryName', workGroupId: 'workGroupName' };
 
 function makeIndexes(directory) {
-  const result = { assignments: new Map(), adminGrants: new Map(), dimensions: {} };
+  const result = { assignments: new Map(), adminGrants: new Map(), people: new Map(), dimensions: {} };
   for (const dimension of DIMENSIONS) result.dimensions[dimension] = new Map();
   for (const item of directory.assignments || []) {
     result.assignments.set(item.assignmentId, item);
+    if (item.personId && item.name) result.people.set(item.personId, item.name);
     for (const dimension of DIMENSIONS) {
       if (item[dimension] && item[NAME_KEYS[dimension]]) {
         const name = dimension === 'workGroupId' ? [item.departmentName, item.workGroupName].filter(Boolean).join(' · ') : item[NAME_KEYS[dimension]];
@@ -32,6 +33,16 @@ function assignmentLabel(item) {
 }
 
 function personnelOptions(directory, role) {
+  if (role === 'people') {
+    const people = new Map();
+    for (const item of directory.assignments || []) {
+      if (!item.personId) continue;
+      if (!people.has(item.personId)) people.set(item.personId, { id: item.personId, personId: item.personId, name: item.name, assignments: [] });
+      people.get(item.personId).assignments.push({ assignmentId: item.assignmentId, assignmentLabel: assignmentLabel(item),
+        assignmentNatureLabel: item.natureName || '', department: item.departmentName || '', identity: item.identityCategoryName || '', workGroup: item.workGroupName || '' });
+    }
+    return Array.from(people.values());
+  }
   if (role === 'admin') return (directory.adminGrants || []).map(item => ({
     id: item.adminGrantId, adminGrantId: item.adminGrantId, name: item.name, assignments: []
   }));
@@ -45,8 +56,9 @@ function personnelOptions(directory, role) {
 
 function capabilityLabel(key, catalog, copy) {
   const definition = catalog.find(item => item.key === key);
-  if (!definition || !copy.resources[definition.resourceType] || !copy.actions[definition.action]) return copy.unknownCapability;
   if (copy.capabilityNames && Object.prototype.hasOwnProperty.call(copy.capabilityNames, key)) return copy.capabilityNames[key];
+  if (!definition || !copy.resources[definition.resourceType] || !copy.actions[definition.action]) return copy.unknownCapability;
+  if (definition.classification && copy.unified) return copy.unified.capabilityLabel(copy.resources[definition.resourceType], copy.actions[definition.action]);
   return copy.capabilityLabel(copy.resources[definition.resourceType], copy.actions[definition.action]);
 }
 
@@ -84,9 +96,10 @@ function policySections(policy, directory, catalog, copy) {
     return { key: index, label: subject.kind === 'assignmentScope' ? copy.assignmentScope : copy[subject.kind] || copy.unavailableReference, lines };
   });
   const scopes = (policy.scopes || []).map((scope, index) => ({ key: index,
-    label: { organization: copy.currentOrganization, self: copy.ownRecords,
+    label: { organization: copy.currentOrganization, self: copy.ownRecords, people: copy.unified && copy.unified.specifiedPeople,
       records: copy.specifiedCount((scope.ids || []).length), assignmentScope: copy.assignmentScope }[scope.kind] || copy.unavailableReference,
-    lines: scope.kind === 'assignmentScope' ? dimensionLines(scope.dimensions, indexes, copy)
+    lines: scope.kind === 'people' ? (scope.ids || []).map(id => ({ key: id, label: '', value: indexes.people.get(id) || copy.unavailableReference }))
+      : scope.kind === 'assignmentScope' ? dimensionLines(scope.dimensions, indexes, copy)
       : scope.kind === 'records' ? Array.from(new Set((policy.capabilities || []).map(key => catalog.find(item => item.key === key)).filter(Boolean).map(item => item.resourceType)))
         .map(key => ({ key, label: copy.resources[key] || copy.unknownCapability, value: copy.specifiedCount((scope.ids || []).length) })) : [] }));
   return { subjects, scopes, capabilityLabels: (policy.capabilities || []).map(key => capabilityLabel(key, catalog, copy)),
@@ -153,7 +166,12 @@ function inspectionGroups(capabilities, catalog, copy, range = 'granted', query 
     if (needle && !label.toLowerCase().includes(needle)) continue;
     const key = item.capability.split('.')[0];
     if (!groups.has(key)) groups.set(key, { key, label: copy.businessGroups[key] || copy.unknownCapability, items: [] });
-    groups.get(key).items.push({ ...item, label, statusText: permissionStatus(item, copy) });
+    const definition = catalog.find(entry => entry.key === item.capability);
+    const classification = item.classification || definition && definition.classification;
+    const categoryLabel = copy.unified ? (classification === 'special' ? copy.unified.categorySpecial : copy.unified.categoryGeneral) : '';
+    const statusText = classification && item.grantState === 'not_granted' && copy.unified
+      ? copy.unified.permissionNotAssigned : permissionStatus(item, copy);
+    groups.get(key).items.push({ ...item, label, categoryLabel, statusText });
   }
   return Array.from(groups.values()).map(group => ({ ...group, countText: copy.effectiveCount(group.items.length) }));
 }

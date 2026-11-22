@@ -44,6 +44,9 @@ const {
 const { createNotification } = require('../utils/notificationHelper');
 const requestDeduplication = require('../../../utils/requestDeduplication');
 const { resolveCurrentActor } = require('../../../core/services/currentActor');
+const authorizationIdentity = require('../../../core/models/authorizationIdentity');
+const directApprovalActor = require('../services/directApprovalActor');
+const auditDirectApproval = require('../services/auditDirectApproval');
 const unifiedIdentityModel = require('../../../core/models/unifiedIdentity');
 const {
   assignmentSnapshot,
@@ -285,23 +288,48 @@ function buildAuditOperatorContext(req, assignment) {
 }
 
 async function resolveAuditAssignmentActor(req, db) {
+  const orgId = await getCurrentOrgId();
+  if (req.authContext?.role === 'admin' && req.authContext.adminLevel === 'super_admin') {
+    try {
+      const actor = await directApprovalActor.resolve(req, db || pool, orgId, false);
+      return { ok: true, actor, assignment: directApprovalActor.auditAssignment(actor), orgId, request: req };
+    } catch (error) {
+      if (error.code !== 'authorization_forbidden') throw error;
+    }
+  }
   const actorResult = await resolveCurrentActor(req);
   if (!actorResult.ok || actorResult.actor.type !== 'user') {
     return { ok: false, actorResult };
   }
-  const orgId = await getCurrentOrgId();
   const assignment = await resolveActorAssignment(actorResult.actor, orgId, db);
   if (!assignment) return { ok: false, actorResult };
   return { ok: true, actor: actorResult.actor, assignment, orgId };
 }
 
 async function lockAndRefreshAuditActor(connection, actorContext) {
+  if (actorContext.actor.adminLevel === 'super_admin') {
+    const actor = await directApprovalActor.resolve(actorContext.request, connection, actorContext.orgId);
+    return directApprovalActor.auditAssignment(actor);
+  }
   await lockAuditActor(connection, actorContext.assignment, actorContext.orgId);
   return resolveActorAssignmentForUpdate(
     actorContext.actor,
     actorContext.orgId,
     connection
   );
+}
+
+function submissionRecipient(submission) {
+  const snapshot = parseSnapshot(submission.submitted_context_snapshot);
+  return snapshot?.systemRole === 'super_admin' && snapshot.adminGrantId
+    ? { recipientType: 'admin', recipientId: snapshot.adminGrantId }
+    : { hrId: submission.submitted_by };
+}
+
+function submissionAuthorName(submission, hrMap) {
+  const snapshot = parseSnapshot(submission.submitted_context_snapshot);
+  return (snapshot?.systemRole === 'super_admin' && safeString(snapshot.name))
+    || hrMap[submission.submitted_by] || localeCopy.copy_8d3451355b;
 }
 
 function matchesStarter(template, starterConditions, assignment) {
@@ -411,7 +439,7 @@ router.post('/listPendingApprovals', async (req, res) => {
       submissionNumber: safeString(s.submission_number),
       title: safeString(s.title),
       submittedBy: safeString(s.submitted_by),
-      submitterName: hrMap[s.submitted_by] || localeCopy.copy_8d3451355b,
+      submitterName: submissionAuthorName(s, hrMap),
       sortOrder: s.sort_order,
       approverType: safeString(s.approver_type),
       approverIdentityId: safeString(s.approver_identity_id),
@@ -987,7 +1015,7 @@ router.post('/getSubmissionDetail', async (req, res) => {
     const orgId = await getCurrentOrgId();
     const detailAssignment = detailActor
       ? await resolveActorAssignment(detailActor, orgId)
-      : null;
+      : currentActor.adminLevel === 'super_admin' && (await resolveAuditAssignmentActor(req)).assignment;
     if ((!hrId || !detailAssignment) && !admin && !authorizationReference) {
       return res.json({ status: 'forbidden', message: localeCopy.copy_c22a252e97 });
     }
@@ -1067,6 +1095,11 @@ router.post('/getSubmissionDetail', async (req, res) => {
         canApproveCurrentStep = approvalDecision.allowed;
       }
     }
+    const directActor = submission.status === 'in_progress' && admin && authorizationReference
+      ? await authorizationIdentity.loadActor(pool, authorizationReference) : null;
+    const directSteps = directActor?.unifiedAuthorization && directActor.isSuper && currentPendingStep
+      ? auditDirectApproval.remainingSteps(steps, submission, currentPendingStep.id) : [];
+    const directApprovalSteps = auditDirectApproval.describe(directSteps);
 
     const files = await submissionFileModel.getBySubmissionId(submissionId);
     const currentFileIds = new Set(files.map(function(file) { return safeString(file.id); }));
@@ -1184,6 +1217,8 @@ router.post('/getSubmissionDetail', async (req, res) => {
       userIsSubmitter: isSubmitter,
       userIsApprover: isApprover,
       canApproveCurrentStep,
+      canDirectApprove: directApprovalSteps.length > 0,
+      directApprovalSteps,
       canUpdateSubmission,
       canWithdrawSubmission,
       userIsAdmin: !!admin,
@@ -1212,7 +1247,8 @@ router.post('/getSubmissionDetail', async (req, res) => {
         submittedPersonId: safeString(submission.submitted_person_id),
         submittedAssignmentId: safeString(submission.submitted_assignment_id),
         submittedContextSnapshot: parseSnapshot(submission.submitted_context_snapshot),
-        submitterName: hrMap[submission.submitted_by] || localeCopy.copy_8d3451355b,
+        submitterName: parseSnapshot(submission.submitted_context_snapshot)?.name
+          || hrMap[submission.submitted_by] || localeCopy.copy_8d3451355b,
         currentStepIndex: submission.current_step_index,
         resubmitMode: 'fresh',
         previousRejectStepIndex: submission.previous_reject_step_index,
@@ -1299,6 +1335,7 @@ router.post('/getSubmissionDetail', async (req, res) => {
         approverType: safeString(s.approver_type),
         approverHrId: safeString(s.approver_hr_id),
         approverName: approverNameDisplay,
+        originalApproverNames: rawHrId2 ? rawHrId2.split(',').map(id => hrMap[id.trim()]).filter(Boolean) : [],
         approverIdentityId: safeString(s.approver_identity_id),
         approverIdentityName: approverIdentityNameDisplay,
         scopeType: safeString(s.scope_type),
@@ -1342,7 +1379,7 @@ router.post('/getSubmissionDetail', async (req, res) => {
         rotation: parseFloat(sig.rotation_degrees) || 0,
         page: sig.page || 1,
         signerHrId: safeString(sig.signer_hr_id),
-        signerName: hrMap[sig.signer_hr_id] || localeCopy.copy_8d3451355b,
+        signerName: parseSnapshot(sig.signer_context_snapshot)?.name || hrMap[sig.signer_hr_id] || localeCopy.copy_8d3451355b,
         round: sig.round,
         signedAt: sig.signed_at
       }))
@@ -1431,19 +1468,172 @@ function approvalIntegrityFailure(error) {
   };
 }
 
+async function commitApprovalStepFiles(conn, { submissionId, step, nextStep, normalizedMaterials, currentFiles,
+  approverAssignment, signerContextSnapshot, approvalEventId, comment, now, orgId, organizationName, contextId,
+  fileCommits, rollbackPaths }) {
+  const stepId = step.id;
+  const currentRound = step.round;
+  const hrId = approverAssignment.hr_id;
+  const signaturesByFile = groupApprovalMaterialsByFile(normalizedMaterials);
+  const filesToProcess = currentFiles;
+
+  // 所有材料、当前岗位和授权都在同一事务中锁定并重读后，才允许改变步骤状态。
+  await submissionStepModel.updateStatus(step.id, {
+    status: 'approved',
+    comment,
+    processedAt: now,
+    processedPersonId: approverAssignment.person_id,
+    processedAssignmentId: approverAssignment.assignment_id,
+    processedContextSnapshot: signerContextSnapshot
+  }, conn);
+
+  const preparedFiles = [];
+  const preparedEvidence = [];
+  const pendingSignatureRecords = [];
+  for (const file of filesToProcess) {
+    const fileId = safeString(file.id);
+    const fileSignatures = signaturesByFile.get(fileId) || [];
+    if (!file.file_path || !Buffer.isBuffer(file.approval_source_buffer)) {
+      throw new AuditApprovalIntegrityError(
+        !nextStep && file.mime_type === 'application/pdf'
+          ? AUDIT_APPROVAL_INTEGRITY_CODES.FINAL_PDF_UNAVAILABLE
+          : AUDIT_APPROVAL_INTEGRITY_CODES.MATERIAL_FILE_INVALID
+      );
+    }
+
+    let overlayResult = null;
+    let finalBuffer = file.approval_source_buffer;
+    let finalMimeType = file.mime_type;
+    if (fileSignatures.length) {
+      overlayResult = await overlaySignaturesOnBuffer(file, finalBuffer, fileSignatures);
+      if (!overlayResult) {
+        throw new AuditApprovalIntegrityError(AUDIT_APPROVAL_INTEGRITY_CODES.MATERIAL_FILE_INVALID);
+      }
+      finalBuffer = overlayResult.buffer;
+      finalMimeType = overlayResult.mimeType;
+    }
+
+    const previousSignature = await submissionSignatureModel.getLastSignature(fileId, currentRound, conn);
+
+    // 最后一步必须覆盖所有当前 PDF；即使本步只是“通过”且没有新增可见图层，
+    // 也要对最终字节执行 PKCS#7 签名。非 PDF 文件只保留原有图层合成行为。
+    const latestPlacement = fileSignatures[fileSignatures.length - 1] || null;
+    const evidence = await prepareEvidence({
+      db: conn, organizationId: orgId, organizationName,
+      actor: { ...approverAssignment, contextId },
+      assignmentLabel: signerContextSnapshot.assignmentLabel, submissionId, stepId, eventId: approvalEventId,
+      fileId, round: currentRound, step: step.sort_order, action: step.action_type || 'approve', time: now.toISOString(),
+      inputDigest: hashFile(file.approval_source_buffer), inputPath: file.file_path,
+      buffer: finalBuffer, finalPdf: !nextStep && finalMimeType === 'application/pdf',
+      materials: fileSignatures.map(material => ({ type: material.signatureType, digest: material.materialImageHash,
+        x: material.positionX, y: material.positionY, page: material.page,
+        ...(material.widthRatio == null ? {} : { widthRatio: material.widthRatio, size: material.size, rotation: material.rotation }) })),
+      signaturePosition: latestPlacement ? { x: latestPlacement.positionX, y: latestPlacement.positionY, page: latestPlacement.page || 1 } : null
+    });
+    finalBuffer = evidence.buffer;
+    preparedEvidence.push(evidence);
+
+    const documentHash = hashFile(finalBuffer);
+    preparedFiles.push({
+      fileId,
+      orgId,
+      oldPath: file.file_path,
+      rollbackPath: rollbackPaths && rollbackPaths.get(fileId),
+      buffer: finalBuffer,
+      mimeType: finalMimeType,
+      fileHash: documentHash
+    });
+
+    const chainMaterials = fileSignatures.slice()
+      .sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    if (!nextStep && finalMimeType === 'application/pdf') {
+      const latestPlacement = chainMaterials[chainMaterials.length - 1] || null;
+      chainMaterials.push(createDigitalSignatureMaterial({
+        generateId,
+        fileId,
+        signaturePosition: latestPlacement ? {
+          x: latestPlacement.positionX,
+          y: latestPlacement.positionY,
+          page: latestPlacement.page
+        } : null
+      }));
+    }
+    const chainRecords = buildSignatureChainRecords({
+      materials: chainMaterials,
+      previousSignatureHash: previousSignature ? previousSignature.signature_data_hash : null,
+      stepId,
+      signerHrId: hrId,
+      signerAssignmentId: approverAssignment.assignment_id,
+      signerContextSnapshot,
+      round: currentRound,
+      documentHash,
+      signedAt: now.toISOString()
+    });
+    chainRecords.forEach((record) => {
+      pendingSignatureRecords.push({
+        fileId,
+        record
+      });
+    });
+  }
+
+  const fileCommit = createAuditFileCommit(preparedFiles);
+  fileCommits.push(fileCommit);
+  fileCommit.stage();
+  for (const preparedFile of preparedFiles) {
+    const metadata = fileCommit.metadataFor(preparedFile.fileId);
+    if (!metadata) {
+      throw new AuditApprovalIntegrityError(AUDIT_APPROVAL_INTEGRITY_CODES.MATERIAL_FILE_INVALID);
+    }
+    await submissionFileModel.updateMetadata(preparedFile.fileId, metadata, conn);
+  }
+  for (const evidence of preparedEvidence) {
+    const metadata = fileCommit.metadataFor(evidence.context.fileId);
+    await signingEvidenceModel.create(evidence.receipt, { ...evidence.context, outputPath: metadata.filePath }, conn);
+  }
+  for (const pending of pendingSignatureRecords) {
+    const sigData = pending.record.material;
+    await submissionSignatureModel.create(sigData.id, {
+      submissionId,
+      stepId,
+      fileId: pending.fileId,
+      signatureType: sigData.signatureType,
+      imageData: sigData.imageData,
+      positionX: sigData.positionX,
+      positionY: sigData.positionY,
+      size: sigData.size,
+      widthRatio: sigData.widthRatio,
+      rotation: sigData.rotation,
+      page: sigData.page,
+      signerHrId: hrId,
+      round: currentRound,
+      previousSignatureHash: pending.record.previousSignatureHash,
+      documentHashAtSigning: preparedFiles.find((item) => item.fileId === pending.fileId).fileHash,
+      signatureDataHash: pending.record.signatureDataHash,
+      signedAt: now,
+      materialImageHash: pending.record.materialImageHash,
+      stampId: pending.record.stampId,
+      signerAssignmentId: pending.record.signerAssignmentId,
+      signerContextSnapshot: pending.record.signerContextSnapshot,
+      hashVersion: pending.record.hashVersion
+    }, conn);
+  }
+
+}
+
 router.post('/approveStep', async (req, res) => {
   const conn = await pool.getConnection();
   let transactionStarted = false;
   let transactionCommitted = false;
   let commitAttempted = false;
-  let fileCommit = null;
+  const fileCommits = [];
   try {
-    const actorResult = await resolveCurrentActor(req);
-    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+    const actorContext = await resolveAuditAssignmentActor(req, conn);
+    if (!actorContext.ok) {
+      const actorResult = actorContext.actorResult;
       return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
-    const actor = actorResult.actor;
-    const orgId = await getCurrentOrgId();
+    const orgId = actorContext.orgId;
 
     const submissionId = safeString(req.body.submissionId);
     const stepId = safeString(req.body.stepId);
@@ -1464,12 +1654,7 @@ router.post('/approveStep', async (req, res) => {
     transactionStarted = true;
     await auditManagementAuthorization.requireApproval(conn, orgId,
       require('../../../core/services/authorizationManagement').referenceFromRequest(req), submissionId);
-    await lockAuditActor(conn, {
-      person_id: actor.personId,
-      hr_id: actor.id,
-      assignment_id: actor.assignmentId
-    }, orgId);
-    const approverAssignment = await resolveActorAssignmentForUpdate(actor, orgId, conn);
+    const approverAssignment = await lockAndRefreshAuditActor(conn, actorContext);
     if (!approverAssignment) {
       await conn.rollback();
       transactionStarted = false;
@@ -1567,151 +1752,12 @@ router.post('/approveStep', async (req, res) => {
       await conn.rollback();
       return res.json(approvalIntegrityFailure(error));
     }
-    const signaturesByFile = groupApprovalMaterialsByFile(normalizedMaterials);
-    const filesToProcess = currentFiles;
     const approvalEventId = generateId();
-
     const signerContextSnapshot = assignmentSnapshot(approverAssignment, req.authContext);
-
-    // 所有材料、当前岗位和授权都在同一事务中锁定并重读后，才允许改变步骤状态。
-    await submissionStepModel.updateStatus(stepId, {
-      status: 'approved',
-      comment,
-      processedAt: now,
-      processedPersonId: approverAssignment.person_id,
-      processedAssignmentId: approverAssignment.assignment_id,
-      processedContextSnapshot: signerContextSnapshot
-    }, conn);
-
-    const preparedFiles = [];
-    const preparedEvidence = [];
-    const pendingSignatureRecords = [];
-    for (const file of filesToProcess) {
-      const fileId = safeString(file.id);
-      const fileSignatures = signaturesByFile.get(fileId) || [];
-      if (!file.file_path || !Buffer.isBuffer(file.approval_source_buffer)) {
-        throw new AuditApprovalIntegrityError(
-          !nextStep && file.mime_type === 'application/pdf'
-            ? AUDIT_APPROVAL_INTEGRITY_CODES.FINAL_PDF_UNAVAILABLE
-            : AUDIT_APPROVAL_INTEGRITY_CODES.MATERIAL_FILE_INVALID
-        );
-      }
-
-      let overlayResult = null;
-      let finalBuffer = file.approval_source_buffer;
-      let finalMimeType = file.mime_type;
-      if (fileSignatures.length) {
-        overlayResult = await overlaySignaturesOnBuffer(file, finalBuffer, fileSignatures);
-        if (!overlayResult) {
-          throw new AuditApprovalIntegrityError(AUDIT_APPROVAL_INTEGRITY_CODES.MATERIAL_FILE_INVALID);
-        }
-        finalBuffer = overlayResult.buffer;
-        finalMimeType = overlayResult.mimeType;
-      }
-
-      const previousSignature = await submissionSignatureModel.getLastSignature(fileId, currentRound, conn);
-
-      // 最后一步必须覆盖所有当前 PDF；即使本步只是“通过”且没有新增可见图层，
-      // 也要对最终字节执行 PKCS#7 签名。非 PDF 文件只保留原有图层合成行为。
-      const latestPlacement = fileSignatures[fileSignatures.length - 1] || null;
-      const evidence = await prepareEvidence({
-        db: conn, organizationId: orgId, organizationName: safeString(req.authContext && req.authContext.organizationName),
-        actor: { ...approverAssignment, contextId: safeString(req.authContext && req.authContext.contextId) },
-        assignmentLabel: signerContextSnapshot.assignmentLabel, submissionId, stepId, eventId: approvalEventId,
-        fileId, round: currentRound, step: step.sort_order, action: step.action_type || 'approve', time: now.toISOString(),
-        inputDigest: hashFile(file.approval_source_buffer), inputPath: file.file_path,
-        buffer: finalBuffer, finalPdf: !nextStep && finalMimeType === 'application/pdf',
-        materials: fileSignatures.map(material => ({ type: material.signatureType, digest: material.materialImageHash,
-          x: material.positionX, y: material.positionY, page: material.page,
-          ...(material.widthRatio == null ? {} : { widthRatio: material.widthRatio, size: material.size, rotation: material.rotation }) })),
-        signaturePosition: latestPlacement ? { x: latestPlacement.positionX, y: latestPlacement.positionY, page: latestPlacement.page || 1 } : null
-      });
-      finalBuffer = evidence.buffer;
-      preparedEvidence.push(evidence);
-
-      const documentHash = hashFile(finalBuffer);
-      preparedFiles.push({
-        fileId,
-        orgId,
-        oldPath: file.file_path,
-        buffer: finalBuffer,
-        mimeType: finalMimeType,
-        fileHash: documentHash
-      });
-
-      const chainMaterials = fileSignatures.slice()
-        .sort((a, b) => String(a.id).localeCompare(String(b.id)));
-      if (!nextStep && finalMimeType === 'application/pdf') {
-        const latestPlacement = chainMaterials[chainMaterials.length - 1] || null;
-        chainMaterials.push(createDigitalSignatureMaterial({
-          generateId,
-          fileId,
-          signaturePosition: latestPlacement ? {
-            x: latestPlacement.positionX,
-            y: latestPlacement.positionY,
-            page: latestPlacement.page
-          } : null
-        }));
-      }
-      const chainRecords = buildSignatureChainRecords({
-        materials: chainMaterials,
-        previousSignatureHash: previousSignature ? previousSignature.signature_data_hash : null,
-        stepId,
-        signerHrId: hrId,
-        signerAssignmentId: approverAssignment.assignment_id,
-        signerContextSnapshot,
-        round: currentRound,
-        documentHash,
-        signedAt: now.toISOString()
-      });
-      chainRecords.forEach((record) => {
-        pendingSignatureRecords.push({
-          fileId,
-          record
-        });
-      });
-    }
-
-    fileCommit = createAuditFileCommit(preparedFiles);
-    fileCommit.stage();
-    for (const preparedFile of preparedFiles) {
-      const metadata = fileCommit.metadataFor(preparedFile.fileId);
-      if (!metadata) {
-        throw new AuditApprovalIntegrityError(AUDIT_APPROVAL_INTEGRITY_CODES.MATERIAL_FILE_INVALID);
-      }
-      await submissionFileModel.updateMetadata(preparedFile.fileId, metadata, conn);
-    }
-    for (const evidence of preparedEvidence) {
-      const metadata = fileCommit.metadataFor(evidence.context.fileId);
-      await signingEvidenceModel.create(evidence.receipt, { ...evidence.context, outputPath: metadata.filePath }, conn);
-    }
-    for (const pending of pendingSignatureRecords) {
-      const sigData = pending.record.material;
-      await submissionSignatureModel.create(sigData.id, {
-        submissionId,
-        stepId,
-        fileId: pending.fileId,
-        signatureType: sigData.signatureType,
-        imageData: sigData.imageData,
-        positionX: sigData.positionX,
-        positionY: sigData.positionY,
-        size: sigData.size,
-        widthRatio: sigData.widthRatio,
-        rotation: sigData.rotation,
-        page: sigData.page,
-        signerHrId: hrId,
-        round: currentRound,
-        previousSignatureHash: pending.record.previousSignatureHash,
-        documentHashAtSigning: preparedFiles.find((item) => item.fileId === pending.fileId).fileHash,
-        signatureDataHash: pending.record.signatureDataHash,
-        signedAt: now,
-        materialImageHash: pending.record.materialImageHash,
-        stampId: pending.record.stampId,
-        signerAssignmentId: pending.record.signerAssignmentId,
-        signerContextSnapshot: pending.record.signerContextSnapshot,
-        hashVersion: pending.record.hashVersion
-      }, conn);
-    }
+    await commitApprovalStepFiles(conn, { submissionId, step, nextStep, normalizedMaterials, currentFiles,
+      approverAssignment, signerContextSnapshot, approvalEventId, comment, now, orgId,
+      organizationName: safeString(req.authContext && req.authContext.organizationName),
+      contextId: safeString(req.authContext && req.authContext.contextId), fileCommits });
 
     // Check if there are more steps
     if (nextStep) {
@@ -1773,7 +1819,7 @@ router.post('/approveStep', async (req, res) => {
     if (!nextStep) {
       // Final step approved → notify submitter
       await createNotification({
-        hrId: submission.submitted_by,
+        ...submissionRecipient(submission),
         type: 'submission_approved',
         title: localeCopy.copy_32f1119845,
         description: localeCopy.copy_dd6dd4b694 + (submission.title || submission.submission_number) + localeCopy.copy_071cea6fa1,
@@ -1786,7 +1832,7 @@ router.post('/approveStep', async (req, res) => {
     } else {
       // Advanced to next step → notify submitter of progress
       await createNotification({
-        hrId: submission.submitted_by,
+        ...submissionRecipient(submission),
         type: 'submission_progress',
         title: localeCopy.copy_a5bbfb41e9,
         description: localeCopy.copy_dd6dd4b694 + (submission.title || submission.submission_number) + localeCopy.copy_4dc0ac16b8 + step.sort_order + localeCopy.copy_b08a9cb173 + nextStep.sort_order + localeCopy.copy_493a127a99,
@@ -1801,7 +1847,7 @@ router.post('/approveStep', async (req, res) => {
     await conn.commit();
     transactionCommitted = true;
     transactionStarted = false;
-    fileCommit.finalize();
+    fileCommits.forEach(fileCommit => fileCommit.finalize());
     res.json({ status: 'success', message: localeCopy.copy_126a0e1f4c + (nextStep ? localeCopy.copy_1d9affae0d : localeCopy.copy_e34c2ce1d6) });
   } catch (e) {
     if (transactionStarted && !transactionCommitted) {
@@ -1810,8 +1856,8 @@ router.post('/approveStep', async (req, res) => {
     }
     // commit() 抛错时提交结果可能不确定，此时保留账本给启动恢复任务核对数据库；
     // 只有确认尚未尝试提交时，才可以立即删除未被数据库引用的新版本。
-    if (fileCommit && !transactionCommitted && !commitAttempted) {
-      fileCommit.rollback();
+    if (!transactionCommitted && !commitAttempted) {
+      fileCommits.forEach(fileCommit => fileCommit.rollback());
     }
     if (e.code === 'authorization_forbidden') {
       return res.json({ status: 'forbidden', message: localeCopy.copy_511125fe12 });
@@ -1830,6 +1876,169 @@ router.post('/approveStep', async (req, res) => {
     res.json({ status: 'error', message: safeString(e.message) });
   } finally {
     if (conn) conn.release();
+  }
+});
+
+async function resolveDirectStampAssignment(conn, actor, assignmentId) {
+  if (!assignmentId) return null;
+  const [assignment] = await listActiveAssignments(actor.organizationId, {
+    assignmentId,
+    personId: actor.personId
+  }, conn);
+  if (!assignment) return null;
+  await lockAuditActor(conn, assignment, actor.organizationId);
+  return resolveActorAssignmentForUpdate({
+    type: 'user',
+    id: assignment.hr_id,
+    personId: actor.personId,
+    assignmentId
+  }, actor.organizationId, conn);
+}
+
+router.post('/listDirectApprovalStamps', async (req, res) => {
+  try {
+    const orgId = await getCurrentOrgId();
+    const response = await pool.withTransaction(async conn => {
+      const actor = await directApprovalActor.resolve(req, conn, orgId);
+      const stampId = safeString(req.body.stampId);
+      const assignmentId = safeString(req.body.stampAssignmentId);
+      if (stampId) {
+        const assignment = await resolveDirectStampAssignment(conn, actor, assignmentId);
+        const row = assignment && (await stampGrantModel.getAuthorizedStamps(assignment, [stampId], conn))[0];
+        return row ? { status: 'success', stamp: { id: row.id, name: row.name, imageData: row.image_data } }
+          : { status: 'forbidden' };
+      }
+      const assignments = await listActiveAssignments(orgId, { personId: actor.personId }, conn);
+      const sources = [];
+      for (const item of assignments) {
+        const stamps = await stampGrantModel.getAuthorizedStamps(item, undefined, conn, { metadataOnly: true });
+        if (stamps.length) sources.push({ assignmentId: item.assignment_id, label: item.assignment_label, stamps });
+      }
+      return { status: 'success', sources };
+    });
+    res.json(response);
+  } catch (error) {
+    if (error.code === 'authorization_forbidden') return res.json({ status: 'forbidden' });
+    console.error('[auditUser] direct approval stamps:', error.code || error.name);
+    return res.json({ status: 'error' });
+  }
+});
+
+router.post('/directApproveSubmission', async (req, res) => {
+  const submissionId = safeString(req.body.submissionId);
+  const stepId = safeString(req.body.stepId);
+  if (!submissionId || !stepId) return res.json({ status: 'invalid_params' });
+  const conn = await pool.getConnection();
+  const fileCommits = [];
+  let commitAttempted = false;
+  let activeStep = null;
+  try {
+    const orgId = await getCurrentOrgId();
+    const comment = safeString(req.body.comment);
+    await conn.beginTransaction();
+    const actor = await directApprovalActor.resolve(req, conn, orgId);
+    const submission = await submissionModel.getByIdForUpdate(submissionId, conn);
+    if (!submission) {
+      await conn.rollback();
+      return res.json({ status: 'not_found' });
+    }
+    const steps = await submissionStepModel.getBySubmissionIdForUpdate(submissionId, conn);
+    const remaining = auditDirectApproval.remainingSteps(steps, submission, stepId);
+    if (!remaining.length) {
+      await conn.rollback();
+      return res.json({ status: 'invalid_state', submissionStatus: submission.status });
+    }
+    const rawMaterials = auditDirectApproval.materialsByStep(req.body.stepMaterials, remaining);
+    const needsStamp = [...rawMaterials.values()].some(items => items.some(item =>
+      ['stamp', 'estamp'].includes(safeString(item && item.signatureType).toLowerCase())));
+    const stampAssignment = needsStamp
+      ? await resolveDirectStampAssignment(conn, actor, safeString(req.body.stampAssignmentId)) : null;
+    const files = await submissionFileModel.getCurrentBySubmissionIdForUpdate(submissionId, conn);
+    const firstFiles = await loadApprovalFileFacts(files, { finalStep: remaining.length === 1, requireAll: true });
+    const originals = new Map(files.map(file => [safeString(file.id), file.file_path]));
+    const approverAssignment = directApprovalActor.auditAssignment(actor);
+    const directContextSnapshot = {
+      ...assignmentSnapshot(approverAssignment, actor),
+      name: actor.name,
+      adminGrantId: actor.adminGrantId,
+      directApproval: true
+    };
+    const normalizedByStep = new Map();
+    for (const step of remaining) {
+      activeStep = step;
+      const materials = await resolveApprovalMaterials({
+        actionType: step.action_type,
+        materials: rawMaterials.get(step.id) || [],
+        currentFiles: firstFiles,
+        approverAssignment,
+        db: conn,
+        generateId,
+        loadAuthorizedStamps: (ids, _assignment, db) => stampAssignment
+          ? stampGrantModel.getAuthorizedStamps(stampAssignment, ids, db) : []
+      });
+      normalizedByStep.set(step.id, materials);
+    }
+
+    for (const [index, step] of remaining.entries()) {
+      activeStep = step;
+      const nextStep = remaining[index + 1];
+      const round = step.round || 1;
+      const currentFiles = index === 0 ? firstFiles : await loadApprovalFileFacts(
+        await submissionFileModel.getCurrentBySubmissionIdForUpdate(submissionId, conn), {
+          finalStep: !nextStep,
+          requireAll: true
+        });
+      const approvalEventId = generateId();
+      const normalizedMaterials = normalizedByStep.get(step.id);
+      const signerContextSnapshot = { ...directContextSnapshot, bypassedStep: normalizedMaterials.length === 0 };
+      await commitApprovalStepFiles(conn, { submissionId, step, nextStep, currentFiles, approverAssignment,
+        normalizedMaterials, signerContextSnapshot, approvalEventId,
+        comment, now: new Date(), orgId, organizationName: safeString(req.authContext?.organizationName),
+        contextId: actor.contextId, fileCommits, rollbackPaths: originals });
+      await auditEventModel.create(approvalEventId, {
+        submissionId,
+        eventType: 'approve',
+        stepIndex: step.sort_order,
+        round,
+        operatorPersonId: actor.personId,
+        operatorAssignmentId: actor.assignmentId,
+        operatorAdminGrantId: actor.adminGrantId,
+        operatorName: actor.name,
+        operatorContextSnapshot: signerContextSnapshot,
+        comment: comment || null
+      }, conn);
+    }
+    const finalStep = remaining[remaining.length - 1];
+    await submissionModel.update(submissionId, { status: 'approved', currentStepIndex: finalStep.sort_order }, conn);
+    await createNotification({
+      ...submissionRecipient(submission),
+      type: 'submission_approved',
+      title: localeCopy.copy_32f1119845,
+      description: localeCopy.copy_dd6dd4b694 + (submission.title || submission.submission_number) + localeCopy.copy_071cea6fa1,
+      category: 'audit',
+      targetType: 'submission',
+      targetId: submissionId,
+      eventKey: ['audit', submissionId, finalStep.round || 1, finalStep.sort_order, 'approved'].join(':'),
+      targetUrl: '/subpackages/audit/pages/submissionDetail/submissionDetail?id=' + submissionId
+    }, conn);
+    commitAttempted = true;
+    await conn.commit();
+    fileCommits.forEach(fileCommit => fileCommit.finalize());
+    return res.json({ status: 'success', submissionStatus: 'approved', stepStatus: 'approved',
+      directApproval: true, processedStepCount: remaining.length });
+  } catch (error) {
+    try { await conn.rollback(); } catch (_) {}
+    if (!commitAttempted) fileCommits.forEach(fileCommit => fileCommit.rollback());
+    if (error.code === 'authorization_forbidden') return res.json({ status: 'forbidden' });
+    if (error instanceof AuditApprovalIntegrityError) {
+      return res.json({ ...approvalIntegrityFailure(error), ...(activeStep ? { stepId: activeStep.id } : {}) });
+    }
+    if (error instanceof SigningProtocolError) return res.json({ status: 'signing_unavailable' });
+    if (error instanceof AuditFileCommitError) return res.json({ status: AUDIT_APPROVAL_INTEGRITY_CODES.MATERIAL_FILE_INVALID });
+    console.error('[auditUser] direct approval:', error.code || error.name);
+    return res.json({ status: 'error' });
+  } finally {
+    conn.release();
   }
 });
 
@@ -1956,7 +2165,7 @@ router.post('/rejectStep', async (req, res) => {
     }, conn);
 
     await createNotification({
-      hrId: submission.submitted_by,
+      ...submissionRecipient(submission),
       type: 'submission_rejected',
       title: localeCopy.copy_d402fe10f9,
       description: localeCopy.copy_dd6dd4b694 + (submission.title || submission.submission_number) + localeCopy.copy_3848dc7753 + step.sort_order + localeCopy.copy_39bf6116f7 + (rejectionReason ? '：' + rejectionReason : ''),

@@ -26,7 +26,8 @@ const RESOURCES = [
   { key: 'hr.import', legacy: 'hr.import', actions: ['read', 'create', 'export'], governance: true },
   { key: 'hr.profileReview', legacy: 'hr.profile_review', actions: ['read', 'approve'],
     fields: ['name', 'studentId', 'assignments', 'membershipStatus', 'reviewStatus'], adminOnlyFields: ['studentId'], profileFieldKeys: true },
-  { key: 'hr.profileTemplates', legacy: 'hr.profile_templates.manage', actions: ['read', 'create', 'update'], remove: 'hr.profile_templates.manage.delete', governance: true, scopes: ['organization'] },
+  { key: 'hr.profileTemplates', legacy: 'hr.profile_templates.manage', actions: ['read', 'create', 'update'], remove: 'hr.profile_templates.manage.delete', governance: true,
+    scopes: ['organization', 'records'] },
   { key: 'hr.profileSelection', legacy: 'hr.profile_templates.select', actions: ['read', 'update'], governance: true, scopes: ['organization'] },
   { key: 'hr.profileMigration', legacy: null, actions: ['read', 'request', 'approve', 'execute'], governance: true, scopes: ['organization'] },
   { key: 'hr.departments', legacy: 'hr.departments', actions: ['read', 'create', 'update'], remove: 'hr.departments.delete', scopes: ['organization', 'records'], fields: ['name', 'description'] },
@@ -85,6 +86,8 @@ const RESOURCES = [
   { key: 'auth.identity', legacy: 'auth.identity.verify', actions: ['read', 'verify'], governance: true, scopes: ['organization'] },
   { key: 'auth.recovery', legacy: 'auth.accounts.recover', actions: ['read', 'update'], governance: true, scopes: ['organization'] },
   { key: 'auth.accounts', legacy: 'auth.accounts.global_manage', actions: ['read', 'update'], governance: true },
+  { key: 'auth.accounts', actions: ['freeze', 'unbindWechat', 'resetPassphrase', 'revokePassphrase',
+    'revokeSession', 'manageRecoveryCode', 'approveRecovery'], governance: true },
   { key: 'auth.persons', legacy: null, actions: ['delete'], governance: true, scopes: ['organization'] },
   { key: 'auth.audit', legacy: 'auth.accounts.audit', actions: ['read'], governance: true, scopes: ['organization'] },
   { key: 'auth.policy', legacy: 'auth.policy.manage', actions: ['read', 'update'], governance: true, scopes: ['organization'] },
@@ -96,6 +99,10 @@ const RESOURCES = [
     scopes: ['organization'], fields: ['timezone', 'currentOrganization'] },
   { key: 'system.organizations', legacy: 'system.organizations', actions: ['read', 'create', 'update', 'delete'],
     governance: true, scopes: ['organization'] },
+  { key: 'system.superAdministrators', actions: ['create', 'delete'], scopes: ['organization'] },
+  { key: 'system.keys', actions: ['manage'], scopes: ['organization'] },
+  { key: 'auth.globalAudit', actions: ['read'], scopes: ['organization'] },
+  { key: 'auth.persons', actions: ['merge'], scopes: ['organization'] },
   { key: 'files.tables', legacy: null, actions: ['parse', 'build'], scopes: ['organization'] },
   { key: 'authorization.rules', legacy: null, actions: ['read', 'create', 'update', 'delete'], governance: true },
   { key: 'authorization.schemes', legacy: null, actions: ['read', 'create', 'update', 'publish', 'restore'], governance: true },
@@ -153,6 +160,24 @@ const LEGACY_ACTIONS = Object.freeze({
   'venue.purposes.read': ['venue.resources', 'venue.bookings', 'venue.purposes', 'venue.purposes.delete']
 });
 
+const SPECIAL_CAPABILITIES = new Map([
+  ['system.superAdministrators.create', 'super_administrators'],
+  ['system.superAdministrators.delete', 'super_administrators'],
+  ['system.adminAccounts.create', 'super_administrators'],
+  ['system.adminAccounts.update', 'super_administrators'],
+  ['system.adminAccounts.delete', 'super_administrators'],
+  ['system.organizations.create', 'organization_lifecycle'],
+  ['system.organizations.delete', 'organization_lifecycle'],
+  ['system.settings.update', 'system_settings'],
+  ['auth.policy.update', 'system_settings'],
+  ['system.keys.manage', 'system_keys'],
+  ['auth.globalAudit.read', 'global_audit'],
+  ['auth.persons.merge', 'global_person'],
+  ['auth.persons.delete', 'global_person']
+]);
+const PERSON_SCOPED_RESOURCES = new Set([
+  'auth.accounts', 'auth.identity', 'auth.recovery'
+]);
 const CATALOG = new Map();
 for (const resource of RESOURCES) {
   const actions = resource.remove ? resource.actions.concat('delete') : resource.actions;
@@ -160,14 +185,18 @@ for (const resource of RESOURCES) {
     const key = resource.key + '.' + action;
     if (CATALOG.has(key)) throw new Error('duplicate_authorization_capability:' + key);
     const legacy = action === 'delete' && resource.remove ? resource.remove : resource.legacy;
+    const scopes = resource.scopes || ['organization', 'records', 'self', 'assignmentScope'];
+    const specialCategory = SPECIAL_CAPABILITIES.get(key) || null;
     CATALOG.set(key, Object.freeze({ key, resourceType: resource.key, action,
       legacy, legacyKeys: Object.freeze(LEGACY_ACTIONS[key] || (legacy ? [legacy] : [])),
       governance: Boolean(resource.governance), delegation: Boolean(resource.delegation),
+      classification: specialCategory ? 'special' : 'general', specialCategory,
+      requiresExplicitFields: Object.freeze(resource.adminOnlyFields || []),
       systemControlled: resource.key === 'authorization.rules' || resource.key === 'authorization.delegations'
         || resource.key === 'authorization.schemes' && !['share', 'receive'].includes(action),
       profileFieldKeys: action !== 'delete' && ['hr.people', 'hr.profileReview'].includes(resource.key),
       businessRoles: Object.freeze(action === 'read' ? (resource.businessReadRoles || []) : (resource.businessActionRoles?.[action] || [])),
-      scopes: Object.freeze(resource.scopes || ['organization', 'records', 'self', 'assignmentScope']),
+      scopes: Object.freeze(PERSON_SCOPED_RESOURCES.has(resource.key) ? [...new Set([...scopes, 'people', 'assignmentScope'])] : scopes),
       fields: Object.freeze(action === 'delete' ? [] : (resource.fields || [])), adminOnlyFields: Object.freeze(resource.adminOnlyFields || []) }));
   }
 }

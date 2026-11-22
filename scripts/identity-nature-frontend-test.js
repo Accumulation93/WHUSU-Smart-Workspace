@@ -14,7 +14,8 @@ assert.ok(relations.legacyScopeChangeHelp(['Nature A']).includes('Nature A'));
 
 const original={name:'Rule',audience:[{type:'scope',departmentIds:['d1']}],targets:[{type:'scope',natureIds:['n1'],sameNature:false,identityCategoryIds:['i1']}],fieldIds:[]};
 const saved=directory.payload(original);
-assert.equal(Object.hasOwn(saved.audience[0],'natureIds'),false);
+assert.deepEqual(saved.audience[0].natureIds,[]);
+assert.deepEqual(saved.audience[0].departmentIds,['d1']);
 assert.deepEqual(saved.targets[0].natureIds,['n1']);
 assert.equal(saved.targets[0].sameNature,false);
 assert.deepEqual(directory.blankClause('scope').natureIds,[]);

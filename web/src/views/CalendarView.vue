@@ -49,7 +49,7 @@ import {formatAbsoluteDate,formatTimeRange,formatDisplayTime} from '@/runtime/da
 import {outputFile} from '@/runtime/fileIO.js';
 const router=useRouter(),route=useRoute(),modes=['month','week','day','list'];
 const today=ref(formatAbsoluteDate(new Date())),selected=ref(String(route.query.date||today.value)),mode=ref('month'),query=ref(''),source=ref(''),managed=ref(false),items=ref([]),metadata=ref({permissions:{},timezoneOffset:480});
-const loading=ref(false),busy=ref(false),notice=ref(''),detail=ref(null),confirmation=ref(null),rulesVisible=ref(false),systemVisible=ref(false),subscriptionData=ref(null),subscriptionAction=ref('');
+const loading=ref(false),busy=ref(false),notice=ref(''),detail=ref(null),confirmation=ref(null),rulesVisible=ref(route.query.area === 'management'),systemVisible=ref(false),subscriptionData=ref(null),subscriptionAction=ref('');
 let generation=0,disposed=false;
 const participantsExpanded=ref(false);
 watch(detail,()=>{participantsExpanded.value=false;});

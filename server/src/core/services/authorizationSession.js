@@ -12,14 +12,16 @@ async function createAuthorizationSession(connection, reference, options = {}) {
   const catalog = options.catalog || (options.profileFields === true
     ? await require('../models/authorizationProfileFields').catalog(connection, reference.organizationId, CATALOG) : CATALOG);
   const actor = await identity.loadActor(connection, reference, options.lock === true);
-  const state = actor ? await storage.read(connection, actor.organizationId, options.lock === true) : { mode: 'shadow', revision: 0, rules: [] };
+  const state = actor ? await storage.read(connection, actor.organizationId, options.lock === true, actor.unifiedAuthorization === true)
+    : { mode: 'shadow', revision: 0, rules: [], disabledBasic: new Set() };
   const policies = state.rules.map(rule => rule.policy);
   const prepared = preparePolicies(policies, catalog);
   const now = Date.now();
 
   function check(input) {
     const computed = evaluate({ actor, resource: input.resource, capability: input.capability, catalog,
-      prepared, now, businessAllowed: input.businessAllowed, businessGranted: input.businessGranted,
+      prepared, now, businessAllowed: input.businessAllowed,
+      businessGranted: input.businessGranted === true && !state.disabledBasic.has(input.capability),
       requestedFields: input.requestedFields || [] });
     if (!actor || !input.resource || input.resource.organizationId !== actor.organizationId || !catalog.has(input.capability)
       || input.resource.type !== catalog.get(input.capability).resourceType
@@ -36,7 +38,7 @@ async function createAuthorizationSession(connection, reference, options = {}) {
   function queryScope(descriptor, capability, options = {}) {
     if (!actor || state.mode !== 'enforced') return { enforced: false, sql: '1 = 0', params: [] };
     const result = createScopeCompiler(descriptor)({ actor, capability, policies, catalog, now,
-      businessGranted: options.businessGranted === true });
+      businessGranted: options.businessGranted === true && !state.disabledBasic.has(capability) });
     return Object.assign({ enforced: true }, result);
   }
 
@@ -50,12 +52,13 @@ async function createAuthorizationSession(connection, reference, options = {}) {
   function hasExplicitEntry(capability) {
     if (state.mode !== 'enforced') return false;
     if (!explainedEntries) explainedEntries = new Map(require('./authorizationExplanation')
-      .explainCapabilities(actor, state.rules, catalog, now).map(item => [item.capability, item]));
+      .explainCapabilities(actor, state.rules, catalog, now, state.disabledBasic).map(item => [item.capability, item]));
     const entry = explainedEntries.get(capability);
     return Boolean(entry && (entry.status === 'conditional' || entry.reason === 'super_admin'));
   }
 
-  return { mode: state.mode, revision: state.revision, check, queryScope, project, hasExplicitEntry };
+  return { mode: state.mode, revision: state.revision, unifiedIdentity: actor?.unifiedAuthorization === true,
+    isSuper: actor?.isSuper === true, check, queryScope, project, hasExplicitEntry };
 }
 
 module.exports = { createAuthorizationSession };

@@ -3,7 +3,7 @@
     <details v-for="step in steps" :key="step.key" class="list-row flow-step" :class="step.state">
       <summary class="stack-tight"><strong>{{ step.name }}</strong><span>{{ step.label }}</span></summary>
       <div v-if="step.snapshot" class="stack-tight flow-expanded">
-        <span v-if="step.snapshot.approverName">{{ native.copy_866290fa02 }}<PersonLink :name="step.snapshot.approverName" :person-id="step.snapshot.approverPersonId" :assignment-id="step.snapshot.approverAssignmentId" /></span>
+        <span v-if="step.snapshot.approverName">{{ step.snapshot.directApproval ? directCopy.directApprovalActor : native.copy_866290fa02 }}<PersonLink :name="step.snapshot.approverName" :person-id="step.snapshot.approverPersonId" :assignment-id="step.snapshot.approverAssignmentId" /></span>
         <span v-if="step.assignment">{{ native.approverAssignment }}{{ step.assignment }}</span>
         <span v-if="step.snapshot.approvedAt">{{ native.copy_dcadcebf08 }}{{ formatDetailTime(step.snapshot.approvedAt, step.snapshot.approvedAtReviewStatus) }}</span>
         <span v-if="step.snapshot.comment">{{ native.copy_3b3b392755 }}{{ step.snapshot.comment }}</span>
@@ -18,6 +18,7 @@ import native from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/pen
 import { formatDetailTime } from '@/runtime/dateTime.js';
 import { venueProgress } from '@/runtime/venuePresentation.js';
 import factsCopy from '@/locales/zh-CN/shared/venueFacts.js';
+import directCopy from '@/locales/zh-CN/shared/approvalDirect.js';
 const props = defineProps({ progress: Object });
 const steps = computed(() => {
   const progress = venueProgress(props.progress);
@@ -32,9 +33,9 @@ const steps = computed(() => {
       key: `${progress.flowId || 'legacy'}-${index}`, snapshot,
       name: progress.flowSteps?.[index]?.name || progress.flowSteps?.[index]?.stepName || snapshot?.stepName || factsCopy.defaultStepName(index + 1),
       state: rejected ? 'rejected' : done ? 'done' : 'pending',
-      label: rejected ? copy.copy_70d7f7f742 : done ? (snapshot?.automatic ? copy.automaticApproved : copy.copy_2d8cba342c)
+      label: rejected ? copy.copy_70d7f7f742 : done ? (snapshot?.directApproval ? directCopy.directApprovalEvent : snapshot?.automatic ? copy.automaticApproved : copy.copy_2d8cba342c)
         : index === Number(progress.currentStep) && !progress.isRejected ? copy.copy_532a477356 : copy.copy_9baefe7c49,
-      assignment: assignment?.assignmentId && assignment?.departmentId && assignment?.identityCategoryId
+      assignment: snapshot?.directApproval ? assignment?.assignmentLabel || '' : assignment?.assignmentId && assignment?.departmentId && assignment?.identityCategoryId
         ? assignment.assignmentLabel || [assignment.identityCategoryName, assignment.departmentName, assignment.workGroupName].filter(Boolean).join(' · ')
         : snapshot?.approverAssignmentId || snapshot?.approverIdentityType === 'user' ? copy.historyAssignmentMissing : ''
     };

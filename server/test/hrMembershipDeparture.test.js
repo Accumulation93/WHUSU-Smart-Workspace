@@ -176,7 +176,7 @@ function testSchemaMigrationAndRouteContracts() {
   const migrationSql = fs.readFileSync(
     path.join(root, 'db/deploy/20260823190000_utc_time_normalization.sql'),
     'utf8'
-  );
+  ).replace(/\r\n/g, '\n');
   const routeSource = fs.readFileSync(path.join(root, 'src/core/routes/hr.js'), 'utf8');
   const overviewSource = fs.readFileSync(
     path.join(root, 'src/core/models/personIdentityOverview.js'),
@@ -190,9 +190,10 @@ function testSchemaMigrationAndRouteContracts() {
   assert(migrationSql.includes('assignment_row.updated_at = departure_row.original_updated_at'));
   assert(migrationSql.includes('membership_row.updated_at = departure_row.original_updated_at'));
   assert(migrationSql.includes('assignment_row.revoked_by_departure_id = departure_row.departure_batch_id'));
+  const assignmentBackfill = migrationSql.indexOf('UPDATE membership_assignments assignment_row');
+  const membershipBackfill = migrationSql.indexOf('UPDATE organization_memberships membership_row\nJOIN tmp_utc_departure_snapshot');
   assert(
-    migrationSql.indexOf('UPDATE membership_assignments assignment_row')
-      < migrationSql.indexOf('UPDATE organization_memberships membership_row\nJOIN tmp_utc_departure_snapshot'),
+    assignmentBackfill >= 0 && membershipBackfill > assignmentBackfill,
     '必须在成员关系回填前使用原始离任时间识别离任岗位'
   );
   assert.match(overviewSource, /(?:om|membership_row)\.created_at AS joined_at/);

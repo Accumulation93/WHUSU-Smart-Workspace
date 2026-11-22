@@ -5,8 +5,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const authorizationCopy = require('../../shared/locales/zh-CN/authorization');
 
-function home() {
+function home({ role = 'user', profile = { name: '成员甲' } } = {}) {
   const filename = path.resolve(__dirname, '../../miniprogram/subpackages/workspace/pages/home/home.js');
   let definition, finish;
   vm.runInNewContext(fs.readFileSync(filename, 'utf8'), {
@@ -16,7 +17,8 @@ function home() {
       if (name.endsWith('/authorizationAccess')) return { readCurrentAuthorizationAccess: () => new Promise(resolve => { finish = resolve; }) };
       if (name.endsWith('/authorizationAccessView')) return require('../../shared/authorizationAccessView');
       if (name.endsWith('/deviceMetadataReport')) return { cancel() {} };
-      if (name.endsWith('/orgSession')) return { invalidateRequests() {} };
+      if (name.endsWith('/orgSession')) return { getSnapshot: () => ({ role }), invalidateRequests() {} };
+      if (name.endsWith('/authContext')) return { getRuntimeProfile: requested => requested === role ? profile : null };
       return {};
     }
   }, { filename });
@@ -34,7 +36,7 @@ test('原人事、审核、评分页面按明确授权出现管理页签，业�
     const pending = state.page.loadManagementAccess();
     state.finish({ mode: 'enforced', role: 'user', capabilities: [capability], grantedCapabilities: [capability] });
     await pending;
-    assert(state.page.data.userTabs.some(tab => tab.key === 'management' && tab.label === '管理'));
+    assert(state.page.data.userTabs.some(tab => tab.key === 'management' && tab.label === authorizationCopy.businessManagement));
     state.page.switchUserTab({ currentTarget: { dataset: { tab: 'management' } } });
     assert.equal(state.page.data.activeTab, 'management');
     const revoke = state.page.loadManagementAccess();
@@ -43,6 +45,23 @@ test('原人事、审核、评分页面按明确授权出现管理页签，业�
     assert.equal(state.page.data.canManageSubApp, false);
     assert.notEqual(state.page.data.activeTab, 'management');
   }
+});
+
+test('超级管理员使用同一业务工作台时保留深色身份卡并按授权打开管理页签', async () => {
+  const profile = { name: '超级管理员甲', adminLevel: 'super_admin', identityModel: 'unified' };
+  const { page, finish } = home({ role: 'admin', profile });
+  page._subApp = 'hr';
+  page._openManagementArea = true;
+  page.refreshCurrentUser();
+  assert.equal(page.data.heroTone, 'admin');
+  assert.equal(page.data.isAdminRole, false);
+  const pending = page.loadManagementAccess();
+  finish({ mode: 'enforced', role: 'admin', capabilities: ['hr.people.read'], grantedCapabilities: ['hr.people.read'] });
+  await pending;
+  assert.equal(page.data.activeTab, 'management');
+  assert.equal(page.data.heroTone, 'admin');
+  const ordinary = home(); ordinary.page.refreshCurrentUser();
+  assert.equal(ordinary.page.data.heroTone, 'blue');
 });
 
 test('页面隐藏后迟到授权不能恢复管理内容，触底只转发给当前工作台', async () => {

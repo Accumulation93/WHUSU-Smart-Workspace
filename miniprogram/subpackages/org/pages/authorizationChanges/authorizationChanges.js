@@ -8,7 +8,7 @@ const { formatListTime } = require('../../../../utils/dateTime');
 
 Page({
   data: { ui, navTopPx: 0, heroTone: 'blue', loading: true, busy: false, notice: '', deleting: false, ready: false,
-    targetName: '', impactText: '', cards: [], labels: [], versions: [], restoreVersion: 0, previewOnly: false, deletingDelegation: false },
+    targetName: '', impactText: '', cards: [], labels: [], versions: [], restoreVersion: 0, previewOnly: false, deletingDelegation: false, unified: false },
   onLoad: function(options) { this._options = options; this.setData({ deleting: ['delete', 'deleteDelegation'].includes(options.kind), deletingDelegation: options.kind === 'deleteDelegation', navTopPx: getNavigationBarMetrics().totalHeight }); },
   onShow: function() { this._active = true; orgSession.consume(this); this.setData({ heroTone: orgSession.getSnapshot().role === 'admin' ? 'admin' : 'blue' }); this.load(); },
   onResize: function() { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight }); },
@@ -32,7 +32,7 @@ Page({
       this._state = results[0]; this._directory = results[1];
       let result;
       if (this.data.deletingDelegation) {
-        if (!this._state.isSuper) throw createLocalError(ui.forbidden);
+        if (!this._state.isSuper && !this._state.canManageDelegations) throw createLocalError(ui.forbidden);
         const selected = this._state.delegations.find(item => item.id === this._options.id);
         if (!selected) throw createLocalError(ui.conflict);
         this._payload = { id: selected.id, version: selected.version, expectedRevision: this._state.revision };
@@ -78,7 +78,7 @@ Page({
         after: after ? presentation.policySections(after, this._directory, this._state.catalog, ui) : null,
         roles: roles.map(item => ({ key: item.role + ':' + item.subjectId, name: item.name, assignmentLabel: item.role === 'admin' ? ui.adminGrants : presentation.assignmentLabel(item) })) };
     });
-    this.setData({ ready: true, previewOnly: this._state.mode === 'shadow', impactText: ui.impactCount(result.peopleCount, result.roleCount), cards, labels: this.labels(result.capabilities) });
+    this.setData({ ready: true, unified: this._state.unifiedIdentity === true, previewOnly: this._state.mode === 'shadow', impactText: ui.impactCount(result.peopleCount, result.roleCount), cards, labels: this.labels(result.capabilities) });
   },
   previewVersion: async function(event) {
     if (this.data.busy || !this._payload) return;
@@ -100,7 +100,8 @@ Page({
     const request = orgSession.beginRequest(this, 'authorizationChangeWrite');
     this.setData({ busy: true, notice: '' });
     try {
-      await this.call(this.data.deletingDelegation ? 'deleteAuthorizationDelegation' : this.data.deleting ? 'deleteAuthorizationRules' : 'publishAuthorizationScheme', this._payload);
+      await this.call(this.data.deletingDelegation ? 'deleteAuthorizationDelegation' : this.data.deleting ? 'deleteAuthorizationRules' : 'publishAuthorizationScheme',
+        Object.assign({}, this._payload, { identityModel: 'unified' }));
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
       showShortToast(this.data.deleting ? ui.removedSuccess : ui.publishedSuccess); wx.navigateBack();
     } catch (error) {

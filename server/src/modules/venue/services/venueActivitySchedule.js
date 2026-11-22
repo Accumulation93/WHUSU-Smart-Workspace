@@ -220,4 +220,4 @@ function getActivitySlots(dateText, activityRules, timezoneOffset) {
   return slots;
 }
 
-module.exports = { getActivitySlots, ruleValidationError, parseCycleValues, cycleMeta };
+module.exports = { getActivitySlots, ruleValidationError, parseCycleValues, cycleMeta, dateMatchesCycle };

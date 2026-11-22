@@ -5,9 +5,9 @@ let handoff = null;
 export function setSigningHandoff(value) { handoff = value; }
 export function getSigningHandoff() { return handoff; }
 export function resetSigningDrafts() { handoff = null; signingDrafts.reset(); signingAssets.reset(); }
-export function stepDraft(submission, step, files) {
+export function stepDraft(submission, step, files, directApproval = false) {
   const key = [submission.id, step.id, step.round || 1, ...files.map(file => file.id + ':' + file.fileHash)].join('|');
-  return signingDrafts.open(key);
+  return signingDrafts.open(directApproval ? key + '|direct' : key);
 }
 export function restoreDraft(draft, saved) {
   const locked = draft.locked, pendingRead = draft.pendingRead;

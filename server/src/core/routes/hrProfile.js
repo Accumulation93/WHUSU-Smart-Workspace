@@ -113,8 +113,9 @@ async function ensureTemplatePermission(req, permissionKeys) {
     };
     const capabilities = actions[req.path] || [];
     const reference = req.unifiedAuthorization.reference;
-    const context = await require('../models/hrAuthorization').templateAccess(reference, capabilities);
-    context.authorize = connection => require('../models/hrAuthorization').templateAccess(reference, capabilities, connection);
+    const templateId = safeString(req.body.id);
+    const context = await require('../models/hrAuthorization').templateAccess(reference, capabilities, null, templateId);
+    context.authorize = connection => require('../models/hrAuthorization').templateAccess(reference, capabilities, connection, templateId);
     return context;
   }
   const admin = await ensureAdmin(req);

@@ -99,6 +99,7 @@ async function onSubmit() {
     const result = await callApi('auth/password/session', {
       studentId: studentId.value.trim(),
       passphrase: passphrase.value,
+      identityModel: 'unified',
       // 网页模式：服务端把登录凭证写进 HttpOnly Cookie，响应体里没有明文令牌。
       webSession: true
     }, { skipAuthRedirect: true });

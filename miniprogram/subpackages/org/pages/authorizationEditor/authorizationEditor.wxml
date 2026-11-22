@@ -12,7 +12,7 @@
     </view>
     <view wx:if="{{previewOnly}}" class="permission-empty">{{ui.previewOnly}}</view>
     <block wx:if="{{preview}}">
-      <view class="permission-card"><view class="permission-section-title">{{ui.previewChanges}}</view><view>{{impactText}}</view><view wx:if="{{!impactRows.length}}">{{ui.noAffectedRoles}}</view><view wx:if="{{kind === 'delegation'}}" class="permission-admin-meta">{{ui.delegationNotice}}</view></view>
+      <view class="permission-card"><view class="permission-section-title">{{unified ? ui.unified.grantPreviewTitle : ui.previewChanges}}</view><view>{{impactText}}</view><view wx:if="{{!impactRows.length}}">{{unified && assignmentMode === 'dynamic' ? ui.unified.noMatchingDynamicPosts : ui.noAffectedRoles}}</view><view wx:if="{{kind === 'delegation'}}" class="permission-admin-meta">{{ui.delegationNotice}}</view></view>
       <view wx:if="{{originalSections}}" class="permission-card authorization-section">
         <view class="permission-section-title">{{ui.beforeChange}}</view>
         <view class="authorization-label">{{kind === 'delegation' ? ui.delegationSubjects : ui.subjects}}</view>
@@ -57,20 +57,31 @@
       <view wx:if="{{kind === 'delegation'}}" class="permission-card">
         <view class="permission-section-title">{{ui.delegateRecipients}}</view>
         <view class="permission-admin-meta">{{ui.delegateRecipientsHelp}}</view>
-        <view class="authorization-actions"><button class="secondary-btn ui-motion-button" disabled="{{busy}}" data-kind="delegateAssignments" bindtap="openPersonnel" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.selectDelegateAssignment}}</button><button class="secondary-btn ui-motion-button" disabled="{{busy}}" data-kind="delegates" bindtap="openPersonnel" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.selectDelegateAdmin}}</button></view>
+        <view class="authorization-actions"><button class="secondary-btn ui-motion-button" disabled="{{busy}}" data-kind="delegateAssignments" bindtap="openPersonnel" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.selectDelegateAssignment}}</button><button wx:if="{{!unified}}" class="secondary-btn ui-motion-button" disabled="{{busy}}" data-kind="delegates" bindtap="openPersonnel" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.selectDelegateAdmin}}</button></view>
         <view wx:for="{{recipientNames}}" wx:key="key">{{item.value}}</view>
         <view class="authorization-head"><view>{{draft.delegationEnabled ? ui.enabled : ui.disabled}}</view><switch color="#3b82f6" checked="{{draft.delegationEnabled}}" disabled="{{busy}}" bindchange="changeEnabled" /></view>
+        <view wx:if="{{unified}}" class="authorization-head"><view>{{ui.unified.allowRedelegation}}</view><switch aria-label="{{ui.unified.allowRedelegation}}" color="#3b82f6" checked="{{draft.allowRedelegation}}" disabled="{{busy}}" bindchange="changeRedelegation" /></view>
+        <view wx:if="{{unified}}" class="permission-admin-meta">{{ui.unified.redelegationHelp}}</view>
       </view>
       <view wx:if="{{kind !== 'scheme'}}" class="permission-card">
         <view class="permission-section-title">{{!advanced ? ui.stepPeople : kind === 'delegation' ? ui.delegationSubjects : ui.subjects}}</view><view wx:if="{{advanced}}" class="permission-admin-meta">{{ui.betweenGroups}}</view>
         <view wx:if="{{inheritedSubjects}}" class="permission-admin-meta">{{ui.inheritedSubjectsReadOnlyHelp}}</view>
-        <view class="authorization-actions"><button wx:if="{{canPickAssignments}}" class="secondary-btn ui-motion-button" disabled="{{busy}}" data-kind="assignments" bindtap="openPersonnel" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.selectRecipientAssignment}}</button><button wx:if="{{canPickAdmins}}" class="secondary-btn ui-motion-button" disabled="{{busy}}" data-kind="adminGrants" bindtap="openPersonnel" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.selectRecipientAdmin}}</button></view>
+        <view wx:if="{{unified && kind === 'rule' && assignmentMode && !delegation}}" class="authorization-group">
+          <view class="authorization-label">{{ui.unified.assignmentMode}}</view>
+          <view class="authorization-actions">
+            <button class="secondary-btn ui-motion-button authorization-option {{assignmentMode === 'fixed' ? 'authorization-option-selected' : ''}}" aria-pressed="{{assignmentMode === 'fixed'}}" disabled="{{busy || assignmentMode !== 'fixed' && draft.policy.subjects.length}}" data-mode="fixed" bindtap="chooseAssignmentMode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.unified.snapshotAssignment}}</button>
+            <button class="secondary-btn ui-motion-button authorization-option {{assignmentMode === 'dynamic' ? 'authorization-option-selected' : ''}}" aria-pressed="{{assignmentMode === 'dynamic'}}" disabled="{{busy || assignmentMode !== 'dynamic' && draft.policy.subjects.length}}" data-mode="dynamic" bindtap="chooseAssignmentMode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.unified.dynamicAssignment}}</button>
+          </view>
+          <view class="permission-admin-meta">{{assignmentMode === 'fixed' ? ui.unified.snapshotHelp : ui.unified.dynamicHelp}}</view>
+          <view wx:if="{{draft.policy.subjects.length}}" class="authorization-summary">{{selectionText}}</view>
+        </view>
+        <view class="authorization-actions"><button wx:if="{{canPickAssignments}}" class="secondary-btn ui-motion-button" disabled="{{busy}}" data-kind="assignments" bindtap="openPersonnel" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{unified ? ui.unified.selectRecipientPosts : ui.selectRecipientAssignment}}</button><button wx:if="{{canPickAdmins}}" class="secondary-btn ui-motion-button" disabled="{{busy}}" data-kind="adminGrants" bindtap="openPersonnel" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.selectRecipientAdmin}}</button></view>
         <view wx:for="{{sections.subjects}}" wx:key="key" wx:for-item="subject" class="authorization-group">
           <view class="permission-section-head"><view class="authorization-label">{{subject.label}}</view><button wx:if="{{!delegation || draft.policy.subjects[index].kind !== 'assignmentScope'}}" class="secondary-btn ui-motion-button" data-part="subjects" data-index="{{index}}" disabled="{{busy}}" bindtap="removeGroup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.removeCondition}}</button></view>
           <authorization-dimensions wx:if="{{draft.policy.subjects[index].kind === 'assignmentScope'}}" value="{{draft.policy.subjects[index].dimensions}}" directory="{{directory}}" disabled="{{busy || !!delegation}}" data-part="subjects" data-index="{{index}}" bind:change="dimensions" />
           <block wx:else><view wx:for="{{subject.lines}}" wx:key="key" wx:for-item="line">{{line.label}} {{line.value}}</view></block>
         </view>
-        <button wx:if="{{advanced && !delegation}}" class="secondary-btn ui-motion-button" data-part="subjects" disabled="{{busy}}" bindtap="addGroup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.addConditionGroup}}</button>
+        <button wx:if="{{advanced && !delegation && (!unified || kind !== 'rule' || assignmentMode === 'dynamic')}}" class="secondary-btn ui-motion-button" data-part="subjects" disabled="{{busy}}" bindtap="addGroup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.addConditionGroup}}</button>
       </view>
       <view class="permission-card">
         <view class="permission-section-title">{{!advanced ? ui.stepIdentity : kind === 'scheme' ? ui.schemeCapabilitiesTitle : kind === 'delegation' ? ui.delegationCapabilities : draft.policy.effect === 'deny' ? ui.denyCapabilitiesTitle : ui.allowCapabilitiesTitle}}</view>
@@ -86,7 +97,7 @@
         <view class="ui-list-filter-search"><ui-icon name="search" tone="muted" sizeRole="row-leading" /><input class="ui-list-filter-input" value="{{capabilityKeyword}}" bindinput="searchCapabilities" placeholder="{{ui.searchOperations}}" /></view>
         <view wx:for="{{capabilityBusinesses}}" wx:key="key" class="authorization-group">
           <view class="authorization-disclosure ui-motion-card" data-key="{{item.key}}" bindtap="toggleGroup" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><view>{{item.label}}<text class="authorization-status" wx:if="{{item.selectedCount}}">{{item.selectedCount}}</text></view><ui-icon name="chevron-right" sizeRole="row-leading" /></view>
-          <view wx:if="{{expanded[item.key] || capabilityKeyword}}" class="authorization-body"><view wx:for="{{item.groups}}" wx:for-item="group" wx:key="key" class="authorization-field"><view class="authorization-label">{{group.label}}</view><view class="authorization-actions"><button wx:for="{{group.items}}" wx:key="key" wx:for-item="option" class="secondary-btn ui-motion-button authorization-option {{option.selected ? 'authorization-option-selected' : ''}}" data-key="{{option.key}}" disabled="{{busy || !!draft.schemeId}}" bindtap="capability" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{option.label}}</button></view></view></view>
+          <view wx:if="{{expanded[item.key] || capabilityKeyword}}" class="authorization-body"><button wx:if="{{unified && kind === 'scheme' && !capabilityKeyword}}" class="secondary-btn ui-motion-button" data-key="{{item.key}}" disabled="{{busy}}" bindtap="toggleCapabilityGroup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{item.batchLabel}}</button><view wx:for="{{item.groups}}" wx:for-item="group" wx:key="key" class="authorization-field"><view class="authorization-label">{{group.label}}</view><view class="authorization-actions"><button wx:for="{{group.items}}" wx:key="key" wx:for-item="option" class="secondary-btn ui-motion-button authorization-option {{option.selected ? 'authorization-option-selected' : ''}}" data-key="{{option.key}}" disabled="{{busy || !!draft.schemeId}}" bindtap="capability" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{option.label}}</button></view></view></view>
         </view>
         </block>
       </view>
@@ -100,6 +111,7 @@
           <view wx:if="{{delegation && draft.policy.scopes[index].kind === 'records'}}" class="permission-admin-meta">{{ui.recordsSummaryHelp}}</view>
         </view>
         <button wx:if="{{assignmentScope && !delegation}}" class="secondary-btn ui-motion-button" data-part="scopes" disabled="{{busy}}" bindtap="addGroup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.addConditionGroup}}</button>
+        <button wx:if="{{advanced && peopleScope && !delegation}}" class="secondary-btn ui-motion-button" data-kind="people" disabled="{{busy}}" bindtap="openPersonnel" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.unified.specifiedPeople}}</button>
       </view>
       <view wx:if="{{kind !== 'scheme' && delegation && delegation.envelope.fields !== null}}" class="permission-card authorization-section"><view class="permission-section-title">{{ui.delegationFieldsSummary}}</view><view class="permission-admin-meta">{{ui.inheritedFieldsHelp}}</view><view wx:for="{{sections.fieldLabels}}" wx:key="*this">{{item}}</view></view>
       <view wx:if="{{kind !== 'scheme' && inheritedPeriods.length}}" class="permission-card authorization-section"><view class="permission-section-title">{{ui.delegationPeriodSummary}}</view><view class="permission-admin-meta">{{ui.inheritedPeriodHelp}}</view><view wx:for="{{inheritedPeriods}}" wx:key="key">{{item.label}} · {{item.value}}</view></view>
@@ -127,6 +139,6 @@
     </block>
     <app-loading wx:if="{{busy}}" text="{{ui.saving}}" />
   </block>
-  <personnel-picker id="authorization-personnel-picker" visible="{{!!picker}}" title="{{picker === 'delegates' || picker === 'delegateAssignments' ? ui.delegateRecipients : (ui[picker] || '')}}" options="{{pickerOptions}}" value="{{pickerValue}}" selectionLevel="{{picker === 'assignments' || picker === 'delegateAssignments' ? 'assignment' : 'person'}}" bind:confirm="confirmPersonnel" bind:cancel="closePersonnel" />
+  <personnel-picker id="authorization-personnel-picker" visible="{{!!picker}}" title="{{picker === 'people' ? ui.unified.specifiedPeople : picker === 'delegates' || picker === 'delegateAssignments' ? ui.delegateRecipients : (ui[picker] || '')}}" options="{{pickerOptions}}" value="{{pickerValue}}" selectionLevel="{{picker === 'assignments' || picker === 'delegateAssignments' ? 'assignment' : 'person'}}" bind:confirm="confirmPersonnel" bind:cancel="closePersonnel" />
   <app-toast />
 </view>

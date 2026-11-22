@@ -112,6 +112,36 @@ async function setup(page, ordinary = false) {
   return { state, calls };
 }
 
+test('unified authorization confirms the exact list of selected posts before saving', async ({ page }) => {
+  const { state, calls } = await setup(page);
+  state.mode = 'enforced';
+  state.unifiedIdentity = true;
+  state.catalog = [{ ...capability, classification: 'general' }];
+  state.schemes = [{ id: 'venue-role', name: 'Venue reader', version: 1, publishedVersion: 1,
+    capabilities: [capability.key], publishedCapabilities: [capability.key] }];
+  await page.route('**/api/previewAuthorizationRule', route => {
+    const payload = route.request().postDataJSON();
+    expect(payload.assignmentMode).toBe('snapshot');
+    expect(payload.policy.subjects).toEqual([{ kind: 'assignments', ids: ['job-a'] }]);
+    return route.fulfill({ json: { status: 'success', revision: state.revision, previewToken: 'approved-list',
+      rule: { policy: payload.policy }, impact: { peopleCount: 1, roleCount: 1,
+        roles: [{ ...assignment, role: 'user', subjectId: assignment.assignmentId, before: null, after: payload.policy }] } } });
+  });
+  await page.goto('/web/admin/authorization/edit?kind=rule');
+  await page.getByRole('button', { name: ui.unified.selectRecipientPosts, exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: /Example member/ }).click();
+  await page.getByRole('dialog').locator('footer button').last().click();
+  await expect(page.getByText(ui.unified.selectedPostCount(1), { exact: true })).toBeVisible();
+  await page.getByRole('combobox', { name: ui.useScheme, exact: true }).selectOption('venue-role');
+  await page.getByRole('button', { name: ui.ownRecords, exact: true }).click();
+  await page.getByRole('button', { name: ui.previewChanges, exact: true }).click();
+  await expect(page.getByRole('heading', { name: ui.unified.grantPreviewTitle })).toBeVisible();
+  await page.getByRole('button', { name: ui.confirmChanges, exact: true }).click();
+  await expect(page.locator('.authorization-recipient > summary').getByText('Example member', { exact: true })).toBeVisible();
+  expect(calls.saved.identityModel).toBe('unified');
+  expect(calls.saved.previewToken).toBe('approved-list');
+});
+
 test('authorization identity simplifies assignment to three sections and preserves saved scope on reopen', async ({ page }) => {
   const { state, calls } = await setup(page);
   state.schemes = [{ id: 'identity-a', name: 'Venue reader', version: 1, publishedVersion: 1,
@@ -358,7 +388,7 @@ test('rule editor selects an assignment, previews, saves and rereads the rule wi
   await expect(page).toHaveURL(/\/admin\/authorization$/);
   await openRecipientGrant(page);
   await expect(page.getByText('Test rule', { exact: true })).toBeVisible();
-  expect(calls.saved).toEqual(calls.preview);
+  expect(calls.saved).toEqual({ ...calls.preview, identityModel: 'unified' });
   expect(calls.saved.policy.subjects).toEqual([{ kind: 'assignments', ids: ['job-a'] }]);
   expect(calls.saved.policy.scopes).toEqual([{ kind: 'self' }]);
   expect(calls.saved.policy.startsAt).toBe('2026-11-13T02:15:00.000Z');
@@ -471,7 +501,7 @@ test('batch selection keeps filtered-out selections and previews each rule befor
   expect(saved).toBeUndefined();
   await page.getByRole('button', { name: ui.remove, exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/authorization$/);
-  expect(saved).toEqual(previewed);
+  expect(saved).toEqual({ ...previewed, identityModel: 'unified' });
   expect(saved.rules).toEqual([{ id: 'first', version: 1 }, { id: 'second', version: 2 }]);
 });
 
@@ -499,7 +529,7 @@ test('delegation recipients stay separate from eligible assignees through save, 
   await page.route('**/api/previewAuthorizationDelegationDeletion', route => route.fulfill({ json: { status: 'success', delegation: state.delegations[0],
     impact: { peopleCount: 1, roleCount: 1, roles: [{ role: 'admin', subjectId: 'grant-a', name: 'Example administrator', before: saved.envelope, after: null }] } } }));
   await page.route('**/api/deleteAuthorizationDelegation', route => {
-    expect(route.request().postDataJSON()).toEqual({ id: 'delegation-a', version: 1, expectedRevision: 2 });
+    expect(route.request().postDataJSON()).toEqual({ id: 'delegation-a', version: 1, expectedRevision: 2, identityModel: 'unified' });
     deleted++; state.delegations = []; return route.fulfill({ json: { status: 'success' } });
   });
   await page.goto('/web/admin/authorization');
@@ -524,7 +554,7 @@ test('delegation recipients stay separate from eligible assignees through save, 
   expect(saved).toBeUndefined();
   await page.getByRole('button', { name: ui.confirmChanges, exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/authorization$/);
-  expect(saved).toEqual(previewed);
+  expect(saved).toEqual({ ...previewed, identityModel: 'unified' });
   expect(saved.subjects).toEqual([{ kind: 'assignments', ids: ['job-a'] }, { kind: 'adminGrants', ids: ['grant-a'] }]);
   expect(saved.envelope.subjects).toEqual([{ kind: 'assignments', ids: ['job-a'] }]);
   await page.locator('summary', { hasText: ui.advancedManagement }).click();
@@ -577,7 +607,7 @@ test('scheme publication and restoration require an impact preview and append a 
   await page.getByRole('button', { name: ui.confirmRestore, exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/authorization$/);
   expect(publications).toBe(1);
-  expect(restored).toEqual({ id: 'scheme-a', version: 3, expectedRevision: 1, restoreVersion: 1 });
+  expect(restored).toEqual({ id: 'scheme-a', version: 3, expectedRevision: 1, restoreVersion: 1, identityModel: 'unified' });
   await page.getByRole('button', { name: ui.schemes, exact: true }).click();
   await expect(page.getByText(ui.schemeVersion(2), { exact: true })).toBeVisible();
 });
@@ -590,7 +620,7 @@ test('deleting a prohibition names the rule and shows the permission expansion w
   await page.route('**/api/previewAuthorizationRuleDeletion', route => route.fulfill({ json: { status: 'success', revision: 1, peopleCount: 1, roleCount: 1,
     rules: [{ id: 'rule-a', name: 'Restricted records', impact: { before: policy, after: null, roles: [{ ...assignment, role: 'user', subjectId: 'job-a' }] } }] } }));
   await page.route('**/api/deleteAuthorizationRules', route => {
-    saves++; expect(route.request().postDataJSON()).toEqual({ expectedRevision: 1, rules: [{ id: 'rule-a', version: 2 }] });
+    saves++; expect(route.request().postDataJSON()).toEqual({ expectedRevision: 1, rules: [{ id: 'rule-a', version: 2 }], identityModel: 'unified' });
     state.rules = []; state.revision++; return route.fulfill({ json: { status: 'success', count: 1 } });
   });
   await page.goto('/web/admin/authorization');

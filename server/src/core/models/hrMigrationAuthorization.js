@@ -4,19 +4,22 @@ const pool = require('../../config/db');
 const { createAuthorizationSession } = require('../services/authorizationSession');
 const { authorizationError } = require('../services/authorizationError');
 const identity = require('./authorizationIdentity');
+const identityTransition = require('./authorizationIdentityTransition');
 const migration = require('./hrProfileMigration');
 
 async function actor(reference, capability, connection) {
   const run = async db => {
     const current = await identity.loadActor(db, reference, true);
-    const session = await createAuthorizationSession(db, reference, { lock: true });
-    if (!current || current.role !== 'admin' || session.mode !== 'enforced' || !session.check({ capability,
+    const session = await createAuthorizationSession(db, reference, { lock: true, profileFields: true });
+    if (!current || (current.role !== 'admin' && (current.unifiedAuthorization !== true || !current.assignment))
+      || session.mode !== 'enforced' || !session.check({ capability,
       resource: { type: 'hr.profileMigration', organizationId: reference.organizationId }, businessAllowed: true }).allowed) {
       throw authorizationError('authorization_forbidden');
     }
     return { personId: current.personId, orgId: current.organizationId, isSuper: current.isSuper,
       admin: { id: current.legacyAdminId }, authorized: true, authorizationReference: reference,
-      requesterGrantId: current.adminGrantId, requesterAccountId: current.accountId };
+      requesterGrantId: current.adminGrantId, requesterAccountId: current.accountId,
+      requesterAssignmentId: current.role === 'user' ? current.assignment.id : null };
   };
   return connection ? run(connection) : pool.withTransaction(run);
 }
@@ -35,7 +38,8 @@ async function saveRequest(reference, built, token, direct) {
   return pool.withTransaction(async connection => {
     const current = await actor(reference, direct ? 'hr.profileMigration.execute' : 'hr.profileMigration.request', connection);
     if (current.orgId !== built.plan.targetOrgId || (direct && !current.isSuper)) throw authorizationError('authorization_forbidden');
-    const plan = { ...built.plan, requesterAuthorization: { accountId: current.requesterAccountId, adminGrantId: current.requesterGrantId,
+    const plan = { ...built.plan, requesterAuthorization: { accountId: current.requesterAccountId,
+      ...(current.requesterAssignmentId ? { assignmentId: current.requesterAssignmentId } : { adminGrantId: current.requesterGrantId }),
       personId: current.personId, contextId: reference.contextId, organizationId: reference.organizationId } };
     // 令牌绑定原业务计划，不把内部会话信息作为客户端可控内容。
     if (direct) await require('../services/hrProfileMigrationService').executePlan(current, built.plan, token, connection);
@@ -83,22 +87,41 @@ async function review(reference, id, action, reason) {
 // 来源审批执行已保存的目标组织申请，不要求申请人的浏览器仍停留在原角色；
 // 只从服务端保存的申请身份重新核验账号、管理授权和当前规则，不能用于任意代办。
 async function verifyRequester(connection, reference) {
-  const [rows] = await connection.query(`SELECT g.id,g.admin_level,g.legacy_admin_id FROM admin_grants g
+  const requestActor = reference.assignmentId
+    ? (await identity.loadEffectiveAssignmentsForAuthorization(connection, reference.organizationId, [reference.assignmentId], true))
+      .find(candidate => candidate.unifiedAuthorization && candidate.accountId === reference.accountId && candidate.personId === reference.personId)
+    : await previousRequesterActor(connection, reference);
+  if (!requestActor) throw authorizationError('authorization_forbidden');
+  const state = await require('./authorization').read(connection, reference.organizationId, true, requestActor.unifiedAuthorization === true);
+  const { CATALOG } = require('../services/authorizationCatalog');
+  const { preparePolicies, evaluate } = require('../services/authorizationPolicy');
+  const catalog = await require('./authorizationProfileFields').catalog(connection, reference.organizationId, CATALOG);
+  if (state.mode !== 'enforced' || !evaluate({ actor: requestActor, resource: { type: 'hr.profileMigration', organizationId: reference.organizationId },
+    capability: 'hr.profileMigration.request', catalog, prepared: preparePolicies(state.rules.map(rule => rule.policy), catalog),
+    now: Date.now(), businessAllowed: true }).allowed) throw authorizationError('authorization_forbidden');
+}
+
+async function previousRequesterActor(connection, reference) {
+  if (!reference.adminGrantId) return null;
+  const unifiedAuthorization = await identityTransition.isUnified(connection);
+  const [rows] = await connection.query(`SELECT g.id,g.admin_level FROM admin_grants g
     JOIN persons p ON p.id=g.person_id AND p.status='active'
     JOIN accounts a ON a.person_id=p.id AND a.status='verified'
     WHERE a.id=? AND p.id=? AND g.id=? AND g.status='active'
-      AND (g.org_id=? OR (g.org_id='' AND g.admin_level='super_admin')) FOR UPDATE`,
-  [reference.accountId, reference.personId, reference.adminGrantId, reference.organizationId]);
+      AND (g.org_id=? OR (g.admin_level='super_admin' AND (g.org_id='' OR ?=1))) FOR UPDATE`,
+  [reference.accountId, reference.personId, reference.adminGrantId, reference.organizationId, unifiedAuthorization ? 1 : 0]);
   const grant = rows[0];
-  if (!grant) throw authorizationError('authorization_forbidden');
-  const state = await require('./authorization').read(connection, reference.organizationId, true);
-  const { CATALOG } = require('../services/authorizationCatalog');
-  const { preparePolicies, evaluate } = require('../services/authorizationPolicy');
-  const requestActor = { accountId: reference.accountId, personId: reference.personId, organizationId: reference.organizationId,
-    contextId: reference.contextId, role: 'admin', active: true, assignment: null, adminGrantId: grant.id, isSuper: grant.admin_level === 'super_admin' };
-  if (state.mode !== 'enforced' || !evaluate({ actor: requestActor, resource: { type: 'hr.profileMigration', organizationId: reference.organizationId },
-    capability: 'hr.profileMigration.request', catalog: CATALOG, prepared: preparePolicies(state.rules.map(rule => rule.policy), CATALOG),
-    now: Date.now(), businessAllowed: true }).allowed) throw authorizationError('authorization_forbidden');
+  if (!grant) return null;
+  const active = { accountId: reference.accountId, personId: reference.personId, organizationId: reference.organizationId,
+    contextId: reference.contextId, role: 'admin', active: true, assignment: null, adminGrantId: grant.id,
+    isSuper: grant.admin_level === 'super_admin', unifiedAuthorization, legacyAdminGrantIds: [] };
+  if (unifiedAuthorization && !active.isSuper) {
+    const positions = await identityTransition.linkedAssignments(connection, reference.organizationId, grant.id, reference.personId, true);
+    if (!positions.length) return null;
+    active.assignment = { ...positions[0], active: true };
+    active.legacyAdminGrantIds = [grant.id];
+  }
+  return active;
 }
 
 async function cancel(reference, id) {

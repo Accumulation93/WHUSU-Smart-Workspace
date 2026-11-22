@@ -41,6 +41,7 @@ module.exports = async function hrAuthorizationCases(db) {
   const app = express(); app.use(express.json());
   let sourceContext = false;
   let managementContext = false;
+  let previousTransition = null;
   app.use((req, res, next) => {
     req.authAccount = { id: 'hr-account', personId: 'hr-actor' };
     req.authSession = { id: sourceContext ? 'hr-source-session' : 'hr-session' };
@@ -310,7 +311,61 @@ module.exports = async function hrAuthorizationCases(db) {
     assert.equal((await call('getHrPersonDetail', { hrId: correctionTarget.data.id })).data.profile.name, '合并目标');
     await db.query("UPDATE admin_grants SET admin_level='admin',org_id='hr-auth' WHERE id='hr-import-admin'");
     assert.equal((await call('applyPersonIdentityCorrection', { ...correctionInput, version: correctionPreview.data.preview.version })).code, 403);
+    await verifyAssignmentMigration();
   } finally {
+    if (previousTransition) {
+      await db.query('UPDATE authorization_runtime_transition SET phase=?,minimum_protocol=? WHERE id=1',
+        [previousTransition.phase, previousTransition.minimum_protocol]);
+    }
     await new Promise(resolve => listener.close(resolve));
+  }
+
+  async function verifyAssignmentMigration() {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    for (const file of ['20261102193000_authorization_runtime_transition.sql', '20261122153000_unified_identity_assignment_links.sql',
+      '20261122170000_authorization_grant_sources.sql']) {
+      await db.query(fs.readFileSync(path.join(__dirname, '../../db/deploy', file), 'utf8'));
+    }
+    [[previousTransition]] = await db.query('SELECT phase,minimum_protocol FROM authorization_runtime_transition WHERE id=1');
+    await db.query(`UPDATE authorization_runtime_transition SET phase='enforced', minimum_protocol=3 WHERE id=1;
+      INSERT INTO hr_info(id,name,student_id,org_id) VALUES ('hr-source-operator','来源审核员','HR-A','hr-source');
+      INSERT INTO organization_memberships(id,person_id,org_id,legacy_hr_id) VALUES ('hr-source-operator-membership','hr-actor','hr-source','hr-source-operator');
+      INSERT INTO departments(id,name,org_id) VALUES ('hr-source-department','来源部门','hr-source');
+      INSERT INTO identities(id,name,org_id) VALUES ('hr-source-identity','资料审核员','hr-source');
+      INSERT IGNORE INTO assignment_natures(id,org_id,name) VALUES ('staff','hr-source','本会岗位');
+      INSERT INTO membership_assignments(id,membership_id,org_id,assignment_kind,department_id,identity_id)
+        VALUES ('hr-source-assignment','hr-source-operator-membership','hr-source','staff','hr-source-department','hr-source-identity');
+      UPDATE auth_sessions SET role='user',context_type='assignment',context_subject_id='hr-job' WHERE id='hr-session';
+      UPDATE auth_sessions SET role='user',context_type='assignment',context_subject_id='hr-source-assignment' WHERE id='hr-source-session';
+      UPDATE hr_profile_record_values SET field_value='modern-source' WHERE id='hr-source-value'`);
+    for (const [id, organizationId, assignment, action] of [['hr-migration-policy','hr-auth','hr-job','request'],
+      ['hr-source-policy','hr-source','hr-source-assignment','approve']]) {
+      await db.query('UPDATE authorization_rules SET policy_json=? WHERE id=?', [JSON.stringify({ id, organizationId, effect: 'allow',
+        enabled: true, subjects: [{kind:'assignments',ids:[assignment]}], capabilities: ['hr.profileMigration.read','hr.profileMigration.'+action],
+        scopes: [{kind:'organization'}], fields: null }), id]);
+    }
+    // 使用和新页面相同的岗位请求。审核时只信服务端保存的提交者岗位，退出浏览器不影响审批。
+    managementContext = false;
+    sourceContext = false;
+    const [fields] = await db.query("SELECT f.id FROM org_hr_profile_template_snapshot_fields f JOIN org_hr_profile_template_snapshots s ON s.id=f.snapshot_id WHERE s.org_id='hr-auth' AND f.is_active=1");
+    const input = { sourceOrgId:'hr-source',personIds:['hr-target'],
+      fieldActions:[{sourceFieldId:'hr-source-phone',action:'copy',targetTemplateFieldId:fields[0].id,conflictPolicy:'overwrite'}] };
+    const preview = await call('previewCrossOrgMigration',input);
+    assert.equal(preview.data.status,'success',JSON.stringify(preview));
+    const saved = await call('submitCrossOrgMigrationRequest',{...input,switchToken:preview.data.switchToken});
+    assert.equal(saved.data.status,'success',JSON.stringify(saved));
+    const [[record]] = await db.query('SELECT plan_json FROM org_hr_profile_migrations WHERE id=?',[saved.data.id]);
+    const plan = typeof record.plan_json === 'string' ? JSON.parse(record.plan_json) : record.plan_json;
+    assert.equal(plan.requesterAuthorization.assignmentId,'hr-job');
+    assert.equal(plan.requesterAuthorization.adminGrantId,undefined);
+    sourceContext = true;
+    await db.query("UPDATE membership_assignments SET status='inactive' WHERE id='hr-job'");
+    assert.notEqual((await call('reviewCrossOrgMigrationRequest',{id:saved.data.id,action:'approve'})).data.status,'success');
+    await db.query("UPDATE membership_assignments SET status='active' WHERE id='hr-job'; UPDATE auth_sessions SET status='revoked' WHERE id='hr-session'");
+    const approved = await call('reviewCrossOrgMigrationRequest',{id:saved.data.id,action:'approve'});
+    assert.equal(approved.data.status,'success',JSON.stringify(approved));
+    const [[stored]] = await db.query('SELECT status FROM org_hr_profile_migrations WHERE id=?',[saved.data.id]);
+    assert.equal(stored.status,'executed');
   }
 };

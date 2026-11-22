@@ -19,25 +19,27 @@ permissions:
 
 jobs:
   validation-source:
-    if: github.event_name == 'workflow_dispatch' && inputs.run_ci
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.run_ci)
     runs-on: ubuntu-latest
     outputs:
       local: ${{ steps.proof.outputs.local }}
+      requested: ${{ steps.proof.outputs.requested }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          persist-credentials: false
       - name: Read signed local validation
         id: proof
         env:
           FORCE_REMOTE: ${{ inputs.force_remote }}
         run: |
-          git fetch origin refs/notes/local-ci:refs/notes/local-ci || true
+          proof_ref=$(git ls-remote --refs origin refs/notes/local-ci)
+          if [ -n "$proof_ref" ]; then
+            git fetch origin refs/notes/local-ci:refs/notes/local-ci
+          fi
           node scripts/ci/proof.js
 
   audit-and-test:
     needs: validation-source
-    if: needs.validation-source.outputs.local != 'true'
+    if: github.event_name == 'workflow_dispatch' && inputs.run_ci && needs.validation-source.outputs.local != 'true'
     runs-on: ubuntu-latest
     services:
       mysql:
@@ -87,7 +89,7 @@ jobs:
   validation-complete:
     name: validation-complete
     needs: [validation-source, audit-and-test]
-    if: always() && github.event_name == 'workflow_dispatch' && inputs.run_ci
+    if: always() && (needs.validation-source.outputs.requested == 'true' || (github.event_name == 'workflow_dispatch' && inputs.run_ci))
     runs-on: ubuntu-latest
     steps:
       - name: Require successful local or remote validation
@@ -111,7 +113,8 @@ jobs:
     steps:
       - name: Record requested validation policy
         env:
-          CI_REQUESTED: ${{ github.event_name == 'workflow_dispatch' && inputs.run_ci }}
+          CI_REQUESTED: ${{ needs.validation-source.outputs.requested == 'true' || (github.event_name == 'workflow_dispatch' && inputs.run_ci) }}
+          EVENT_NAME: ${{ github.event_name }}
           VALIDATION_RESULT: ${{ needs.validation-complete.result }}
           SOURCE_RESULT: ${{ needs.validation-source.result }}
           REMOTE_RESULT: ${{ needs.audit-and-test.result }}
@@ -119,7 +122,11 @@ jobs:
           if [ "$CI_REQUESTED" = true ]; then
             test "$VALIDATION_RESULT" = success
           else
-            test "$SOURCE_RESULT" = skipped
+            if [ "$EVENT_NAME" = push ]; then
+              test "$SOURCE_RESULT" = success
+            else
+              test "$SOURCE_RESULT" = skipped
+            fi
             test "$REMOTE_RESULT" = skipped
             test "$VALIDATION_RESULT" = skipped
             echo '本次未请求 CI；未执行完整验证，不代表验证通过。' >> "$GITHUB_STEP_SUMMARY"

@@ -679,6 +679,8 @@ router.post('/listAllVenueBookings', async (req, res) => {
     if (timeTo) filters.timeTo = timeTo;
     const orgId = await getCurrentOrgId();
     const bookings = await require('../models/venueBookingAuthorization').list(orgId, reference, filters);
+    const directActor = reference && bookings.some(booking => booking.status === 'pending' && booking.approval_org_id === orgId)
+      ? await require('../../../core/models/authorizationIdentity').loadActor(pool, reference) : null;
     const viewerScope = reference ? null : await resolveVenueViewerScope(req);
     const canViewDetails = (booking) => Boolean(reference) || canViewBookingDetails(booking, viewerScope);
     // 跨组织记录不在管理端借用列表出现，只在日程图中显示占用
@@ -754,6 +756,8 @@ router.post('/listAllVenueBookings', async (req, res) => {
       visibility: 'details',
       creatorOrgId: b.creator_org_id,
       approvalOrgId: b.approval_org_id,
+      canDirectApprove: Boolean(directActor?.unifiedAuthorization && directActor.isSuper
+        && b.status === 'pending' && b.approval_org_id === orgId),
       adminCanDelete: reference ? b.authorizationCanDelete : (safeString(b.creator_org_id) === orgId || safeString(b.approval_org_id) === orgId)
         && require('../../../core/services/adminPermissions').hasAnyPermission(req.adminPermissions, ['venue.bookings_delete']),
       orgName: orgNameMap[safeString(b.creator_org_id)] || orgNameMap[safeString(b.approval_org_id)] || '',

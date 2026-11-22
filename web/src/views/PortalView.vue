@@ -208,7 +208,8 @@ import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
 import portalCopy from '@/locales/zh-CN/shared/portal.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
-import { cardsForRole } from '@/runtime/modules.js';
+import { cardsForContext, cardsForRole } from '@/runtime/modules.js';
+import { cardMatches } from '@/shared/authorizationEntryView.js';
 import { confirmAction, showToast } from '@/runtime/notify.js';
 import { notifyModuleBuilding } from '@/runtime/porting.js';
 import { openMessageTarget } from '@/runtime/messageNavigation.js';
@@ -244,6 +245,7 @@ const portalAccess = ref(null);
 const shadowPermissionEntry = ref(false);
 let accessGeneration = 0;
 const cards = computed(() => {
+  if (session.identityModel === 'unified') return cardsForContext(session.activeRole, session.identityModel, portalAccess.value);
   const result = cardsForRole(session.activeRole).filter(card => card.key !== 'permissions');
   if (shadowPermissionEntry.value || canOpenAuthorization(portalAccess.value)) {
     result.push(cardsForRole('admin').find(card => card.key === 'permissions'));
@@ -270,7 +272,7 @@ async function loadPortalAccess() {
 const filteredCards = computed(() => {
   const keyword = appSearchKeyword.value.trim().toLowerCase();
   if (!keyword) return cards.value;
-  return cards.value.filter((card) => card.label.toLowerCase().indexOf(keyword) >= 0);
+  return cards.value.filter(card => cardMatches(card, keyword));
 });
 
 const displayName = computed(() => {

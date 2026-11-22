@@ -7,7 +7,7 @@
 ## 当前自动化
 
 - 从独立工作树发布时，先对照主项目中本轮和用户要求一并交付的前序改动，再核对待推送提交相对 `origin/main` 的实际文件差异。验收要在待发布提交上重跑，覆盖随本轮交付的功能和界面，不能用主项目的结果代替。
-- 默认 git push 只提交远端并进入生产部署流程，不运行完整 CI；validation-source、audit-and-test、validation-complete 均跳过，release-ready 单独检查这是否为预期跳过，不伪装验证成功。
+- 普通推送先检查该提交是否附有本机验证证明。没有证明时跳过完整 CI，不伪装验证成功；有证明时，校验签名、源码和有效期通过后，同一个推送流程发布。无效证明会拦下发布，不自动启动远端完整 CI。
 - 涉及后端时先询问用户。用户同意后，优先执行 node scripts/ci/local.js verify；同一提交的签名证明在 24 小时内复用。也可明确设置 WHUSU_CI_MODE=local 后推送，让钩子运行本机 CI。
 - 远端完整 CI 只在用户同意后手动触发 workflow_dispatch，并勾选 run_ci；force_remote 控制是否忽略有效本机证明。默认 run_ci=false，不因证明缺失自动启动 CI。
 - 用户未同意或明确不运行时，不调用完整 CI，不设置 WHUSU_CI_MODE=local。保留针对本轮改动的必要本地检查及生产迁移、密钥、健康检查。

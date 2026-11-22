@@ -10,10 +10,10 @@ const { authorizationError } = require('./authorizationError');
 async function current(connection, reference) {
   const actor = await identity.loadActor(connection, reference);
   if (!actor) throw authorizationError('authorization_forbidden');
-  const state = await storage.read(connection, actor.organizationId);
+  const state = await storage.read(connection, actor.organizationId, false, actor.unifiedAuthorization === true);
   if (!['shadow', 'enforced'].includes(state.mode)) throw authorizationError('authorization_forbidden');
   const explained = state.mode === 'enforced'
-    ? explainCapabilities(actor, state.rules, CATALOG, Date.now()).filter(item => item.status !== 'denied')
+    ? explainCapabilities(actor, state.rules, CATALOG, Date.now(), state.disabledBasic).filter(item => item.status !== 'denied')
     : [];
   const capabilities = explained.map(item => item.capability);
   // 业务关系入口不等于管理授权；本人借用读取不能据此开放管理目录。
@@ -27,7 +27,7 @@ async function current(connection, reference) {
     canInspectAuthorization = visible.assignments.length > 0 || visible.adminGrants.length > 0;
   }
   return { mode: state.mode, revision: state.revision, organizationId: actor.organizationId,
-    contextId: actor.contextId, role: actor.role, capabilities, grantedCapabilities,
+    contextId: actor.contextId, role: actor.role, capabilities, grantedCapabilities, unifiedIdentity: actor.unifiedAuthorization === true,
     canManageAuthorization, canInspectAuthorization,
     canInspectOwnAuthorization: state.mode === 'enforced', canInspectOthersAuthorization: canInspectAuthorization };
 }

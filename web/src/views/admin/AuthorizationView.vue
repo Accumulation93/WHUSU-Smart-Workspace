@@ -4,7 +4,7 @@
       :organization-name="organizationName" @switch="router.push({ name: 'workRole' })" />
     <nav class="tabs" :aria-label="ui.title">
       <button v-for="item in tabs" :key="item" type="button" class="tab" :class="{ 'tab-active': tab === item }"
-        :aria-current="tab === item ? 'page' : undefined" @click="selectTab(item)">{{ ui[item] }}</button>
+        :aria-current="tab === item ? 'page' : undefined" @click="selectTab(item)">{{ tabLabel(item) }}</button>
     </nav>
     <p v-if="state.mode === 'shadow'" class="notice-line">{{ ui.previewOnly }}</p>
     <AppLoading v-if="loading" :text="ui.loading" />
@@ -18,7 +18,7 @@
       </section>
       <section v-if="tab !== 'effective'" class="card stack">
         <div class="panel-head">
-          <h2 class="section-title">{{ ui[tab] }}</h2>
+          <h2 class="section-title">{{ tabLabel(tab) }}</h2>
           <button type="button" class="btn btn-primary" @click="edit(tab === 'rules' ? 'rule' : 'scheme')">{{ tab === 'rules' ? ui.createRule : ui.createScheme }}</button>
         </div>
         <label class="search-bar">
@@ -108,6 +108,13 @@
         </template>
       </template>
       <template v-else-if="tab === 'schemes'">
+        <section v-if="state.unifiedIdentity && state.basicCapabilities?.length" class="card stack">
+          <h2 class="section-title">{{ ui.unified.permissionBasicRole }}</h2>
+          <div v-for="item in state.basicCapabilities" :key="item.key" class="switch-row">
+            <span class="field-label">{{ capabilityText(item.key) }}</span>
+            <UiSwitch :checked="item.enabled" :label="capabilityText(item.key)" :disabled="basicBusy || !state.isSuper" @change="setBasicCapability(item, $event.target.checked)" />
+          </div>
+        </section>
         <p class="muted">{{ ui.schemeLifecycleHelp }}</p>
         <p v-if="!schemes.length" class="empty-state">{{ ui.noSchemes }}</p>
         <details v-for="scheme in schemes" :key="scheme.id" :open="!!opened['scheme:' + scheme.id]" class="card authorization-scheme" @toggle.stop="trackOpen($event, 'scheme:' + scheme.id)">
@@ -122,12 +129,12 @@
       <section v-else class="card stack">
         <div class="panel-head"><h2 class="section-title">{{ inspectionTarget ? ui.effective : ui.ownPermissions }}</h2>
           <button type="button" class="btn btn-secondary" :disabled="inspecting" @click="inspect">{{ ui.refresh }}</button></div>
-        <p v-if="!inspectionTarget" class="muted">{{ ui.ownPermissionsHelp }}</p>
+        <p v-if="!inspectionTarget" class="muted">{{ state.unifiedIdentity ? ui.unified.ownPermissionsHelp : ui.ownPermissionsHelp }}</p>
         <AppLoading v-if="inspecting" :text="ui.loading" />
         <p v-if="state.canInspectOthers" class="field-label">{{ ui.inspectOthers }}</p>
         <div v-if="state.canInspectOthers" class="button-row">
           <button type="button" class="btn btn-secondary" :disabled="candidateLoading" @click="openInspection('user')">{{ ui.inspectAssignment }}</button>
-          <button type="button" class="btn btn-secondary" :disabled="candidateLoading" @click="openInspection('admin')">{{ ui.inspectAdmin }}</button>
+          <button v-if="!state.unifiedIdentity" type="button" class="btn btn-secondary" :disabled="candidateLoading" @click="openInspection('admin')">{{ ui.inspectAdmin }}</button>
           <button type="button" class="btn btn-secondary" @click="ownInspection">{{ ui.ownRole }}</button>
         </div>
         <AppLoading v-if="candidateLoading" :text="ui.loading" />
@@ -145,7 +152,7 @@
           <template v-if="opened['module:' + group.key]">
           <details v-for="item in group.items" :key="item.capability" :open="!!opened['operation:' + item.capability]" class="authorization-resource" @toggle.stop="trackOpen($event, 'operation:' + item.capability)">
             <summary class="effective-summary"><strong>{{ item.label }}</strong><span class="chip" :class="item.grantState !== 'granted' ? 'chip-orange' : 'chip-blue'">{{ item.statusText }}</span><UiIcon v-if="item.rules?.length" class="disclosure-chevron" name="chevron-right" size-role="row-leading" /></summary>
-            <template v-if="opened['operation:' + item.capability]"><div v-for="rule in item.rules" :key="rule.id" class="stack-tight"><strong>{{ rule.name }}</strong><AuthorizationPolicySummary :policy="{ ...rule, enabled: true, capabilities: [item.capability], subjects: [], fieldLabels: effective.fieldLabels }" :directory="effective.scopeDirectory || {}" :catalog="state.catalog" inspection :supports-fields="item.supportsFields" /></div></template>
+            <template v-if="opened['operation:' + item.capability]"><div v-if="state.unifiedIdentity" class="row row-wrap"><span class="chip chip-blue">{{ categoryLabel(item.capability) }}</span><span v-if="item.grantBasis === 'basic_role'" class="chip chip-sky">{{ ui.unified.permissionBasicRole }}</span></div><div v-for="rule in item.rules" :key="rule.id" class="stack-tight"><strong>{{ rule.name }}</strong><AuthorizationPolicySummary :policy="{ ...rule, enabled: true, capabilities: [item.capability], subjects: [], fieldLabels: effective.fieldLabels }" :directory="effective.scopeDirectory || {}" :catalog="state.catalog" inspection :supports-fields="item.supportsFields" /></div></template>
           </details>
           </template>
           </details>
@@ -163,6 +170,7 @@ import { useRouter, useRoute } from 'vue-router';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import UiIcon from '@/components/UiIcon.vue';
 import AppLoading from '@/components/AppLoading.vue';
+import UiSwitch from '@/components/UiSwitch.vue';
 import PersonnelPicker from '@/components/PersonnelPicker.vue';
 import AuthorizationPolicySummary from '@/components/AuthorizationPolicySummary.vue';
 import ui from '@/locales/zh-CN/shared/authorization.js';
@@ -173,9 +181,11 @@ import { readCurrentAuthorizationAccess } from '@/runtime/authorizationAccess.js
 import { canOpenConfigurationCopy } from '@/shared/authorizationEntryView.js';
 import '@/styles/authorization.css';
 const router = useRouter();
-const tabs = computed(() => state.value.canManage === false ? ['effective'] : ['rules', 'schemes', 'effective']);
+const tabs = computed(() => state.value.canManage === false ? ['effective']
+  : state.value.unifiedIdentity ? ['schemes', 'rules', 'effective'] : ['rules', 'schemes', 'effective']);
 const tab = ref(useRoute().query.tab === 'schemes' ? 'schemes' : 'rules');
 const state = ref({ rules: [], schemes: [], catalog: [] });
+const basicBusy = ref(false);
 const canCopy = ref(false);
 const directory = ref({ assignments: [], adminGrants: [] });
 const query = ref('');
@@ -215,6 +225,22 @@ const schemes = computed(() => state.value.schemes.filter(item => item.name.toLo
 const effectiveGroups = computed(() => presentation.inspectionGroups(effective.value?.capabilities, state.value.catalog, ui, effectiveRange.value, effectiveQuery.value));
 const controlledEffective = computed(() => (effective.value?.capabilities || []).filter(item => item.systemControlled && item.rules?.length));
 function capabilityText(key) { return presentation.capabilityLabel(key, state.value.catalog, ui); }
+function tabLabel(key) { return state.value.unifiedIdentity && ui.unified[key] || ui[key]; }
+function categoryLabel(key) {
+  return state.value.catalog.find(item => item.key === key)?.classification === 'special'
+    ? ui.unified.categorySpecial : ui.unified.categoryGeneral;
+}
+async function setBasicCapability(item, enabled) {
+  if (basicBusy.value || state.value.isSuper !== true || item.enabled === enabled) return;
+  const context = session.context;
+  basicBusy.value = true;
+  try {
+    requireSuccess(await callApi('setAuthorizationBasicCapability', { identityModel: 'unified', capability: item.key, enabled, expectedRevision: state.value.revision }));
+    if (!disposed && session.context === context) await load();
+  } catch (error) {
+    if (!disposed && session.context === context) notice.value = errorText(error, ui.operationFailed);
+  } finally { basicBusy.value = false; }
+}
 function clear() {
   canCopy.value = false;
   effectiveQuery.value = '';

@@ -96,13 +96,16 @@ function normalizeEntries(entries, rootDir, operationId) {
     if (!fileId || !orgId) fail('AUDIT_FILE_COMMIT_SCOPE_REQUIRED');
     const targetPath = buildTargetPath(oldPath, operationId, index + 1);
     const stagedPath = targetPath + '.stage';
-    if (!isInsideRoot(rootDir, targetPath) || !isInsideRoot(rootDir, stagedPath)) {
+    const rollbackPath = entry.rollbackPath ? path.resolve(entry.rollbackPath) : null;
+    if (!isInsideRoot(rootDir, targetPath) || !isInsideRoot(rootDir, stagedPath)
+      || (rollbackPath && !isInsideRoot(rootDir, rollbackPath))) {
       fail('AUDIT_FILE_COMMIT_PATH_OUTSIDE_ROOT');
     }
     return {
       fileId,
       orgId,
       oldPath,
+      rollbackPath,
       targetPath,
       stagedPath,
       mimeType: String(entry.mimeType || ''),
@@ -142,6 +145,7 @@ function createAuditFileCommit(entries, options) {
         fileId: entry.fileId,
         orgId: entry.orgId,
         oldPath: entry.oldPath,
+        ...(entry.rollbackPath ? { rollbackPath: entry.rollbackPath } : {}),
         targetPath: entry.targetPath,
         stagedPath: entry.stagedPath,
         mimeType: entry.mimeType,
@@ -203,6 +207,46 @@ async function hasFileReference(database, filePath, orgId) {
   return rows.length > 0;
 }
 
+async function recoverJournal(connection, journal, journalPath, locked) {
+  const states = [];
+  for (const entry of journal.files) {
+    const [rows] = await connection.query(
+      'SELECT file_path FROM audit_submission_files WHERE id = ? AND org_id = ? LIMIT 1' + (locked ? ' FOR UPDATE' : ''),
+      [String(entry.fileId || ''), String(entry.orgId || '')]
+    );
+    const currentPath = rows[0] && rows[0].file_path ? path.resolve(rows[0].file_path) : '';
+    const oldPath = path.resolve(entry.oldPath);
+    const targetPath = path.resolve(entry.targetPath);
+    let retainedEvidence = false;
+    if (entry.rollbackPath && currentPath && currentPath !== targetPath) {
+      // 同一条直批事务产生的中间版本不再是当前附件，但仍有凭证指向它。
+      const [evidence] = await connection.query(
+        'SELECT id FROM audit_signing_evidence WHERE org_id = ? AND file_id = ? AND output_file_path = ? LIMIT 1'
+          + (locked ? ' FOR SHARE' : ''),
+        [entry.orgId, entry.fileId, targetPath]
+      );
+      retainedEvidence = evidence.length > 0;
+    }
+    states.push(currentPath === targetPath || retainedEvidence ? 'target'
+      : (currentPath === oldPath || currentPath === entry.rollbackPath || !currentPath ? 'old' : 'ambiguous'));
+  }
+  if (states.every(state => state === 'target')) {
+    journal.files.forEach(entry => { removeFileIfPresent(path.resolve(entry.stagedPath)); });
+    removeFileIfPresent(journalPath);
+    return 'committedRecovered';
+  }
+  if (states.every(state => state === 'old')) {
+    for (const entry of journal.files) {
+      const targetPath = path.resolve(entry.targetPath);
+      removeFileIfPresent(path.resolve(entry.stagedPath));
+      if (!(await hasFileReference(connection, targetPath, entry.orgId))) removeFileIfPresent(targetPath);
+    }
+    removeFileIfPresent(journalPath);
+    return 'rolledBackRecovered';
+  }
+  return 'ambiguous';
+}
+
 async function recoverPendingAuditFileCommits(options) {
   const config = options || {};
   const database = config.database;
@@ -226,7 +270,8 @@ async function recoverPendingAuditFileCommits(options) {
           || !String(entry.orgId || '').trim()
           || !isInsideRoot(rootDir, path.resolve(entry.oldPath))
           || !isInsideRoot(rootDir, path.resolve(entry.targetPath))
-          || !isInsideRoot(rootDir, path.resolve(entry.stagedPath))) {
+          || !isInsideRoot(rootDir, path.resolve(entry.stagedPath))
+          || (entry.rollbackPath && !isInsideRoot(rootDir, path.resolve(entry.rollbackPath)))) {
           fail('AUDIT_FILE_COMMIT_JOURNAL_SCOPE_INVALID');
         }
       });
@@ -235,35 +280,11 @@ async function recoverPendingAuditFileCommits(options) {
       continue;
     }
 
-    const states = [];
-    for (const entry of journal.files) {
-      const [rows] = await database.query(
-        'SELECT file_path FROM audit_submission_files WHERE id = ? AND org_id = ? LIMIT 1',
-        [String(entry.fileId || ''), String(entry.orgId || '')]
-      );
-      const currentPath = rows[0] && rows[0].file_path ? path.resolve(rows[0].file_path) : '';
-      const oldPath = path.resolve(entry.oldPath);
-      const targetPath = path.resolve(entry.targetPath);
-      states.push(currentPath === targetPath ? 'target' : (currentPath === oldPath || !currentPath ? 'old' : 'ambiguous'));
-    }
-
-    if (states.every((state) => state === 'target')) {
-      journal.files.forEach((entry) => { removeFileIfPresent(path.resolve(entry.stagedPath)); });
-      removeFileIfPresent(journalPath);
-      report.committedRecovered += 1;
-      continue;
-    }
-    if (states.every((state) => state === 'old')) {
-      for (const entry of journal.files) {
-        const targetPath = path.resolve(entry.targetPath);
-        removeFileIfPresent(path.resolve(entry.stagedPath));
-        if (!(await hasFileReference(database, targetPath, entry.orgId))) removeFileIfPresent(targetPath);
-      }
-      removeFileIfPresent(journalPath);
-      report.rolledBackRecovered += 1;
-      continue;
-    }
-    report.ambiguous += 1;
+    // 恢复任务等待原写事务释放附件锁，再判定磁盘文件是否可删除。
+    const outcome = typeof database.withTransaction === 'function'
+      ? await database.withTransaction(connection => recoverJournal(connection, journal, journalPath, true))
+      : await recoverJournal(database, journal, journalPath, false);
+    report[outcome] += 1;
   }
   return report;
 }

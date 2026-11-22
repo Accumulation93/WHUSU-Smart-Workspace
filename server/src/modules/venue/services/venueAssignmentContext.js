@@ -1,6 +1,7 @@
 const pool = require('../../../config/db');
 const { assignmentPredicate } = require('../../../core/models/identityNatureEligibility');
 const unifiedIdentityModel = require('../../../core/models/unifiedIdentity');
+const { superAssignmentId } = require('../../../core/services/authorizationIdentityModel');
 const { safeString } = require('../../../utils/helpers');
 
 function parseObject(raw) {
@@ -186,11 +187,18 @@ async function resolveCurrentActorAssignment(actor, orgId) {
 
 async function resolveBookingApplicantAssignment(booking) {
   if (!booking) return null;
-  const stored = normalizeAssignment(parseObject(booking.creator_context_snapshot));
+  const raw = parseObject(booking.creator_context_snapshot);
+  const stored = normalizeAssignment(raw);
   stored.assignmentId = stored.assignmentId || safeString(booking.creator_assignment_id);
   stored.personId = stored.personId || safeString(booking.creator_person_id);
   stored.legacyHrId = stored.legacyHrId || safeString(booking.user_hr_id);
   stored.organizationId = stored.organizationId || safeString(booking.creator_org_id);
+  if (raw.role === 'admin' && stored.assignmentKind === 'super_admin' && booking.creator_admin_grant_id
+    && stored.organizationId === booking.creator_org_id && stored.personId === booking.creator_person_id
+    && stored.assignmentId === booking.creator_assignment_id
+    && stored.assignmentId === superAssignmentId(booking.creator_admin_grant_id, stored.organizationId)) {
+    return { ...stored, adminGrantId: booking.creator_admin_grant_id, source: 'snapshot', historicalSnapshotComplete: true };
+  }
   const hasCompleteAssignmentSnapshot = Boolean(
     stored.assignmentId && stored.departmentId && stored.identityCategoryId
   );

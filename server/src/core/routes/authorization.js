@@ -13,6 +13,7 @@ const copy = require('../../locales/zh-CN/authorization');
 
 const ERRORS = Object.freeze({
   authorization_forbidden: [403, 'forbidden'],
+  authorization_upgrade_required: [409, 'legacyAuthEditReadOnly'],
   authorization_actor_missing: [403, 'forbidden'],
   authorization_conflict: [409, 'conflict'],
   authorization_stale_reference: [409, 'staleReference'],
@@ -38,6 +39,13 @@ const ERRORS = Object.freeze({
   config_copy_approval_conflict: [409, 'copyApprovalConflict']
 });
 
+const MODERN_WRITES = new Set([
+  '/setAuthorizationBasicCapability',
+  '/saveAuthorizationRule', '/deleteAuthorizationRules',
+  '/saveAuthorizationScheme', '/publishAuthorizationScheme',
+  '/saveAuthorizationDelegation', '/deleteAuthorizationDelegation'
+]);
+
 function handler(work) {
   return async (req, res) => {
     try {
@@ -45,6 +53,10 @@ function handler(work) {
       if (!reference) return res.status(401).json({ status: 'unauthorized', message: copy.loginRequired });
       if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
         return res.status(400).json({ status: 'invalid_params', message: copy.invalidPolicy });
+      }
+      if (MODERN_WRITES.has(req.path) && req.body.identityModel !== 'unified'
+        && await require('../models/authorizationIdentityTransition').isUnified(pool)) {
+        return res.status(409).json({ status: 'authorization_upgrade_required', message: copy.unified?.legacyAuthEditReadOnly || copy.forbidden });
       }
       const data = await work(req.body, reference, createGuard(reference, req.body.delegationId));
       return res.json(Object.assign({ status: 'success' }, data));
@@ -60,6 +72,7 @@ function handler(work) {
 router.post('/getCurrentAuthorizationAccess', handler((_body, reference) => pool.withTransaction(connection => access.current(connection, reference))));
 router.post('/listAuthorizedDictionary', handler((body, reference) => dictionaries.list(body.kind, reference)));
 router.post('/getAuthorizationManagement', handler((_body, reference) => pool.withTransaction(connection => readManagement(connection, reference))));
+router.post('/setAuthorizationBasicCapability', handler((body, reference, guard) => model.setBasicCapability(body, reference.organizationId, guard)));
 router.post('/getEffectiveAuthorization', handler((body, reference) => pool.withTransaction(connection => inspection.inspect(connection, reference, body))));
 router.post('/listAssignmentNatures', handler((_body, reference) => natures.list(reference)));
 router.post('/saveAssignmentNature', handler((body, reference) => natures.save(body, reference)));

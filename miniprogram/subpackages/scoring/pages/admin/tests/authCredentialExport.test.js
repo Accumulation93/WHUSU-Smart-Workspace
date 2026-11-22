@@ -58,7 +58,8 @@ function createHarness() {
     Behavior: (config) => { state.config = config; return config; },
     require: (id) => {
       if (id.indexOf('locales/zh-CN/generated') >= 0) return require(path.resolve(moduleDir, id));
-      if (id === '../../../../../locales/zh-CN/home' || id === '../../../package-resources/utils/hrProfileStatusView') return require(path.resolve(moduleDir, id));
+      if (id === '../../../../../locales/zh-CN/home' || id === '../../../../../locales/zh-CN/authorization'
+        || id === '../../../package-resources/utils/hrProfileStatusView') return require(path.resolve(moduleDir, id));
       if (/utils\/api$/.test(id)) {
         return {
           callFunction: () => Promise.reject(new Error('未预期的 callFunction')),
@@ -115,6 +116,25 @@ async function runExport(harness, page) {
     else global.wx = previousWx;
   }
 }
+
+test('成员仅获授权的账号操作可在详情使用，权限撤销后不回退为旧版全局权限', () => {
+  const { methods } = createHarness();
+  const governance = { personId: 'person-a', membershipStatus: 'active', canIssueRecovery: true, canUnbindWechat: true,
+    accountOperations: { freeze: true, resetPassphrase: true } };
+  const page = { data: { authorizationEnforced: true, canGlobalAccountManage: false, detailHrGovernance: governance } };
+  assert.equal(methods.canLoadHrAccountSecurity.call(page, governance), true);
+  assert.equal(methods.canOperateHrAccount.call(page, 'freeze'), true);
+  assert.equal(methods.canOperateHrAccount.call(page, 'resetPassphrase'), true);
+  assert.equal(methods.canOperateHrAccount.call(page, 'unbindWechat'), false);
+  const displayed = methods.applyHrGovernancePermissions.call(page, governance);
+  assert.equal(displayed.canIssueRecovery, false);
+  assert.equal(displayed.canUnbindWechat, false);
+  page.data.canGlobalAccountManage = true;
+  page.data.detailHrSecurity = { accountOperations: { freeze: false } };
+  assert.equal(methods.canOperateHrAccount.call(page, 'freeze'), false);
+  page.data.detailHrGovernance = { personId: governance.personId };
+  assert.equal(methods.canOperateHrAccount.call(page, 'freeze'), true);
+});
 
 test('认证码导出 CSV 时包含姓名、学号与完整号码', async () => {
   const harness = createHarness();

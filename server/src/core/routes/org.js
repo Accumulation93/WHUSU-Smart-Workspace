@@ -16,13 +16,14 @@ const { referenceFromRequest } = require('../services/authorizationReference');
 router.post('/listOrganizations', async (req, res) => {
   try {
     const admin = await resolveRequestAdmin(req);
-    if (!admin) {
+    if (!admin && !req.unifiedAuthorization?.reference) {
       return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     }
 
     const rows = await organizationModel.getAll(referenceFromRequest(req));
     res.json({ status: 'success', list: rows });
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -33,9 +34,10 @@ router.post('/saveOrganization', async (req, res) => {
     const id = safeString(req.body.id);
     const name = safeString(req.body.name);
 
-    // 仅全局超级管理员可操作
+    const scopedReference = req.unifiedAuthorization?.reference;
+    // 创建仍属于系统级操作，组织更名由事务复核当前组织的权限。
     const operator = await resolveRequestAdmin(req);
-    if (!operator || operator.admin_level !== 'super_admin' || operator.org_id !== '') {
+    if (!(id && scopedReference) && (!operator || operator.admin_level !== 'super_admin' || operator.org_id !== '')) {
       return res.json({ status: 'forbidden', message: localeCopy.copy_6809d8bae7 });
     }
 
@@ -58,6 +60,7 @@ router.post('/saveOrganization', async (req, res) => {
       res.json({ status: 'success', organization: { id: newId, name }, message: localeCopy.copy_1974dee798 });
     }
   } catch (e) {
+    if (e.code === 'authorization_forbidden') return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });

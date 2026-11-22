@@ -426,6 +426,7 @@ async function run() {
     });
     app.use('/api', require('../src/core/routes/authorization'));
     app.use('/api', require('../src/middleware/adminPermission').adminPermissionMiddleware);
+    app.use('/api', require('../src/core/routes/admin'));
     app.use('/api', require('../src/modules/venue/routes/venueAdmin'));
     app.use('/api', require('../src/core/routes/departments'));
     app.use('/api', require('../src/core/routes/identities'));
@@ -1346,6 +1347,7 @@ async function run() {
     await require('./helpers/assignmentAuthorizationCases')(admin);
     await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261019120000_identity_cards.sql'), 'utf8'));
     await require('./helpers/identityCardAuthorizationCases')(admin);
+    await require('./helpers/unifiedPermissionIntegrationCases')(admin, post);
     console.log('统一授权隔离数据库与 HTTP：规则保存回读、方案发布/恢复、委托撤销、岗位性质、组织隔离、回滚及版本更新通过；配置复制另验同人双组织不合并授权、独立接收/创建、撤权与shadow拒绝。登录会话为隔离夹具，未覆盖真实登录和前端。');
   } finally {
     if (httpServer) await new Promise(resolve => httpServer.close(resolve));

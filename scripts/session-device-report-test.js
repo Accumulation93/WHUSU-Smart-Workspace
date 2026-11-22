@@ -77,6 +77,7 @@ async function main() {
     },
     '../models/systemConfig': { get: async () => ({ timezone: 8, timezone_config_version: 1 }) },
     '../services/unifiedAuth': { decorateContext: async () => ({ permissions: [] }), profileFromContext: value => value },
+    '../services/authorizationIdentityModel': require('../server/src/core/services/authorizationIdentityModel'),
     '../config/db': { query: async () => [[]], withTransaction: async callback => callback({ query: async () => [{ affectedRows: 0 }] }) },
     '../services/adminPermissions': { scopeAccountSessions: sessions => sessions },
     // 会话解析与网页退出登录复用认证中间件的实现；本用例只覆盖设备上报，因此给出空实现。

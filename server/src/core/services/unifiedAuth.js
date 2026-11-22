@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('../../middleware/auth');
 const { safeString } = require('../../utils/helpers');
 const identityModel = require('../models/unifiedIdentity');
+const { selectClientContexts } = require('./authorizationIdentityModel');
 const { adminProfileFromContext } = require('./adminRequestContext');
 const { loadEffectivePermissions } = require('./adminPermissions');
 
@@ -92,6 +93,30 @@ async function decorateContext(context) {
     return value;
   }
   const effective = await loadEffectivePermissions(admin, value.organizationId);
+  if (value.unifiedAuthorization === true && value.adminLevel !== 'super_admin') {
+    const pool = require('../../config/db');
+    const { linkedAssignments } = require('../models/authorizationIdentityTransition');
+    const positions = await linkedAssignments(pool, value.organizationId, value.adminGrantId, value.personId);
+    if (!positions.length) {
+      value.permissions = [];
+      return value;
+    }
+    const actor = { role: 'admin', active: true, organizationId: value.organizationId, personId: value.personId,
+      adminGrantId: value.adminGrantId, legacyAdminGrantIds: [value.adminGrantId], unifiedAuthorization: true,
+      assignment: { ...positions[0], active: true } };
+    const { CATALOG, capabilitiesForLegacy } = require('./authorizationCatalog');
+    const catalog = await require('../models/authorizationProfileFields').catalog(pool, value.organizationId, CATALOG);
+    const { rules, mode } = await require('../models/authorization').read(pool, value.organizationId, false, true);
+    const granted = new Set(mode === 'enforced' ? require('./authorizationExplanation')
+      .explainCapabilities(actor, rules, catalog, Date.now())
+      .filter(entry => entry.status !== 'denied' && entry.rules.some(rule => rule.effect === 'allow'))
+      .map(entry => entry.capability) : []);
+    value.permissions = effective.keys.filter(key => capabilitiesForLegacy([key]).some(capability => granted.has(capability)));
+    if ((await require('./authorizationManagement').activeEnvelopes(pool, actor)).length) {
+      value.permissions.push('permissions.manage_regular_admins');
+    }
+    return value;
+  }
   value.permissions = effective.isSuper ? ['*'] : effective.keys;
   return value;
 }
@@ -137,8 +162,10 @@ function buildContextCatalog(contexts, currentContext) {
       organizationId: safeString(context.organizationId),
       organizationName: safeString(context.organizationName),
       role: safeString(context.role),
+      accountType: safeString(context.accountType),
       adminLevel: safeString(context.adminLevel),
       assignmentId: safeString(context.assignmentId),
+      effectiveAssignmentId: safeString(context.effectiveAssignmentId),
       assignmentNature: safeString(context.assignmentNature),
       assignmentLabel: safeString(context.assignmentLabel),
       identityCategoryId: safeString(context.identityCategoryId || context.identityId),
@@ -158,6 +185,7 @@ function buildContextCatalog(contexts, currentContext) {
       scope: isGlobal ? 'global' : 'organization',
       organizationId: isGlobal ? null : context.organizationId,
       role: context.role,
+      accountType: safeString(context.accountType),
       adminLevel: safeString(context.adminLevel),
       isCurrent: Boolean(
         currentContext
@@ -189,6 +217,8 @@ function profileFromContext(context) {
       id: context.legacyAdminId || context.adminGrantId,
       adminGrantId: context.adminGrantId,
       personId: context.personId,
+      accountType: context.accountType,
+      effectiveAssignmentId: context.effectiveAssignmentId,
       name: context.name,
       studentId: context.studentId,
       adminLevel: context.adminLevel,
@@ -200,6 +230,8 @@ function profileFromContext(context) {
     id: context.legacyHrId,
     hrId: context.legacyHrId,
     personId: context.personId,
+    accountType: context.accountType,
+    effectiveAssignmentId: context.effectiveAssignmentId,
     membershipId: context.membershipId,
     assignmentId: context.assignmentId,
     assignmentNature: safeString(context.assignmentNature),
@@ -221,12 +253,14 @@ function profileFromContext(context) {
 
 async function buildAuthenticatedPayload(account, session) {
   const rawContexts = await identityModel.listContexts(account.id);
-  const contexts = await decorateContexts(rawContexts);
+  const client = selectClientContexts(rawContexts, session.identityModel);
+  const contexts = await decorateContexts(client.contexts);
   const currentContext = contexts.find((item) => item.contextId === session.context.contextId)
     || await decorateContext(session.context);
   const catalog = buildContextCatalog(contexts, currentContext);
   return {
     status: 'login_success',
+    identityModel: client.identityModel,
     token: signAccessToken(session, account),
     expiresIn: session.expiresInSeconds,
     device: {
@@ -273,7 +307,8 @@ async function startWechatSession(data, metadata) {
     return createAuthenticatedSession(account, {
       contextId: data.preferredContextId || data.contextId,
       organizationId: data.preferredOrganizationId || data.organizationId,
-      identityId: data.preferredIdentityId || data.identityId
+      identityId: data.preferredIdentityId || data.identityId,
+      identityModel: data.identityModel
     }, metadata);
   }
   const bootstrap = await identityModel.createBootstrapSession(openid);

@@ -479,6 +479,7 @@ Page({
 
   onLoad(options) {
     this._subApp = (options && options.subApp) || 'scoring';
+    this._openManagementArea = !!(options && options.area === 'management');
     this.setData({ managementSubApp: this._subApp });
     if (this._subApp === 'hr' && options.tab === 'directory') {
       this._preferredOrgTab = 'directory';
@@ -599,12 +600,13 @@ Page({
     const activeSession = orgSession.getSnapshot();
     const activeRole = activeSession.role || '';
     const currentUser = activeRole ? authContext.getRuntimeProfile(activeRole) : null;
-    const isAdminRole = activeRole === 'admin';
+    const isAdminRole = activeRole === 'admin' && !(currentUser && currentUser.identityModel === 'unified');
     const patch = {
       activeRole,
       user: currentUser,
       hasUser: !!currentUser,
       isAdminRole,
+      heroTone: activeRole === 'admin' ? 'admin' : 'blue',
       heroName: currentUser ? currentUser.name : copy.text.welcome,
       heroIdentity: getDisplayIdentity(currentUser, activeRole),
       heroSubtitle: currentUser ? subAppLabel : copy.text.signInWithWechat,
@@ -675,11 +677,14 @@ Page({
     let allowed = false;
     try {
       const access = await readCurrentAuthorizationAccess();
-      allowed = Boolean(access && access.role === 'user' && (groups[this._subApp] || []).some(tab => managementTabAllowed(access, tab)));
+      const profile = authContext.getRuntimeProfile(orgSession.getSnapshot().role);
+      allowed = Boolean(access && (access.role === 'user' || profile && profile.identityModel === 'unified')
+        && (groups[this._subApp] || []).some(tab => managementTabAllowed(access, tab)));
     } catch (_) {}
     if (!this._isPageVisible || generation !== this._managementGeneration) return;
     const patch = { canManageSubApp: allowed };
-    if (allowed && this._restoreManagementTab) patch.activeTab = 'management';
+    if (allowed && (this._restoreManagementTab || this._openManagementArea)) patch.activeTab = 'management';
+    this._openManagementArea = false;
     this._restoreManagementTab = false;
     if (!allowed && this.data.activeTab === 'management') patch.activeTab = (this._subAppAllowedTabs || ['scoring'])[0];
     this.setData(patch);

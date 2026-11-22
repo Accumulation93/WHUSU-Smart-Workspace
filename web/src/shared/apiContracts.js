@@ -88,6 +88,7 @@ const READ_ONLY_APIS = Object.freeze({
   listAuditFlowTemplates: true,
   listMySignatures: true,
   listMyStamps: true,
+  listDirectApprovalStamps: true,
   listStamps: true,
   getMyStampImage: true,
   getUserHrProfile: true,

@@ -47,6 +47,7 @@
   "locales/runtime.js",
   "locales/zh-CN/adminGovernance.js",
   "locales/zh-CN/adminPersonnel.js",
+  "locales/zh-CN/approvalDirect.js",
   "locales/zh-CN/assignmentNatures.js",
   "locales/zh-CN/auditConditions.js",
   "locales/zh-CN/auditSigning.js",

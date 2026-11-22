@@ -21,7 +21,7 @@ const DEFAULT_TIMEOUT_MS = 4000;
 
 function probeStartupSession(options) {
   const settings = options || {};
-  const delayMs = Number.isFinite(Number(settings.delayMs)) && Number(settings.delayMs) > 0
+  const delayMs = Number.isFinite(Number(settings.delayMs)) && Number(settings.delayMs) >= 0
     ? Number(settings.delayMs)
     : DEFAULT_DELAY_MS;
   const timeoutMs = Number.isFinite(Number(settings.timeoutMs)) && Number(settings.timeoutMs) > 0
@@ -46,7 +46,6 @@ function probeStartupSession(options) {
       if (settled) return;
       // 整体超时覆盖 wx.login 与请求两段，避免某一段卡住时用户一直等。
       timer = setTimeout(function () {
-        settled = true;
         finish({ state: 'unavailable' });
       }, timeoutMs);
       wx.login({
@@ -57,7 +56,7 @@ function probeStartupSession(options) {
             return;
           }
           // 走统一请求客户端：登录属于会话入口，客户端在没有会话时也允许调用。
-          callFunction({ name: 'auth/wechat/session', data: { code: code }, timeout: timeoutMs })
+          callFunction({ name: 'auth/wechat/session', data: { code: code, identityModel: 'unified' }, timeout: timeoutMs })
             .then(function (result) {
               if (result && result.status === 'login_success') {
                 finish({ state: 'authenticated', result: result });

@@ -82,6 +82,52 @@ function databaseForPath(expectedOrgId, currentPath, capturedQueries) {
     assert.strictEqual(fs.readFileSync(committedMetadata.filePath, 'utf8'), 'committed-version',
       '已提交的新版本不得被恢复任务删除');
 
+    const batchFile = {
+      fileId: 'batch-file', orgId: 'org-a', oldPath, rollbackPath: oldPath,
+      buffer: Buffer.from('intermediate'), mimeType: 'application/pdf', fileHash: 'hash-middle'
+    };
+    const firstStep = createAuditFileCommit([batchFile], { uploadDir: rootDir, operationId: 'direct-first' });
+    firstStep.stage();
+    const intermediate = firstStep.metadataFor(batchFile.fileId).filePath;
+    const finalStep = createAuditFileCommit([{ ...batchFile, oldPath: intermediate, buffer: Buffer.from('final') }],
+      { uploadDir: rootDir, operationId: 'direct-final' });
+    finalStep.stage();
+    const finalPath = finalStep.metadataFor(batchFile.fileId).filePath;
+    const recovered = await recoverPendingAuditFileCommits({
+      uploadDir: rootDir,
+      database: {
+        withTransaction: callback => callback({
+          async query(sql, params) {
+            if (sql.includes('audit_signing_evidence')) {
+              assert.deepEqual(params, ['org-a', 'batch-file', intermediate]);
+              assert(sql.endsWith('FOR SHARE'));
+              return [[{ id: 'receipt-middle' }]];
+            }
+            assert(sql.endsWith('FOR UPDATE'));
+            return [[{ file_path: finalPath }]];
+          }
+        })
+      }
+    });
+    assert.equal(recovered.committedRecovered, 2);
+    assert.equal(fs.readFileSync(intermediate, 'utf8'), 'intermediate');
+    assert.equal(fs.readFileSync(finalPath, 'utf8'), 'final');
+    const interruptedFirst = createAuditFileCommit([batchFile], { uploadDir: rootDir, operationId: 'direct-rollback-first' });
+    interruptedFirst.stage();
+    const interruptedMiddle = interruptedFirst.metadataFor(batchFile.fileId).filePath;
+    const interruptedFinal = createAuditFileCommit([{ ...batchFile, oldPath: interruptedMiddle }],
+      { uploadDir: rootDir, operationId: 'direct-rollback-final' });
+    interruptedFinal.stage();
+    const rollbackBoth = await recoverPendingAuditFileCommits({
+      uploadDir: rootDir,
+      database: {
+        async query(sql) { return sql.includes('WHERE id = ?') ? [[{ file_path: oldPath }]] : [[]]; }
+      }
+    });
+    assert.equal(rollbackBoth.rolledBackRecovered, 2);
+    assert.equal(fs.existsSync(interruptedMiddle), false);
+    assert.equal(fs.existsSync(interruptedFinal.metadataFor(batchFile.fileId).filePath), false);
+
     assert.throws(() => createAuditFileCommit([{
       fileId: 'file-without-org',
       oldPath,

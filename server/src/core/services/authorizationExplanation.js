@@ -1,12 +1,12 @@
 'use strict';
 
-const { normalizePolicy, subjectMatches } = require('./authorizationPolicy');
+const { normalizePolicy, subjectMatches, isTrustedSuper, restrictionFor } = require('./authorizationPolicy');
 
 // 无具体资源时只解释条件，不把“存在允许规则”表述为能操作组织内全部记录。
-function explainCapabilities(actor, entries, catalog, now) {
+function explainCapabilities(actor, entries, catalog, now, disabledBasic = new Set()) {
   if (!actor || actor.active !== true || !actor.organizationId || !actor.personId
     || !['user', 'admin'].includes(actor.role) || !Number.isFinite(now)) return [];
-  const superAdmin = actor.role === 'admin' && actor.isSuper === true && actor.adminGrantId;
+  const superAdmin = isTrustedSuper(actor);
   if (superAdmin) return [...catalog.keys()].map(capability => ({ capability,
     status: 'business_check_required', reason: 'super_admin', rules: [],
     grantState: 'granted', grantBasis: 'super_admin', hasRestrictions: false,
@@ -24,17 +24,19 @@ function explainCapabilities(actor, entries, catalog, now) {
   return [...catalog.values()].map(definition => {
     const result = { capability: definition.key, status: 'denied', reason: 'not_granted', rules: [],
       grantState: 'not_granted', grantBasis: 'none', hasRestrictions: false, businessEntry: false };
-    if (definition.governance && actor.role !== 'admin') return { ...result, reason: 'governance_role_required' };
+    const restriction = restrictionFor(actor, definition);
+    if (restriction) return { ...result, reason: restriction };
     const rules = matching.filter(({ policy }) => policy.capabilities.includes(definition.key));
     const fullDeny = rules.some(({ policy }) => policy.effect === 'deny' && policy.fields === null
       && policy.scopes.some(scope => scope.kind === 'organization'));
     const hasAllow = rules.some(({ policy }) => policy.effect === 'allow');
-    const hasBusinessEntry = (definition.businessRoles || []).includes(actor.role);
+    const hasBusinessEntry = !disabledBasic.has(definition.key) && (definition.businessRoles || []).includes(actor.role);
+    const basic = actor.unifiedAuthorization === true && hasBusinessEntry;
     // 新展示字段解释有效授权配置，旧状态保留给旧客户端；不代替逐记录业务判权。
     return { capability: definition.key, status: fullDeny || (!hasAllow && !hasBusinessEntry) ? 'denied' : hasAllow ? 'conditional' : 'business_check_required',
       reason: fullDeny ? 'explicit_deny' : hasAllow ? 'scope_and_business_check_required' : hasBusinessEntry ? 'business_relationship_required' : 'not_granted',
-      grantState: fullDeny ? 'blocked' : hasAllow ? 'granted' : 'not_granted',
-      grantBasis: fullDeny || !hasAllow ? 'none' : 'rule',
+      grantState: fullDeny ? 'blocked' : hasAllow || basic ? 'granted' : 'not_granted',
+      grantBasis: fullDeny ? 'none' : hasAllow ? 'rule' : basic ? 'basic_role' : 'none',
       hasRestrictions: !fullDeny && rules.some(({ policy }) => policy.effect === 'deny'),
       businessEntry: hasBusinessEntry,
       rules: rules.map(({ name, policy }) => ({ id: policy.id, name, effect: policy.effect,

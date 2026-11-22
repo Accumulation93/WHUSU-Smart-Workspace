@@ -69,11 +69,19 @@ async function run() {
       if (req.get('X-Test-Anonymous') !== '1') {
         req.authAccount = { id: 'account-a', personId: 'person-a' };
         req.authContext = { ...context, organizationId: org, assignmentId: req.get('X-Test-Assignment') || 'assignment-a' };
+        if (req.get('X-Test-Super') === '1') {
+          req.authSession = { id: 'session-super-' + org };
+          req.authContext = { role: 'admin', adminLevel: 'super_admin', adminGrantId: 'grant-super',
+            personId: 'person-a', contextId: 'context-super-' + org, organizationId: org, organizationName: org };
+        }
       }
       orgStorage.run(org, next);
     });
     app.use('/api', require('../src/modules/audit/routes/auditUser'));
     app.use('/api', require('../src/modules/audit/routes/auditFile'));
+    app.use('/api', require('../src/modules/audit/routes/auditSignature'));
+    app.use('/api', require('../src/modules/venue/routes/venueApprovalAdmin'));
+    app.use('/api', require('../src/modules/venue/routes/venueUser'));
     await new Promise(resolve => { server = app.listen(0, '127.0.0.1', resolve); });
     const post = async (name, body, headers = {}) => (await fetch('http://127.0.0.1:' + server.address().port + '/api/' + name, {
       method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body || {})
@@ -201,7 +209,138 @@ async function run() {
     assert.equal(fourthFiles[0].file_name,'replacement.pdf');
     assert.deepEqual(fs.readFileSync(storedFile.file_path),finalBytes);
 
+    await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261102193000_authorization_runtime_transition.sql'), 'utf8'));
+    await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261122153000_unified_identity_assignment_links.sql'), 'utf8'));
+    await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261122170000_authorization_grant_sources.sql'), 'utf8'));
+    await admin.query("INSERT INTO accounts(id,person_id) VALUES ('account-a','person-a')");
+    await admin.query("INSERT INTO admin_grants(id,person_id,admin_level) VALUES ('grant-super','person-a','super_admin')");
+    await admin.query(`INSERT INTO auth_sessions(id,account_id,openid_hash,context_id,context_type,context_subject_id,organization_id,role,token_version,expires_at)
+       VALUES ('session-super-org-a','account-a',?,'context-super-org-a','admin','grant-super','org-a','admin',1,DATE_ADD(UTC_TIMESTAMP(),INTERVAL 1 DAY)),
+       ('session-super-org-b','account-a',?,'context-super-org-b','admin','grant-super','org-b','admin',1,DATE_ADD(UTC_TIMESTAMP(),INTERVAL 1 DAY))`,
+    ['a'.repeat(64), 'b'.repeat(64)]);
+    await admin.query(`INSERT INTO audit_submissions
+      (id,submission_number,submitted_by,submitted_person_id,submitted_assignment_id,submitted_context_snapshot,status,current_step_index,org_id)
+      VALUES ('direct-submission','DIRECT-TEST','hr-a','person-a','assignment-a',?,'in_progress',1,'org-a')`,
+    [JSON.stringify(snapshot)]);
+    await admin.query(`INSERT INTO audit_submission_steps
+      (id,submission_id,sort_order,action_type,step_conditions_json,org_id) VALUES
+      ('direct-step-1','direct-submission',1,'both',?,'org-a'),
+      ('direct-step-2','direct-submission',2,'sign',?,'org-a')`,
+    [JSON.stringify([{ conditionType: 'submitter' }]), JSON.stringify([{ conditionType: 'submitter' }])]);
+    const directPath = path.join(root, 'uploads/direct-document.pdf');
+    fs.writeFileSync(directPath, bytes);
+    await admin.query(`INSERT INTO audit_submission_files
+      (id,submission_id,file_name,file_path,file_size,file_hash,mime_type,org_id)
+      VALUES ('direct-file','direct-submission','direct-document.pdf',?,?,?,'application/pdf','org-a')`,
+    [directPath, bytes.length, hashFile(bytes)]);
+    const superHeader = { 'X-Test-Super': '1' };
+    const directPayload = { submissionId: 'direct-submission', stepId: 'direct-step-1', stampAssignmentId: 'assignment-a',
+      stepMaterials: [
+        { stepId: 'direct-step-1', signatures: payload.signatures.map(item => ({ ...item, fileId: 'direct-file' })) },
+        { stepId: 'direct-step-2', signatures: [{ ...payload.signatures[0], fileId: 'direct-file', positionY: 0.26 }] }
+      ] };
+    assert.equal((await post('directApproveSubmission', directPayload, superHeader)).status, 'forbidden');
+    await admin.query("UPDATE authorization_runtime_transition SET phase='enforced',minimum_protocol=3 WHERE id=1");
+    const superSignature = await post('saveSignature', { name: '本人签名', imageData }, superHeader);
+    assert.equal(superSignature.status, 'success', JSON.stringify(superSignature));
+    const superLibrary = await post('listMySignatures', {}, superHeader);
+    assert(superLibrary.signatures.some(item => item.id === superSignature.id && item.imageData === imageData));
+    assert(!(await post('listMySignatures', {})).signatures.some(item => item.id === superSignature.id));
+    assert.equal((await post('directApproveSubmission', directPayload)).status, 'forbidden');
+    assert.equal((await post('directApproveSubmission', directPayload, { ...superHeader, 'X-Test-Org': 'org-b' })).status, 'not_found');
+    assert.equal((await post('directApproveSubmission', { ...directPayload, stampAssignmentId: 'assignment-b' }, superHeader)).status,
+      'approval_stamp_not_authorized');
+    const missingSignature = await post('directApproveSubmission', { ...directPayload, stepMaterials: directPayload.stepMaterials.slice(0, 1) }, superHeader);
+    assert.equal(missingSignature.status, 'approval_signature_required');
+    assert.equal(missingSignature.stepId, 'direct-step-2');
+    assert.equal((await admin.query("SELECT COUNT(*) AS n FROM audit_events WHERE submission_id='direct-submission'"))[0][0].n, 0);
+    assert.equal((await admin.query("SELECT file_path FROM audit_submission_files WHERE id='direct-file'"))[0][0].file_path, directPath);
+    const directStamps = await post('listDirectApprovalStamps', {}, superHeader);
+    assert.deepEqual(directStamps.sources.map(source => source.assignmentId), ['assignment-a']);
+    assert.equal(directStamps.sources[0].stamps[0].image_data, undefined);
+    const directResults = await Promise.all([
+      post('directApproveSubmission', directPayload, superHeader),
+      post('directApproveSubmission', directPayload, superHeader)
+    ]);
+    const direct = directResults.find(result => result.status === 'success');
+    assert.equal(directResults.filter(result => result.status === 'success').length, 1, JSON.stringify(directResults));
+    assert.equal(directResults.filter(result => result.status === 'invalid_state').length, 1, JSON.stringify(directResults));
+    assert.equal(direct.status, 'success', JSON.stringify(direct));
+    assert.equal(direct.processedStepCount, 2);
+    assert.equal((await post('directApproveSubmission', directPayload, superHeader)).status, 'invalid_state');
+    const directEvents = (await admin.query(`SELECT operator_person_id,operator_assignment_id,operator_hr_id,operator_context_snapshot
+       FROM audit_events WHERE submission_id='direct-submission' ORDER BY step_index`))[0];
+    assert.equal(directEvents.length, 2);
+    const { superAssignmentId } = require('../src/core/services/authorizationIdentityModel');
+    const directAssignment = superAssignmentId('grant-super', 'org-a');
+    assert(directEvents.every(event => event.operator_person_id === 'person-a' && event.operator_assignment_id === directAssignment
+      && event.operator_hr_id === null && JSON.parse(event.operator_context_snapshot).directApproval === true));
+    const confirmedDirectFile = (await admin.query("SELECT * FROM audit_submission_files WHERE id='direct-file'"))[0][0];
+    await contentFixture.assertPreserved(bytes, fs.readFileSync(confirmedDirectFile.file_path));
+    await orgStorage.run('org-a', async () => {
+      const verification = await verifySubmissionFiles({ id: 'direct-submission' }, { uploadedBytes: fs.readFileSync(confirmedDirectFile.file_path) });
+      assert.equal(verification.valid, true, JSON.stringify(verification));
+    });
+
+    await admin.query("INSERT INTO venues(id,name) VALUES ('direct-venue','Direct test venue')");
+    await admin.query("INSERT INTO venue_open_rules(id,venue_id,cycle_type,time_start,time_end) VALUES ('direct-open','direct-venue','daily','00:00:00','23:59:00')");
+    const day = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    await admin.query(`INSERT INTO venue_bookings(id,venue_id,user_hr_id,creator_person_id,creator_assignment_id,creator_org_id,approval_org_id,time_start,time_end,status)
+      VALUES ('direct-booking','direct-venue','hr-a','person-a','assignment-a','org-a','org-a',?,?,'pending')`,
+    [day + ' 01:00:00', day + ' 03:00:00']);
+    await admin.query(`INSERT INTO venue_bookings(id,venue_id,creator_org_id,approval_org_id,time_start,time_end,status)
+      VALUES ('direct-conflict','direct-venue','org-b','org-b',?,?,'approved')`, [day + ' 01:30:00', day + ' 02:00:00']);
+    assert.equal((await post('directApproveVenueBooking', { id: 'direct-booking' })).status, 'forbidden');
+    assert.equal((await post('directApproveVenueBooking', { id: 'direct-booking' }, { ...superHeader, 'X-Test-Org': 'org-b' })).status, 'not_found');
+    assert.equal((await post('directApproveVenueBooking', { id: 'direct-booking' }, superHeader)).status, 'conflict');
+    assert.equal((await admin.query("SELECT status FROM venue_bookings WHERE id='direct-booking'"))[0][0].status, 'pending');
+    await admin.query("UPDATE venue_bookings SET status='cancelled' WHERE id='direct-conflict'");
+    const savedBooking = await post('directApproveVenueBooking', { id: 'direct-booking' }, superHeader);
+    assert.equal(savedBooking.status, 'success', JSON.stringify(savedBooking));
+    assert.equal(savedBooking.directApproval, true);
+    const booking = (await admin.query("SELECT * FROM venue_bookings WHERE id='direct-booking'"))[0][0];
+    assert.equal(booking.status, 'approved');
+    assert.equal(booking.approver_person_id, 'person-a');
+    assert.equal(booking.approver_assignment_id, directAssignment);
+    assert.equal(booking.approver_admin_grant_id, 'grant-super');
+    assert.equal(booking.approver_hr_id, null);
+    assert.equal(JSON.parse(booking.approver_context_snapshot).directApproval, true);
+
+    const superUpload = await orgStorage.run('org-a', () => require('../src/modules/audit/utils/fileSecurity').createTempUpload({
+      buffer: bytes, fileName: 'super-self.pdf', mimeType: 'application/pdf', accountId: 'account-a'
+    }));
+    const ownSubmission = await post('startAdHocAudit', { title: '本组织自行提交', files: [superUpload],
+      clientRequestId: 'test-super-submission', steps: [{ name: '自行办理', actionType: 'pass', conditions: [{ conditionType: 'submitter' }] }] }, superHeader);
+    assert.equal(ownSubmission.status, 'success', JSON.stringify(ownSubmission));
+    const ownSubmissionRow = (await admin.query('SELECT submitted_assignment_id, submitted_context_snapshot FROM audit_submissions WHERE id=?', [ownSubmission.id]))[0][0];
+    assert.equal(ownSubmissionRow.submitted_assignment_id, directAssignment);
+    const ownSubmissionSnapshot = typeof ownSubmissionRow.submitted_context_snapshot === 'string'
+      ? JSON.parse(ownSubmissionRow.submitted_context_snapshot) : ownSubmissionRow.submitted_context_snapshot;
+    assert.equal(ownSubmissionSnapshot.systemRole, 'super_admin');
+    const mySubmissions = await post('listMySubmissions', {}, superHeader);
+    assert.equal(mySubmissions.status, 'success', JSON.stringify(mySubmissions));
+    assert(mySubmissions.submissions.some(item => item.id === ownSubmission.id));
+
+    await admin.query(`INSERT INTO venue_booking_rules(id,venue_id,org_id,rule_type)
+      VALUES ('direct-booking-test-rule','direct-venue','org-a','direct')`);
+    const ownBooking = await post('createVenueBooking', { venueId: 'direct-venue', title: '本组织自行借用',
+      timeStart: day + ' 16:00', timeEnd: day + ' 17:00', clientRequestId: 'test-super-venue-booking' }, superHeader);
+    assert.equal(ownBooking.status, 'success', JSON.stringify(ownBooking));
+    const myBookings = await post('listMyVenueBookings', {}, superHeader);
+    assert.equal(myBookings.status, 'success', JSON.stringify(myBookings));
+    assert(myBookings.bookings.some(item => item.id === ownBooking.id));
+    const ownBookingRow = (await admin.query('SELECT user_hr_id,creator_person_id,creator_assignment_id,creator_admin_grant_id FROM venue_bookings WHERE id=?', [ownBooking.id]))[0][0];
+    assert.equal(ownBookingRow.creator_person_id, 'person-a');
+    assert.equal(ownBookingRow.creator_assignment_id, directAssignment);
+    assert.equal(ownBookingRow.creator_admin_grant_id, 'grant-super');
+    assert.equal(ownBookingRow.user_hr_id, null);
+    const cancelledOwn = await post('cancelVenueBooking', { id: ownBooking.id }, superHeader);
+    assert.equal(cancelledOwn.status, 'success', JSON.stringify(cancelledOwn));
+    assert.equal((await admin.query('SELECT status FROM venue_bookings WHERE id=?', [ownBooking.id]))[0][0].status, 'cancelled');
+
     console.log('签署真实 HTTP/MySQL 验收通过：两遍迁移、轻量目录、岗位授权重核、非法材料不写、审批回读、最终 PDF 验签、v3 几何及重复请求');
+    console.log('超管直批真实 HTTP/MySQL 验收通过：身份切换、组织隔离、签章要求、并发去重、PDF 验签、借用冲突及审批回读');
+    console.log('超管普通业务 HTTP/MySQL 验收通过：本人发起和回读审核、本人申请和取消借用');
   } finally {
     if (server) await new Promise(resolve => server.close(resolve)); if (pool) await pool.end();
     await admin.changeUser({ database: 'mysql' }); await admin.query('DROP DATABASE IF EXISTS `' + database + '`');

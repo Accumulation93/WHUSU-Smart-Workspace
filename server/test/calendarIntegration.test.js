@@ -165,7 +165,15 @@ async function main() {
     await assert.rejects(subscription.feed(basic,due),e=>e.code==='forbidden');
     const app=require('express')();app.use(require('express').json());
     const currentActor=(await require('../src/core/models/unifiedIdentity').listContexts('account-a',root))[0];
-    app.use((req,res,next)=>{if(req.headers['x-test-auth']==='yes'){req.authAccount={id:'account-a',personId:'a'};req.authContext=currentActor;}next();});
+    let calendarActor=currentActor,calendarSession=null;
+    app.use((req,res,next)=>{
+      if(req.headers['x-test-auth']==='yes'){
+        req.authAccount={id:calendarActor.personId==='calendar-super'?'account-calendar-super':'account-a',personId:calendarActor.personId};
+        req.authContext=calendarActor;
+        if(calendarSession)req.authSession=calendarSession;
+      }
+      next();
+    });
     app.use('/api',require('../src/core/routes/calendar'));
     server=await new Promise(resolve=>{const listener=app.listen(0,'127.0.0.1',()=>resolve(listener));});
     const post=(name,body,authenticated=true)=>fetch('http://127.0.0.1:'+server.address().port+'/api/'+name,{method:'POST',headers:{'Content-Type':'application/json',...(authenticated?{'X-Test-Auth':'yes'}:{})},body:JSON.stringify(body)});
@@ -239,6 +247,38 @@ async function main() {
       .map(row=>typeof row.detail_json==='string'?JSON.parse(row.detail_json):row.detail_json).find(detail=>detail.actorSnapshot.role==='admin');
     assert.equal(managerAudit.actorSnapshot.adminGrantId,'test-admin-grant');assert.equal(managerAudit.actorSnapshot.adminLevel,'admin');
     assert.equal(managerAudit.actorSnapshot.assignmentSnapshot,null);
+    await root.query(fs.readFileSync(path.join(__dirname,'../db/deploy/20261102193000_authorization_runtime_transition.sql'),'utf8'));
+    await root.query(fs.readFileSync(path.join(__dirname,'../db/deploy/20261122153000_unified_identity_assignment_links.sql'),'utf8'));
+    await root.query(fs.readFileSync(path.join(__dirname,'../db/deploy/20261122170000_authorization_grant_sources.sql'),'utf8'));
+    await root.query(`UPDATE authorization_runtime_transition SET phase='enforced',minimum_protocol=3 WHERE id=1;
+      INSERT INTO authorization_organizations(org_id,mode) VALUES ('org','enforced') ON DUPLICATE KEY UPDATE mode='enforced';
+      INSERT INTO persons(id,name,student_id,normalized_student_id) VALUES ('calendar-super','超管日程例','CALENDAR-SUPER','calendar-super');
+      INSERT INTO accounts(id,person_id) VALUES ('account-calendar-super','calendar-super');
+      INSERT INTO admin_grants(id,person_id,org_id,admin_level) VALUES ('grant-calendar-super','calendar-super','','super_admin')`);
+    calendarActor=(await require('../src/core/models/unifiedIdentity').listContexts('account-calendar-super',root)).find(item=>item.organizationId==='org');
+    calendarSession={id:'session-calendar-super'};
+    await root.query(`INSERT INTO auth_sessions(id,account_id,openid_hash,context_id,context_type,context_subject_id,
+      organization_id,role,token_version,expires_at)
+      VALUES ('session-calendar-super','account-calendar-super','',?,'admin','grant-calendar-super','org','admin',1,UTC_TIMESTAMP()+INTERVAL 1 DAY)`,
+    [calendarActor.contextId]);
+    const superSaved=await (await post('saveCalendarEvent',{...input,title:'超管个人日程测试',recurrence:{frequency:'none'}})).json();
+    assert.equal(superSaved.status,'success',JSON.stringify(superSaved));
+    const [[superSavedRow]]=await root.query('SELECT creator_context_json FROM calendar_events WHERE id=?',[superSaved.id]);
+    assert.equal(superSavedRow.creator_context_json.personId,'calendar-super');
+    assert.equal(superSavedRow.creator_context_json.assignmentId,calendarActor.effectiveAssignmentId);
+    assert.equal(superSavedRow.creator_context_json.systemRole,'super_admin');
+    const superItems=await (await post('getCalendar',window)).json();
+    assert.equal(superItems.status,'success',JSON.stringify(superItems));
+    assert(superItems.items.some(event=>event.id===superSaved.id));
+    calendarActor=currentActor;calendarSession={id:'session-calendar-ordinary'};
+    await root.query("UPDATE accounts SET status='verified' WHERE id='account-a'");
+    await root.query(`INSERT INTO auth_sessions(id,account_id,openid_hash,context_id,context_type,context_subject_id,
+      organization_id,role,token_version,expires_at)
+      VALUES ('session-calendar-ordinary','account-a','',?,'assignment',?,'org','user',1,UTC_TIMESTAMP()+INTERVAL 1 DAY)`,
+    [currentActor.contextId,currentActor.assignmentId]);
+    const ordinaryItems=await (await post('getCalendar',window)).json();
+    assert.equal(ordinaryItems.status,'success',JSON.stringify(ordinaryItems));
+    assert(!ordinaryItems.items.some(event=>event.id===superSaved.id));
     console.log('PASS 日程及场地动作隔离数据库：创建岗位保存回读、管理员无岗位、取消保留审批人、提前结束及审计同事务回滚');
   } finally {
     Date.now=realNow;

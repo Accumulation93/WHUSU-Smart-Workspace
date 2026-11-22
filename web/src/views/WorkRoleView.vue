@@ -45,8 +45,9 @@
           @click="apply(item)"
         >
           <span class="grow stack-tight">
-            <span class="list-row-title">{{ item.label }}</span>
+            <span class="list-row-title">{{ item.accountType === 'super_admin' ? portalCopy.workContext.superAdmin : item.label }}</span>
             <span class="soft">{{ item.organizationName }}</span>
+            <span v-if="session.identityModel === 'unified' && item.accountType === 'user'" class="soft">{{ portalCopy.workContext.user }}</span>
           </span>
           <span v-if="item.isCurrent" class="chip chip-blue">{{ copy.workRole.currentBadge }}</span>
           <span v-else class="chip chip-sky">{{ copy.workRole.apply }}</span>
@@ -87,6 +88,7 @@ import { errorText } from '@/runtime/api.js';
 import { activateContext, reloadSession, roleLabelOf, session } from '@/runtime/session.js';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import AppLoading from '@/components/AppLoading.vue';
+import portalCopy from '@/locales/zh-CN/shared/portal.js';
 
 const router = useRouter();
 const organizationPanel = ref(null);
@@ -109,8 +111,8 @@ const filteredOrganizations = computed(() => {
 const draftContexts = computed(() => (session.workContexts || [])
   .filter((item) => item.organizationId === draftOrganizationId.value));
 
-const assignments = computed(() => draftContexts.value.filter((item) => item.role !== 'admin'));
-const admins = computed(() => draftContexts.value.filter((item) => item.role === 'admin'));
+const assignments = computed(() => session.identityModel === 'unified' ? draftContexts.value : draftContexts.value.filter(item => item.role !== 'admin'));
+const admins = computed(() => session.identityModel === 'unified' ? [] : draftContexts.value.filter(item => item.role === 'admin'));
 
 async function ensureLoaded() {
   if (loading.value) return;

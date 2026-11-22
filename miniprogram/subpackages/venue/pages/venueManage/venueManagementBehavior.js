@@ -17,6 +17,7 @@ const adminPermissions = require('../../../../utils/adminPermissions');
 const { readCurrentAuthorizationAccess } = require('../../../../utils/authorizationAccess');
 const authContext = require('../../../../utils/authContext');
 const governanceCopy = require('../../package-resources/locales/zh-CN/adminGovernance');
+const directApprovalCopy = require('../../package-resources/locales/zh-CN/approvalDirect');
 const { buildBookingRuleDisplayList } = require('../../utils/venueRuleDisplay');
 const { dialogKeyboardBehavior } = require('../../package-resources/utils/dialogKeyboard');
 const flowManagementCopy = require('../../package-resources/locales/zh-CN/venueFlowManagement');
@@ -305,6 +306,8 @@ module.exports = Behavior({
     hasPermission: true,
     canApproveVenue: false,
     canDeleteVenueBookings: false,
+    directApprovalCopy,
+    directApprovingBooking: '',
     deletingVenueBooking: '',
     governanceCopy,
     currentOrganizationName: '',
@@ -1452,6 +1455,36 @@ module.exports = Behavior({
   },
 
   // ── Bookings tab (borrow management, ported from venueBookings) ──
+
+  async directApproveBooking(e) {
+    const id = e.currentTarget.dataset.id;
+    const booking = this.data.bookings.find(item => item.id === id && item.canDirectApprove);
+    if (!booking || this.data.directApprovingBooking) return;
+    const request = orgSession.beginRequest(this, 'directApproveVenueBooking');
+    this.setData({ directApprovingBooking: id });
+    try {
+      const confirmation = await new Promise(resolve => wx.showModal({
+        title: directApprovalCopy.directApproveAction,
+        content: directApprovalCopy.venue.directApproveConfirm,
+        confirmText: directApprovalCopy.directApproveAction,
+        success: resolve,
+        fail: () => resolve({ confirm: false })
+      }));
+      if (!confirmation.confirm || !orgSession.isRequestCurrent(this, request)) return;
+      const result = await callFunction({ name: 'directApproveVenueBooking', data: { id } });
+      if (!orgSession.isRequestCurrent(this, request)) return;
+      if (result.status !== 'success') throw createResultError(result, directApprovalCopy.directApproveChanged);
+      this.setData({ selectedBooking: null });
+      eventBus.emit('venue:changed', { reason: 'directApproval' });
+      eventBus.emit('approval:done');
+      showShortToast(directApprovalCopy.venue.directApproveSucceeded);
+      await this.loadBookingsData();
+    } catch (error) {
+      if (orgSession.isRequestCurrent(this, request) && !error.silent) showShortToast(getErrorText(error, directApprovalCopy.directApproveChanged));
+    } finally {
+      if (orgSession.isRequestCurrent(this, request)) this.setData({ directApprovingBooking: '' });
+    }
+  },
 
   async deleteVenueBooking(e) {
     if (!this.data.canDeleteVenueBookings || this.data.deletingVenueBooking) return;

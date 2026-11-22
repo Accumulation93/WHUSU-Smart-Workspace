@@ -31,6 +31,18 @@
 
       <p v-if="loadNotice" class="notice-line">{{ loadNotice }} <button class="btn-quiet" :disabled="loading || submitting" @click="load">{{ signing.retry }}</button></p>
 
+      <section v-if="directSteps.length" class="card stack">
+        <div v-if="directMaterialSteps.length" class="stack-tight">
+          <div class="section-title">{{ directCopy.audit.directApprovePendingMaterials }}</div>
+          <div class="row row-wrap">
+            <button v-for="step in directMaterialSteps" :key="step.id" type="button" class="btn-quiet"
+              :class="{ 'btn-quiet-primary': selectedDirectStep === step.id }" :aria-pressed="selectedDirectStep === step.id"
+              :disabled="submitting || readFailed" @click="selectDirectStep(step.id)">{{ stepTitle(step) }}</button>
+          </div>
+        </div>
+        <button type="button" class="btn btn-secondary" :disabled="submitting || readFailed" @click="onDirectApprove">{{ directCopy.directApproveAction }}</button>
+      </section>
+
       <section v-if="activeStep" class="card stack">
         <div class="card-title">{{ actionCardTitle }}</div>
         <p v-if="blockedReason" class="notice-line">{{ blockedReason }}</p>
@@ -51,7 +63,7 @@
               </div>
             </div>
           </div>
-          <div v-if="nextStep?.allowApproverDesignation === true" class="stack-tight">
+          <div v-if="!selectedDirectStep && nextStep?.allowApproverDesignation === true" class="stack-tight">
             <span class="field-label">{{ nativeCopy.copy_3fc6899daa }}</span>
             <button class="btn-quiet" :disabled="submitting || readFailed || !!draft?.locked" @click="openNextPicker">{{ nativeCopy.copy_759682a69b }}</button>
             <span v-for="item in selectedNext" :key="item.assignmentId" class="chip chip-blue">{{ item.name }} · {{ item.assignmentLabel }}</span>
@@ -66,10 +78,10 @@
             ></textarea>
           </label>
           <p v-if="draft && draft.pendingRead" class="notice-line">{{ signing.pendingRead }} <button class="btn-quiet" @click="load">{{ signing.retry }}</button></p>
-          <button type="button" class="btn btn-primary" :disabled="submitting || readFailed || !!(draft && draft.locked)" @click="onApprove">
+          <button v-if="!selectedDirectStep" type="button" class="btn btn-primary" :disabled="submitting || readFailed || !!(draft && draft.locked)" @click="onApprove">
             {{ copy.audit.actionApprove }}
           </button>
-          <label class="field">
+          <label v-if="!selectedDirectStep" class="field">
             <span class="field-label">{{ copy.audit.rejectReasonLabel }}</span>
             <textarea
               v-model="rejectReason"
@@ -77,7 +89,7 @@
               :placeholder="copy.audit.rejectReasonPlaceholder"
             ></textarea>
           </label>
-          <button type="button" class="btn btn-danger" :disabled="submitting || readFailed || !!draft?.locked" @click="onReject">
+          <button v-if="!selectedDirectStep" type="button" class="btn btn-danger" :disabled="submitting || readFailed || !!draft?.locked" @click="onReject">
             {{ copy.audit.actionReject }}
           </button>
         </template>
@@ -101,7 +113,8 @@
                 <span v-if="step.comment" class="soft break-all">{{ step.comment }}</span>
                 <span v-if="step.rejectionReason" class="soft break-all">{{ step.rejectionReason }}</span>
               </span>
-              <span v-if="stepPresentation(step).hasActor" class="soft">{{ stepPresentation(step).actorName }}</span>
+              <span v-if="stepPresentation(step).hasActor" class="soft"><template v-if="stepPresentation(step).directApproval">{{ directCopy.directApprovalActor }} · </template>{{ stepPresentation(step).actorName }}</span>
+              <span v-if="stepPresentation(step).directApproval && step.originalApproverNames?.length" class="soft">{{ directCopy.audit.originalApprover }} · {{ step.originalApproverNames.join(' · ') }}</span>
               <span v-if="stepPresentation(step).hasActor && !isAuditAdministrativeContext(stepPresentation(step).snapshot)" class="soft">{{ auditAssignmentLabel(stepPresentation(step).snapshot) || signing.assignmentUnknown }}</span>
             </div>
           </div>
@@ -135,7 +148,9 @@
         </div>
       </section>
 
-      <AuditMaterialPicker v-if="materialFile" :kind="materialKind" :draft="draft" :seed="materialKind==='stamp' ? stampDirectory : undefined" @cancel="materialFile=null" @draw="openBlankSignature" @select="addMaterial" />
+      <AuditMaterialPicker v-if="materialFile" :kind="materialKind" :draft="draft" :seed="materialKind==='stamp' && !selectedDirectStep ? stampDirectory : undefined"
+        :direct-stamps="materialKind === 'stamp' && !!selectedDirectStep" :stamp-assignment="selectedStampAssignment()"
+        @cancel="materialFile=null" @draw="openBlankSignature" @select="addMaterial" />
       <PersonnelPicker v-if="pickerVisible" :title="nativeCopy.copy_759682a69b" :options="pickerOptions" :value="selectedNext" :busy="pickerLoading" @cancel="pickerVisible=false" @confirm="confirmNextPicker"><p v-if="pickerLoading"><AppLoading :text="copy.common.loading" /></p></PersonnelPicker>
 
       <section v-if="canWithdraw" class="card stack">
@@ -169,10 +184,11 @@ import nativeCopy from '@/locales/zh-CN/shared/generated/subpackages/audit/pages
 import { clone, nextLayerOrder, prepareSignatureWidths } from '@/shared/auditInk.js';
 import { auditRequests } from '@/runtime/auditRequests.js';
 import signing from '@/locales/zh-CN/shared/auditSigning.js';
+import directCopy from '@/locales/zh-CN/shared/approvalDirect.js';
 import { signingAssets } from '@/runtime/signingAssets.js';
 import { addMaterial as recordMaterial, deleteLayer } from '@/shared/auditInk.js';
 import { signingDrafts, stepDraft, setSigningHandoff } from '@/runtime/signingDrafts.js';
-import { presentAuditStep, groupAuditRounds } from '@/shared/auditStepView.js';
+import { presentAuditStep, groupAuditRounds, materialsOfAuditDraft, auditMaterialInput, missingAuditMaterial } from '@/shared/auditStepView.js';
 import { auditAssignmentLabel, isAuditAdministrativeContext } from '@/runtime/auditAssignmentLabel.js';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
@@ -203,14 +219,15 @@ const flowRounds=computed(()=>groupAuditRounds(submission.value,steps.value,even
 const pickerVisible=ref(false), pickerLoading=ref(false), pickerNotice=ref(''), pickerOptions=ref([]), selectedNext=ref([]);
 const requests=auditRequests();
 let alive=true,requestSequence=0;
-const draftMaterials=computed(()=>draft.value ? draft.value.materials.concat(...Object.values(draft.value.files).map(file=>file.exports||[])).sort((a,b)=>(a.layerOrder||0)-(b.layerOrder||0)) : []);
-function openSigning(file,mode,active,rollback){if(!draft.value || draft.value.locked || readFailed.value || submitting.value)return;setSigningHandoff({draft:draft.value,file,mode,active,rollback,submissionId:submission.value.id,stepId:activeStep.value.id,round:activeStep.value.round||1,back:{name:'auditSubmission',params:{id:route.params.id}}});router.push({name:'auditSigning'});}
+const draftMaterials = computed(() => materialsOfAuditDraft(draft.value));
+function signingBackRoute() { return { name: 'auditSubmission', params: { id: route.params.id }, query: { ...route.query } }; }
+function openSigning(file,mode,active,rollback){if(!draft.value || draft.value.locked || readFailed.value || submitting.value)return;setSigningHandoff({draft:draft.value,file,mode,active,rollback,submissionId:submission.value.id,stepId:activeStep.value.id,round:activeStep.value.round||1,directApproval:!!selectedDirectStep.value,back:signingBackRoute()});router.push({name:'auditSigning'});}
 function openMaterial(file,kind){if(!draft.value || draft.value.locked || readFailed.value || submitting.value)return;materialFile.value=file;materialKind.value=kind;}
 function openBlankSignature(){
   const target=draft.value,file=materialFile.value,step=activeStep.value;
   if(!target || target.locked || !file || !step)return;
   const handoff={draft:{files:{},materials:[],locked:false},file:{id:'blank-'+Date.now(),fileName:signing.padTitle},sourceFile:file,pad:true,allowSaveTemplate:true,mode:'pen',
-    submissionId:submission.value.id,stepId:step.id,round:step.round||1,back:{name:'auditSubmission',params:{id:route.params.id}}};
+    submissionId:submission.value.id,stepId:step.id,round:step.round||1,directApproval:!!selectedDirectStep.value,back:signingBackRoute()};
   handoff.confirm=exports=>{
     if(target.locked || !exports.length)return;
     recordMaterial(signingDrafts.file(target,file.id).history,target.materials,{_idx:'signature_'+nextLayerOrder(),fileId:file.id,
@@ -218,7 +235,7 @@ function openBlankSignature(){
   };
   materialFile.value=null;setSigningHandoff(handoff);router.push({name:'auditSigning'});
 }
-function addMaterial(row){const file=materialFile.value,kind=materialKind.value,rollback=clone(draft.value);const material={layerOrder:nextLayerOrder(),_idx:kind+'_'+Date.now()+'_'+Math.random().toString(36).slice(2),fileId:file.id,signatureType:kind==='stamp'?'stamp':'signature',imageData:row.imageData,stampId:kind==='stamp'?row.id:'',stampName:kind==='stamp'?row.name:'',positionX:0.5,positionY:0.3,size:1,rotation:0,page:1};recordMaterial(signingDrafts.file(draft.value,file.id).history,draft.value.materials,material);materialFile.value=null;openSigning(file,'move',material._idx,rollback);}
+function addMaterial(row){const file=materialFile.value,kind=materialKind.value,rollback=clone(draft.value);const material={layerOrder:nextLayerOrder(),_idx:kind+'_'+Date.now()+'_'+Math.random().toString(36).slice(2),fileId:file.id,signatureType:kind==='stamp'?'stamp':'signature',imageData:row.imageData,stampId:kind==='stamp'?row.id:'',stampName:kind==='stamp'?row.name:'',stampAssignmentId:row.assignmentId,positionX:0.5,positionY:0.3,size:1,rotation:0,page:1};recordMaterial(signingDrafts.file(draft.value,file.id).history,draft.value.materials,material);materialFile.value=null;openSigning(file,'move',material._idx,rollback);}
 function removeMaterial(id){const material=draftMaterials.value.find(item=>item._idx===id);if(!material)return;const file=signingDrafts.file(draft.value,material.fileId);deleteLayer(file.history,draft.value.materials,material.page||1,String(id).startsWith('ink_')?material.inkLayerId||id.slice(('ink_'+material.fileId+'_').length):id);file.exports=file.exports.filter(item=>item._idx!==id);}
 
 const displayName = computed(() => {
@@ -242,8 +259,28 @@ const submission = computed(() => (detail.value && detail.value.submission) || {
 const steps = computed(() => (detail.value && detail.value.steps) || []);
 const events = computed(() => (detail.value && detail.value.events) || []);
 const files = computed(() => (detail.value && detail.value.files) || []);
+const directSteps = computed(() => detail.value?.canDirectApprove === true
+  ? (detail.value.directApprovalSteps || []).map(entry => {
+    const step = steps.value.find(item => item.id === entry.stepId);
+    return step && { ...step, actionType: entry.actionType };
+  }).filter(Boolean) : []);
+const directMaterialSteps = computed(() => directSteps.value.filter(step => step.actionType !== 'pass'));
+const selectedDirectStep = computed(() => directMaterialSteps.value.find(step => step.id === route.query.directStep)?.id || '');
+const directDraft = step => stepDraft(submission.value, step, files.value, true);
+function selectedStampAssignment() {
+  return selectedDirectStep.value ? directMaterialSteps.value.flatMap(step => materialsOfAuditDraft(directDraft(step)))
+    .find(item => item.signatureType === 'stamp' && item.stampAssignmentId)?.stampAssignmentId || '' : '';
+}
+function selectDirectStep(id) {
+  if (submitting.value || readFailed.value) return;
+  const target = { ...route.query };
+  if (selectedDirectStep.value === id) delete target.directStep;
+  else target.directStep = id;
+  router.replace({ query: target });
+}
 
 const activeStep = computed(() => {
+  if (selectedDirectStep.value) return directMaterialSteps.value.find(step => step.id === selectedDirectStep.value);
   if (!detail.value || detail.value.canApproveCurrentStep !== true) return null;
   if (submission.value.status !== 'in_progress') return null;
   const currentIndex = Number(submission.value.currentStepIndex || 0);
@@ -278,12 +315,13 @@ function stepTitle(step) {
 }
 
 function stepTone(step) {
+  if (stepPresentation(step).bypassed) return 'chip-sky';
   if (step.status === 'approved') return 'chip-green';
   if (step.status === 'rejected') return 'chip-orange';
   return stepPresentation(step).state === 'active' ? 'chip-blue' : 'chip-sky';
 }
 function stepPresentation(step){return presentAuditStep(submission.value,step,events.value,Math.max(1,...steps.value.map(item=>Number(item.round||1))));}
-function stepLabel(step){const state=stepPresentation(step).state;return state==='active'?signing.processing:state==='future'?signing.future:state==='stopped'?signing.stopped:stepStatusLabel(state);}
+function stepLabel(step){const presentation=stepPresentation(step), state=presentation.state;return presentation.bypassed ? directCopy.audit.bypassedUntilDirectDecision : state==='active'?signing.processing:state==='future'?signing.future:state==='stopped'?signing.stopped:stepStatusLabel(state);}
 
 function fileMeta(file) {
   const size = Number(file.fileSize || 0);
@@ -302,6 +340,7 @@ function fileSignatureText(file) {
 }
 
 function eventTitle(event) {
+  if (event.operatorContextSnapshot?.directApproval) return directCopy.directApprovalEvent;
   const map = {
     approve: copy.audit.eventApproved,
     reject: copy.audit.eventRejected,
@@ -310,6 +349,30 @@ function eventTitle(event) {
     submit: copy.audit.eventSubmitted
   };
   return map[event.eventType] || event.eventType;
+}
+
+function activateStepDraft(request) {
+  stampDirectory.value = null;
+  if (!activeStep.value) {
+    if (draft.value) draft.value.pendingRead = false;
+    draft.value = null;
+    return;
+  }
+  const assetDraft = reactive(stepDraft(submission.value, activeStep.value, files.value, !!selectedDirectStep.value));
+  draft.value = assetDraft;
+  approveComment.value = assetDraft.comment || '';
+  selectedNext.value = assetDraft.designatedNext || [];
+  assetDraft.pendingRead = false;
+  const current = () => alive && request === requestSequence && draft.value === assetDraft;
+  nextTick(() => { if (current()) signingAssets.warm(assetDraft, files.value, []); });
+  if (!selectedDirectStep.value && ['estamp', 'stamp', 'both', 'either'].includes(activeStep.value.actionType)) {
+    signingAssets.directory(assetDraft).then(({ response }) => {
+      if (current() && response.status === 'success') {
+        stampDirectory.value = response.stamps || [];
+        signingAssets.warm(assetDraft, [], stampDirectory.value);
+      }
+    }).catch(() => {});
+  }
 }
 
 async function load() {
@@ -327,13 +390,7 @@ async function load() {
     }
     detail.value = result;
     readFailed.value = false;
-    if(activeStep.value){draft.value=reactive(stepDraft(submission.value,activeStep.value,files.value));
-      approveComment.value=draft.value.comment||'';selectedNext.value=draft.value.designatedNext||[];
-      if(draft.value.pendingRead){draft.value.pendingRead=false;}
-      const assetDraft=draft.value;
-      nextTick(()=>{if(alive&&request===requestSequence)signingAssets.warm(assetDraft,files.value,[]);});
-      if(['estamp','stamp','both','either'].includes(activeStep.value.actionType)){signingAssets.directory(assetDraft).then(({response:value})=>{if(alive&&request===requestSequence&&value.status==='success'){stampDirectory.value=value.stamps||[];signingAssets.warm(assetDraft,[],stampDirectory.value);}}).catch(()=>{});}}
-    else if(draft.value)draft.value.pendingRead=false;
+    activateStepDraft(request);
     await completeMessageReceipt(route);
     try {
       await callApi('markSubmissionRead', { submissionId: route.params.id });
@@ -344,6 +401,46 @@ async function load() {
   } finally {
     if(alive && request===requestSequence)loading.value = false;
   }
+}
+
+async function onDirectApprove() {
+  if (!directSteps.value.length || readFailed.value || submitting.value) return;
+  const plans = directMaterialSteps.value.map(step => {
+    const stepDraft = directDraft(step);
+    return { step, stepDraft, materials: materialsOfAuditDraft(stepDraft) };
+  });
+  for (const item of plans) {
+    const missing = missingAuditMaterial(item.step.actionType, files.value, item.materials);
+    if (!missing) continue;
+    const requirement = missing === 'stamp' ? signing.stamp : copy.audit.actionLabels[missing] || signing.either;
+    loadNotice.value = directCopy.audit.directApproveMissing.replace('{stepTitle}', stepTitle(item.step)).replace('{requirement}', requirement);
+    if (selectedDirectStep.value !== item.step.id) selectDirectStep(item.step.id);
+    return;
+  }
+  const stepId = directSteps.value[0].id;
+  const scope = session.context?.contextId;
+  const current = () => alive && scope === session.context?.contextId;
+  submitting.value = true;
+  loadNotice.value = '';
+  try {
+    const confirmed = await confirmAction({ title: directCopy.directApproveAction, body: directCopy.audit.directApproveConfirm,
+      confirmText: directCopy.directApproveAction, cancelText: signing.cancel });
+    if (!confirmed || !current()) return;
+    for (const item of plans) {
+      await prepareSignatureWidths(item.materials, files.value, (file, page) => signingAssets.preview(item.stepDraft, file, page));
+    }
+    if (!current()) return;
+    requireSuccess(await callApi('directApproveSubmission', { submissionId: submission.value.id, stepId,
+      comment: approveComment.value, stampAssignmentId: selectedStampAssignment() || plans.flatMap(item => item.materials)
+        .find(material => material.signatureType === 'stamp')?.stampAssignmentId,
+      stepMaterials: plans.map(item => ({ stepId: item.step.id, signatures: item.materials.map(auditMaterialInput) })) }));
+    if (!current()) return;
+    plans.forEach(item => { item.stepDraft.locked = true; item.stepDraft.pendingRead = true; });
+    if (draft.value) draft.value.locked = true;
+    showToast(directCopy.audit.directApproveSucceeded);
+    await load();
+  } catch (error) { if (current()) loadNotice.value = errorText(error, directCopy.directApproveChanged); }
+  finally { if (current()) submitting.value = false; }
 }
 
 async function onApprove() {
@@ -445,6 +542,7 @@ function goBack() {
 }
 
 onMounted(load);
+watch(() => route.query.directStep, () => { if (detail.value && !readFailed.value) activateStepDraft(requestSequence); });
 watch(approveComment,value=>{if(draft.value)draft.value.comment=value;});
 onBeforeRouteLeave(()=>session.status!=='authenticated'||!submitting.value);
 onBeforeUnmount(()=>{alive=false;requestSequence+=1;requests.dispose();});

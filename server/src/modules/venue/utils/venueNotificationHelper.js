@@ -22,9 +22,10 @@ async function createVenueApprovalNotifications(bookingId) {
 async function createVenueBookingStatusNotification(booking, type, title, description, conn) {
   const applicant = await resolveBookingApplicantAssignment(booking);
   const recipientHrId = applicant && applicant.legacyHrId || booking.user_hr_id;
-  if (!recipientHrId) return { created: false };
+  const adminGrantId = applicant && applicant.adminGrantId;
+  if (!recipientHrId && !adminGrantId) return { created: false };
   return createNotification({
-    hrId: recipientHrId,
+    ...(adminGrantId ? { recipientType: 'admin', recipientId: adminGrantId } : { hrId: recipientHrId }),
     eventKey: [type, booking.id, booking.status || 'status'].join(':'),
     type,
     title,

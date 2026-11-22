@@ -32,7 +32,10 @@
         <button type="button" class="btn btn-primary" :disabled="blocked" @click="open(row, 'approve')">{{ ui.copy_1bb7eb3e1a }}</button>
         <button type="button" class="btn btn-danger" :disabled="blocked" @click="open(row, 'reject')">{{ ui.copy_0c90eb0204 }}</button>
       </div>
-      <div v-if="canDelete && row.adminCanDelete" class="card-actions" @click.stop @keydown.stop><button type="button" class="btn btn-danger" :disabled="blocked" @click="remove(row)">{{ governance.deleteConfirm }}</button></div>
+      <div v-if="row.canDirectApprove || (canDelete && row.adminCanDelete)" class="card-actions" @click.stop @keydown.stop>
+        <button v-if="row.canDirectApprove" type="button" class="btn btn-secondary" :disabled="blocked" @click="directApprove(row)">{{ directCopy.directApproveAction }}</button>
+        <button v-if="canDelete && row.adminCanDelete" type="button" class="btn btn-danger" :disabled="blocked" @click="remove(row)">{{ governance.deleteConfirm }}</button>
+      </div>
     </article>
   </section>
   <GlassDialog v-if="target" :title="action ? (action === 'approve' ? ui.copy_a63100b45d : ui.copy_689e8f08db) : copy.venue.detailTitle" :busy="busy" @close="close">
@@ -51,6 +54,7 @@ import ui from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueMa
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { showToast, confirmAction } from '@/runtime/notify.js';
 import governance from '@/locales/zh-CN/shared/adminGovernance.js';
+import directCopy from '@/locales/zh-CN/shared/approvalDirect.js';
 import { session } from '@/runtime/session.js';
 import { formatAbsoluteDate } from '@/runtime/dateTime.js';
 import { addDays } from '@/runtime/venueTime.js';
@@ -115,6 +119,20 @@ async function submit() {
     target.value = null; action.value = ''; await load();
     if (current()) showToast(endpoint.startsWith('reject') ? ui.bookingRejected : flow ? ui.bookingApprovalStepPassed : ui.bookingApproved);
   } catch (error) { if (current()) actionNotice.value = errorText(error, ui.copy_0531ed9e78); }
+  finally { if (current()) busy.value = false; }
+}
+async function directApprove(row) {
+  if (blocked.value || row.canDirectApprove !== true) return;
+  const expected = scope(), current = () => !disposed && expected === scope();
+  busy.value = true; deleteNotice.value = '';
+  try {
+    if (!await confirmAction({ title: directCopy.directApproveAction, body: directCopy.venue.directApproveConfirm,
+      confirmText: directCopy.directApproveAction, cancelText: governance.cancel }) || !current()) return;
+    requireSuccess(await callApi('directApproveVenueBooking', { id: row.id }));
+    if (!current()) return;
+    showToast(directCopy.venue.directApproveSucceeded);
+    await load();
+  } catch (error) { if (current()) deleteNotice.value = errorText(error, directCopy.directApproveChanged); }
   finally { if (current()) busy.value = false; }
 }
 async function remove(row) {

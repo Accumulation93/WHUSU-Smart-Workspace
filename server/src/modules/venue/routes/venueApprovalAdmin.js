@@ -30,6 +30,8 @@ const { toAssignmentSnapshot } = require('../services/venueAssignmentContext');
 const { effectiveBookingStart } = require('../services/venueEffectiveBookingTime');
 const dictionaryUsage = require('../../../core/services/dictionaryUsage');
 const natureRulePolicy = require('../../../core/services/natureRulePolicy');
+const directApprovalActor = require('../../audit/services/directApprovalActor');
+const directVenueAvailability = require('../services/directVenueAvailability');
 
 function readDesignationAssignmentIds(body, listKey, legacyKey) {
   const source = body || {};
@@ -399,32 +401,31 @@ function buildApprovalProgress(booking) {
   };
 }
 
-// approveVenueBookingStep — approve at the current step
-router.post('/approveVenueBookingStep', async (req, res) => {
+async function approveVenueBookingStep(req, res, direct) {
   const conn = await pool.getConnection();
   try {
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_62d2cac4df });
     const comment = safeString(req.body.comment);
 
-    const actorResult = await resolveCurrentActor(req);
-    if (!actorResult.ok) {
+    const actorResult = direct ? null : await resolveCurrentActor(req);
+    if (actorResult && !actorResult.ok) {
       return res.json({ status: actorResult.status, message: actorResult.message });
     }
-    const actor = actorResult.actor;
     const orgId = await getCurrentOrgId();
     const nextDesignationRequest = readDesignationAssignmentIds(
       req.body,
       'nextApproverAssignmentIds',
       'nextApproverAssignmentId'
     );
-    if (!nextDesignationRequest.valid) {
+    if (!nextDesignationRequest.valid || (direct && nextDesignationRequest.ids.length)) {
       return res.json({ status: 'invalid_params', message: venueApprovalMultiFlow.REASONS.DESIGNATE_INVALID });
     }
     const nextApproverAssignmentIds = nextDesignationRequest.ids;
 
     await conn.beginTransaction();
-    const permission = await require('../models/venueApprovalPermission').prepare(conn, orgId,
+    const actor = direct ? await directApprovalActor.resolve(req, conn, orgId) : actorResult.actor;
+    const permission = direct ? null : await require('../models/venueApprovalPermission').prepare(conn, orgId,
       require('../../../core/services/authorizationReference').referenceFromRequest(req));
     const approvalSubjects = [{
       personId: safeString(actor.personId),
@@ -438,18 +439,21 @@ router.post('/approveVenueBookingStep', async (req, res) => {
         assignmentId
       });
     }
-    await unifiedIdentityModel.lockActiveBusinessSubjects(conn, approvalSubjects);
+    if (!direct) await unifiedIdentityModel.lockActiveBusinessSubjects(conn, approvalSubjects);
     const booking = await venueBookingModel.getByIdForUpdate(id, conn);
     if (!booking || booking.approval_org_id !== orgId) {
       await conn.rollback();
       return res.json({ status: 'not_found', message: localeCopy.copy_3508043e2a });
     }
-    permission.require(booking);
+    if (permission) permission.require(booking);
     if (booking.status !== 'pending') {
       await conn.rollback();
+      if (direct) return res.json({ status: 'invalid_state', bookingStatus: booking.status });
       return res.json({ status: 'success', message: localeCopy.copy_3b95420d79, bookingStatus: booking.status, idempotent: true });
     }
-    if ((!booking.approval_flow_id && !booking.approval_flow_state_json) || Number(booking.approval_total_steps) <= 0) {
+    const hasRequestedFlow = Boolean(booking.approval_flow_id || booking.approval_flow_state_json);
+    const hasFlow = hasRequestedFlow || Boolean(booking.approval_flow_snapshot_json);
+    if ((direct ? hasFlow : true) && (!hasRequestedFlow || Number(booking.approval_total_steps) <= 0)) {
       await conn.rollback();
       return res.json({ status: 'invalid_state', message: localeCopy.copy_a56890077c });
     }
@@ -463,17 +467,26 @@ router.post('/approveVenueBookingStep', async (req, res) => {
     });
     let prepared;
     try {
-      prepared = await venueApprovalMultiFlow.prepareApproval(
+      prepared = direct && !hasFlow ? {
+        ok: true,
+        completed: true,
+        actor,
+        state: null,
+        totalSteps: 0,
+        summary: { activeFlowIds: [], flowSummary: [] }
+      } : await venueApprovalMultiFlow.prepareApproval(
         booking,
         actor,
         comment,
         nextDesignations,
         orgId,
         safeString(req.body.flowId),
-        conn
+        conn,
+        direct
       );
     } catch (e) {
       await conn.rollback();
+      if (direct) return res.json({ status: 'invalid_params' });
       return res.json({ status: 'invalid_params', message: safeString(e.message) || localeCopy.copy_65f251c459 });
     }
     if (!prepared.ok) {
@@ -493,7 +506,11 @@ router.post('/approveVenueBookingStep', async (req, res) => {
       const bookingTimeEnd = new Date(booking.time_end);
 
       // If approved after booking end, cancel instead
-      if (approvedAt > bookingTimeEnd) {
+      if (approvedAt > bookingTimeEnd || (direct && approvedAt.getTime() === bookingTimeEnd.getTime())) {
+        if (direct) {
+          await conn.rollback();
+          return res.json({ status: 'expired', message: localeCopy.copy_aa20a1e7b8 });
+        }
         await venueBookingModel.updateStatus(
           id,
           'cancelled',
@@ -513,6 +530,18 @@ router.post('/approveVenueBookingStep', async (req, res) => {
       // 未来借用保持原开始时间；只有审批时原开始时间已过去，才从审批时刻起生效。
       const originalTimeStart = new Date(booking.time_start);
       const effectiveTimeStart = effectiveBookingStart(originalTimeStart, approvedAt);
+      if (direct) {
+        const venue = await venueModel.getByIdForUpdate(booking.venue_id, conn);
+        if (!venue || Number(venue.is_active) !== 1) {
+          await conn.rollback();
+          return res.json({ status: 'invalid_state', code: 'venue_unavailable' });
+        }
+        const availability = await directVenueAvailability.check(booking.venue_id, effectiveTimeStart, bookingTimeEnd, conn);
+        if (availability) {
+          await conn.rollback();
+          return res.json({ status: 'conflict', code: availability });
+        }
+      }
       if (effectiveTimeStart.getTime() !== originalTimeStart.getTime()) {
         await venueBookingModel.updateTimeStart(id, toMysqlUtc(effectiveTimeStart), conn);
       }
@@ -527,22 +556,33 @@ router.post('/approveVenueBookingStep', async (req, res) => {
     }
 
     const newStatus = completed ? 'approved' : 'pending';
-    const legacy = venueApprovalMultiFlow.legacyColumnsFromState(state, totalSteps, newStatus);
+    const legacy = state ? venueApprovalMultiFlow.legacyColumnsFromState(state, totalSteps, newStatus)
+      : { approvalFlowId: null, currentStep: 0, totalSteps: 0 };
     await venueBookingModel.updateStatus(
       id,
       newStatus,
       actor.id,
       completed ? (comment || booking.approval_comment) : booking.approval_comment,
       conn,
-      approvalActor
+      direct ? { ...approvalActor, directApproval: true } : approvalActor
     );
-    await venueBookingModel.updateApprovalFlowState(id, {
+    if (state) await venueBookingModel.updateApprovalFlowState(id, {
       approvalFlowState: state,
       approvalFlowId: legacy.approvalFlowId,
       currentStep: legacy.currentStep,
       totalSteps: legacy.totalSteps,
       snapshotsJson: JSON.stringify(snapshots)
     }, conn);
+    if (direct) {
+      await unifiedIdentityModel.appendAuditEvent({
+        connection: conn,
+        eventType: 'venue_booking_direct_approved',
+        actorPersonId: actor.personId,
+        organizationId: orgId,
+        contextId: actor.contextId,
+        detail: { bookingId: id, assignmentId: actor.assignmentId, adminGrantId: actor.adminGrantId, comment }
+      });
+    }
 
     if (completed) {
       const venueName = booking.venue_name || '';
@@ -576,20 +616,28 @@ router.post('/approveVenueBookingStep', async (req, res) => {
         isRejected: false
       },
       completed: completed,
-      processedStepCount: Number(prepared.processedStepCount) || 1,
+      processedStepCount: direct ? Number(prepared.processedStepCount) || 0 : Number(prepared.processedStepCount) || 1,
       autoApprovedStepCount: Number(prepared.autoApprovedStepCount) || 0,
       activeFlowIds: prepared.summary.activeFlowIds,
       flowSummary: prepared.summary.flowSummary,
-      candidateMissing: Boolean(prepared.candidateMissing)
+      candidateMissing: Boolean(prepared.candidateMissing),
+      ...(direct ? { directApproval: true, bookingStatus: newStatus } : {})
     });
   } catch (e) {
     await conn.rollback();
     if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: authorizationCopy.forbidden });
+    if (direct) {
+      console.error('[venueApprovalAdmin] direct approval:', e.code || e.name);
+      return res.json({ status: 'error' });
+    }
     res.json({ status: 'error', message: safeString(e.message) });
   } finally {
     conn.release();
   }
-});
+}
+
+router.post('/approveVenueBookingStep', (req, res) => approveVenueBookingStep(req, res, false));
+router.post('/directApproveVenueBooking', (req, res) => approveVenueBookingStep(req, res, true));
 
 // rejectVenueBookingStep — reject at the current step
 router.post('/rejectVenueBookingStep', async (req, res) => {

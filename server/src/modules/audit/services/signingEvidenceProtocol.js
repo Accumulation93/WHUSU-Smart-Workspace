@@ -9,7 +9,12 @@ function privateIdentity(actor, organizationId) {
   const identity = { personId: String(actor.person_id || ''), name: String(actor.name || ''),
     studentId: String(actor.student_id || ''), organizationId: String(organizationId || ''),
     assignmentId: String(actor.assignment_id || ''), contextId: String(actor.contextId || actor.context_id || '') };
-  if (!identity.personId || !identity.assignmentId || !identity.organizationId || !identity.name || !identity.studentId) fail('evidence_identity_missing');
+  if (actor.system_role === 'super_admin' && actor.admin_grant_id) {
+    identity.systemRole = 'super_admin';
+    identity.adminGrantId = String(actor.admin_grant_id);
+  }
+  if (!identity.personId || !identity.assignmentId || !identity.organizationId || !identity.name
+    || (!identity.studentId && !identity.adminGrantId)) fail('evidence_identity_missing');
   return identity;
 }
 function aad(organizationId, ref) { return canonicalBytes({ purpose: 'WHUSU-PDF-IDENTITY', version: 2, organizationId, ref }); }

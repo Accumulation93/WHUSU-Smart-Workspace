@@ -8,6 +8,7 @@ const { buildFlowTimeline } = require('../../utils/flowTimeline');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
 const authContext = require('../../../../utils/authContext');
+const portalCopy = require('../../../../locales/zh-CN/portal');
 const { readCurrentAuthorizationAccess } = require('../../../../utils/authorizationAccess');
 const { managementTabAllowed } = require('../../../../utils/authorizationAccessView');
 const authorizationCopy = require('../../../../locales/zh-CN/authorization');
@@ -292,7 +293,8 @@ Page({
   },
 
   behaviors: [dialogKeyboardBehavior],
-  onLoad() {
+  onLoad(options) {
+    this._openManagementArea = !!(options && options.area === 'management');
     this.applyNavigationBarMetrics();
     this.bindDialogKeyboard();
   },
@@ -364,6 +366,7 @@ Page({
     nextApproverPickerVisible: false, nextApproverCandidates: [],
     nextApproverAssignmentIds: [], nextApproverSelections: [], nextApproverName: '', canDesignateNext: false,
     heroName: localeCopy.copy_592351d93c, heroIdentity: localeCopy.copy_5c8d830c46, heroSubtitle: '',
+    venuePageName: localeCopy.copy_9ba3b8c8a9, venueManagementName: '',
 
     // ── Custom time keyboard ──
     _kbVisible: false,
@@ -377,12 +380,14 @@ Page({
 
   _loadUserInfo() {
     try {
-      const user = authContext.getRuntimeProfile('user');
+      const user = authContext.getRuntimeProfile();
       if (user) {
         this.setData({
           heroName: user.name || localeCopy.copy_592351d93c,
           heroIdentity: user.identity || localeCopy.copy_ad183b164d,
-          heroSubtitle: ''
+          heroSubtitle: '',
+          venuePageName: user.identityModel === 'unified' ? portalCopy.cards.venue : localeCopy.copy_9ba3b8c8a9,
+          venueManagementName: user.identityModel === 'unified' ? portalCopy.cards.venueManage : ''
         });
       }
     } catch (_) {}
@@ -481,8 +486,10 @@ Page({
       if (!this._isPageVisible || generation !== this._managementAccessGeneration) return;
       const available = access && access.mode === 'enforced'
         && ['venue', 'bookings', 'pending', 'purposes'].some(tab => managementTabAllowed(access, tab));
-      this.setData({ managementAvailable: Boolean(available),
-        activeTab: !available && this.data.activeTab === 'management' ? 'browse' : this.data.activeTab });
+      const activeTab = available && this._openManagementArea ? 'management'
+        : !available && this.data.activeTab === 'management' ? 'browse' : this.data.activeTab;
+      this._openManagementArea = false;
+      this.setData({ managementAvailable: Boolean(available), activeTab });
     } catch (_) {
       if (this._isPageVisible && generation === this._managementAccessGeneration) this.setData({ managementAvailable: false,
         activeTab: this.data.activeTab === 'management' ? 'browse' : this.data.activeTab });

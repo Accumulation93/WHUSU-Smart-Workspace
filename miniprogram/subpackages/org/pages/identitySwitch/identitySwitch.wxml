@@ -96,6 +96,7 @@
           <view class="identity-item-copy">
             <view class="identity-item-name">{{item.name}}</view>
             <view class="identity-item-detail" wx:if="{{item.detail}}">{{item.detail}}</view>
+            <view class="identity-item-detail" wx:if="{{item.accountTypeLabel}}">{{item.accountTypeLabel}}</view>
             <view class="identity-current-label" wx:if="{{item.current}}">{{localeCopy.copy_58063dc31f}}</view>
           </view>
           <view class="identity-item-end">

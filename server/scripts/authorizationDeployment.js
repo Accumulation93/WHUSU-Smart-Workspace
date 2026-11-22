@@ -4,6 +4,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const cp = require('node:child_process');
 const SHA = /^[a-f0-9]{40}$/;
+const UNIFIED_IDENTITY_FILES = [
+  'server/src/core/models/authorizationIdentity.js',
+  'server/src/core/models/authorizationIdentityTransition.js',
+  'server/src/core/services/authorizationIdentityModel.js'
+];
 
 function git(directory, args) {
   return cp.execFileSync('git', ['-C', directory, ...args], { encoding: 'utf8', windowsHide: true,
@@ -43,7 +48,7 @@ function readRelease(directory, expectedSha, minimum = 1) {
   for (const relative of ['server/src/core/services/authorizationSession.js', 'server/src/core/models/authorizationCutover.js',
     'server/scripts/authorizationDeployment.js', 'server/node_modules/mysql2/package.json',
     ...(minimum >= 2 ? ['server/src/core/models/identityNature.js', 'server/src/core/models/identityNatureCutover.js',
-      'server/scripts/finalizeIdentityNatures.js'] : [])]) {
+      'server/scripts/finalizeIdentityNatures.js'] : []), ...(minimum >= 3 ? UNIFIED_IDENTITY_FILES : [])]) {
     if (!fs.statSync(path.join(resolved, relative)).isFile()) throw Error('authorization_release_incomplete');
   }
   return resolved;
@@ -69,6 +74,9 @@ function assertGitRelease(state, repository, sha) {
   if (Number(state.minimum_protocol) >= 2) {
     for (const file of ['server/src/core/models/identityNature.js', 'server/src/core/models/identityNatureCutover.js',
       'server/scripts/finalizeIdentityNatures.js']) git(repository, ['cat-file', '-e', sha + ':' + file]);
+  }
+  if (Number(state.minimum_protocol) >= 3) {
+    for (const file of UNIFIED_IDENTITY_FILES) git(repository, ['cat-file', '-e', sha + ':' + file]);
   }
 }
 
@@ -102,6 +110,15 @@ function verifyRuntime({ compatibleSha, fallbackSha, protocol }, options = {}) {
   return true;
 }
 
+function assertReleaseLock() {
+  const root = process.env.WHUSU_SMART_WORKSPACE_DEPLOY_DIR || '/home/ubuntu/whusu-smart-workspace-deploy';
+  const fd = '/proc/self/fd/9';
+  const lock = path.join(root, 'deploy.lock');
+  if (process.platform === 'linux' && fs.existsSync(fd) && fs.existsSync(lock)
+    && fs.realpathSync(fd) === fs.realpathSync(lock)) return;
+  throw Error('authorization_deployment_lock_required');
+}
+
 async function main() {
   require('dotenv').config({ path: path.resolve(__dirname, '../.env'), quiet: true });
   const command = process.argv[2];
@@ -126,13 +143,29 @@ async function main() {
     } finally { await connection.end(); }
     return;
   }
-  if (!['stage', 'activate', 'status'].includes(command)) throw Error('authorization_deployment_command_invalid');
+  if (!['stage', 'activate', 'status', 'inspect-identities', 'stage-identities', 'activate-identities'].includes(command)) {
+    throw Error('authorization_deployment_command_invalid');
+  }
   const pool = require('../src/config/db');
   try {
     const model = require('../src/core/models/authorizationCutover');
-    const result = command === 'stage' ? await model.stageAll()
-      : command === 'status' ? await readTransition(pool)
-        : await model.activate({ compatibleSha: process.argv[3], fallbackSha: process.argv[4] }, verifyRuntime);
+    const identities = require('../src/core/models/authorizationIdentityTransition');
+    const release = { compatibleSha: process.argv[3], fallbackSha: process.argv[4] };
+    let result;
+    if (command === 'inspect-identities') {
+      result = await pool.withTransaction(async connection => {
+        const comparison = await identities.inspect(connection);
+        return { ...identities.summary(comparison), equivalence: await identities.compareAuthorization(connection, comparison) };
+      });
+    } else if (command === 'stage-identities') {
+      assertReleaseLock();
+      result = await identities.stage(pool);
+    } else if (command === 'activate-identities') {
+      assertReleaseLock();
+      result = await identities.activate(pool, release, verifyRuntime, identities.compareAuthorization);
+    } else if (command === 'stage') result = await model.stageAll();
+    else if (command === 'status') result = await readTransition(pool);
+    else result = await model.activate(release, verifyRuntime);
     console.log(JSON.stringify({ status: 'success', result }));
   } finally { await pool.end(); }
 }

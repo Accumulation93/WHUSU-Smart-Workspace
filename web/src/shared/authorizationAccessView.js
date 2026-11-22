@@ -10,7 +10,7 @@ const MANAGEMENT_RESOURCES = Object.freeze({
   identities: ['hr.identities'], assignmentNatures: ['hr.assignmentNatures'], admins: ['system.adminAccounts'], settings: ['system.settings', 'system.organizations'],
   auditTemplates: ['audit.templates'], auditStamps: ['audit.stamps'], auditSubmissions: ['audit.submissions'], auditVerification: ['audit.verification'],
   venue: ['venue.resources', 'venue.approvals', 'venue.bookingRules', 'venue.bookingWindows', 'venue.openRules', 'venue.activityRules'],
-  bookings: ['venue.bookings'], purposes: ['venue.purposes']
+  bookings: ['venue.bookings'], purposes: ['venue.purposes'], calendarRules: ['calendar.rules']
 });
 const MANAGEMENT_ACTIONS = Object.freeze({
   'scoring.activities': ['read', 'create', 'update', 'delete'], 'scoring.templates': ['read', 'create', 'update', 'delete'],
@@ -19,7 +19,8 @@ const MANAGEMENT_ACTIONS = Object.freeze({
   'scoring.publications': ['read', 'create', 'update', 'delete'],
   'hr.people': ['read', 'create', 'update', 'delete'], 'hr.import': ['read'], 'hr.profileReview': ['read'],
   'hr.directoryRules': ['read', 'create', 'update', 'delete'], 'auth.identity': ['read', 'verify'], 'auth.recovery': ['read', 'update'],
-  'auth.accounts': ['read', 'update'], 'auth.policy': ['read', 'update'], 'hr.profileTemplates': ['read', 'create', 'update', 'delete'],
+  'auth.accounts': ['read', 'update', 'freeze', 'unbindWechat', 'resetPassphrase', 'revokePassphrase', 'revokeSession', 'manageRecoveryCode', 'approveRecovery'],
+  'auth.policy': ['read', 'update'], 'hr.profileTemplates': ['read', 'create', 'update', 'delete'],
   'hr.profileSelection': ['read', 'update'], 'hr.departments': ['read', 'create', 'update', 'delete'],
   'hr.profileMigration': ['read', 'request', 'approve', 'execute'],
   'hr.workGroups': ['read', 'create', 'update', 'delete'], 'hr.identities': ['read', 'create', 'update', 'delete'],
@@ -31,7 +32,7 @@ const MANAGEMENT_ACTIONS = Object.freeze({
   'venue.bookingRules': ['read', 'create', 'update', 'delete'], 'venue.bookingWindows': ['read', 'create'],
   'venue.openRules': ['read', 'create', 'update', 'delete'], 'venue.activityRules': ['read', 'create', 'update', 'delete'],
   'venue.bookings': ['read', 'create', 'update', 'cancel', 'delete'],
-  'venue.purposes': ['read', 'create', 'update', 'delete']
+  'venue.purposes': ['read', 'create', 'update', 'delete'], 'calendar.rules': ['read', 'create', 'update', 'delete']
 });
 
 function managementTabAllowed(access, tab) {

@@ -62,6 +62,17 @@ async function getByUserId(userHrId) {
   return rows;
 }
 
+async function getByCreatorAssignment(organizationId, personId, assignmentId) {
+  const [rows] = await pool.query(
+    `SELECT vb.*, v.name AS venue_name, v.location AS venue_location
+       FROM venue_bookings vb JOIN venues v ON vb.venue_id = v.id
+      WHERE vb.creator_org_id = ? AND vb.creator_person_id = ? AND vb.creator_assignment_id = ?
+      ORDER BY vb.time_start DESC`,
+    [organizationId, personId, assignmentId]
+  );
+  return rows;
+}
+
 async function getAll(filters) {
   let sql = 'SELECT vb.*, v.name AS venue_name, v.location AS venue_location FROM venue_bookings vb JOIN venues v ON vb.venue_id = v.id WHERE 1=1';
   const params = [];
@@ -177,7 +188,8 @@ async function updateStatus(id, status, approverHrId, approvalComment, conn, act
     identityName: actor.name || '',
     adminLevel: actor.adminLevel || '',
     assignmentId: actor.assignmentId || '',
-    assignmentSnapshot: actor.assignment ? toAssignmentSnapshot(actor.assignment) : null
+    assignmentSnapshot: actor.assignment ? toAssignmentSnapshot(actor.assignment) : null,
+    ...(actor.directApproval ? { directApproval: true } : {})
   }) : null;
   await db.query(
     `UPDATE venue_bookings
@@ -243,6 +255,6 @@ async function findConflict(venueId, timeStart, timeEnd, excludeId, conn, forUpd
 }
 
 module.exports = {
-  getByVenueId, getByUserId, getAll, getById, getByIdForUpdate, create,
+  getByVenueId, getByUserId, getByCreatorAssignment, getAll, getById, getByIdForUpdate, create,
   updateStatus, updateApprovalFlowState, updateTimeEnd, updateTimeStart, findConflict
 };

@@ -685,7 +685,7 @@ function summarizeState(state, flowsMap) {
   };
 }
 
-async function evaluateActorEligibility(booking, actor, orgId) {
+async function evaluateActorEligibility(booking, actor, orgId, direct = false) {
   let effectiveActor = actor;
   if (actor && actor.type === 'user') {
     const assignment = actor.assignment
@@ -745,7 +745,7 @@ async function evaluateActorEligibility(booking, actor, orgId) {
     if (!st || !st.active || st.completed) continue;
     const flow = flowsMap[flowId];
     if (!flow) continue;
-    if (await actorMatchesStep(effectiveActor, flow, st, applicantHrInfo, orgId)) {
+    if (direct || await actorMatchesStep(effectiveActor, flow, st, applicantHrInfo, orgId)) {
       matchedFlows.push({ flowId, flow, st, step: flow.steps[Number(st.stepIndex)] });
     }
   }
@@ -767,8 +767,11 @@ async function evaluateActorEligibility(booking, actor, orgId) {
   };
 }
 
-async function prepareApproval(booking, actor, comment, nextDesignations, orgId, requestedFlowId, conn) {
-  const eligibility = await evaluateActorEligibility(booking, actor, orgId);
+async function prepareApproval(booking, actor, comment, nextDesignations, orgId, requestedFlowId, conn, direct = false) {
+  if (direct && (!actor || actor.adminLevel !== 'super_admin' || !actor.assignmentId || !actor.adminGrantId)) {
+    return { ok: false, reason: REASONS.ADMIN_REQUIRED };
+  }
+  const eligibility = await evaluateActorEligibility(booking, actor, orgId, direct);
   if (!eligibility.ok) return eligibility;
 
   const state = eligibility.state;
@@ -824,6 +827,10 @@ async function prepareApproval(booking, actor, comment, nextDesignations, orgId,
 
   function recordApproval(item, step, automatic) {
     const st = item.st;
+    const directFields = direct ? {
+      directApproval: true,
+      bypassedAssignmentIds: normalizeDesignationList(st.designated[String(st.stepIndex)]).map(item => item.assignmentId)
+    } : {};
     snapshots.push({
       flowId: item.flowId,
       stepIndex: Number(st.stepIndex),
@@ -838,7 +845,8 @@ async function prepareApproval(booking, actor, comment, nextDesignations, orgId,
       approverName: effectiveActor.name || (effectiveActor.type === 'admin' ? '管理员' : ''),
       comment: automatic ? '' : (comment || ''),
       automatic: Boolean(automatic),
-      approvedAt: now
+      approvedAt: now,
+      ...directFields
     });
     st.approvedSteps.push({
       stepIndex: Number(st.stepIndex),
@@ -847,7 +855,8 @@ async function prepareApproval(booking, actor, comment, nextDesignations, orgId,
       approverAssignmentId: safeString(effectiveActor.assignmentId),
       approverAdminGrantId: safeString(effectiveActor.adminGrantId),
       approverType: safeString(effectiveActor.type),
-      automatic: Boolean(automatic)
+      automatic: Boolean(automatic),
+      ...directFields
     });
     delete st.designated[String(st.stepIndex)];
     st.stepIndex = Number(st.stepIndex) + 1;
@@ -878,9 +887,9 @@ async function prepareApproval(booking, actor, comment, nextDesignations, orgId,
     while (st.active && !st.completed && st.stepIndex < flow.steps.length) {
       const automaticStep = flow.steps[Number(st.stepIndex)];
       const nextIsDesignated = Boolean(st.designated && st.designated[String(st.stepIndex)]);
-      if (validatedNextDesignations.length
-        || !await actorMatchesStep(effectiveActor, flow, st, applicantHrInfo, orgId)) break;
-      recordApproval(item, automaticStep, true);
+      if (!direct && (validatedNextDesignations.length
+        || !await actorMatchesStep(effectiveActor, flow, st, applicantHrInfo, orgId))) break;
+      recordApproval(item, automaticStep, !direct);
       previousStep = automaticStep;
       previousWasDesignated = false;
       if (st.stepIndex >= flow.steps.length) {

@@ -8,6 +8,8 @@ const { usableLoginCredentialSql } = require('./accountLoginState');
 const { generateId, safeString } = require('../../utils/helpers');
 const assignmentNature = require('./assignmentNature');
 const natureEligibility = require('./identityNatureEligibility');
+const identityTransition = require('./authorizationIdentityTransition');
+const { superAssignmentId, selectClientContexts, isLegacyAdminContext } = require('../services/authorizationIdentityModel');
 const { lockOrganizationDictionaryWrites } = require('../services/dictionaryUsage');
 const {
   hmac,
@@ -207,9 +209,11 @@ function mapAssignmentContext(row) {
     identityType: 'assignment',
     identityName: buildAssignmentLabel(row),
     role: 'user',
+    accountType: 'user',
     personId: safeString(row.person_id),
     membershipId: safeString(row.membership_id),
     assignmentId: safeString(row.assignment_id),
+    effectiveAssignmentId: safeString(row.assignment_id),
     assignmentNature: safeString(row.assignment_kind),
     assignmentNatureLabel: safeString(row.assignment_nature_name),
     assignmentLabel: buildAssignmentLabel(row),
@@ -241,9 +245,11 @@ function mapMembershipContext(row) {
     identityType: 'membership',
     identityName: personnelCopy.unassignedPosition,
     role: 'user',
+    accountType: 'user',
     personId: safeString(row.person_id),
     membershipId: safeString(row.membership_id),
     assignmentId: '',
+    effectiveAssignmentId: '',
     assignmentNature: '',
     assignmentLabel: '',
     adminGrantId: '',
@@ -264,8 +270,9 @@ function mapMembershipContext(row) {
   };
 }
 
-function mapAdminContext(row) {
-  const isGlobal = row.admin_level === 'super_admin' && safeString(row.grant_org_id) === '';
+function mapAdminContext(row, unified) {
+  const isSuper = row.admin_level === 'super_admin';
+  const isGlobal = isSuper && (unified || safeString(row.grant_org_id) === '');
   return {
     contextId: contextId('admin', row.admin_grant_id, row.organization_id),
     authIdentityId: authIdentityId('admin', row.admin_grant_id),
@@ -275,9 +282,11 @@ function mapAdminContext(row) {
     identityType: 'admin',
     identityName: row.admin_level === 'super_admin' ? '超级管理员' : '管理员',
     role: 'admin',
+    accountType: isSuper ? 'super_admin' : 'user',
     personId: safeString(row.person_id),
     membershipId: '',
     assignmentId: '',
+    effectiveAssignmentId: isSuper ? superAssignmentId(row.admin_grant_id, row.organization_id) : '',
     adminGrantId: safeString(row.admin_grant_id),
     legacyHrId: '',
     legacyAdminId: safeString(row.legacy_admin_id),
@@ -1279,6 +1288,7 @@ function listContexts(accountId, connection) {
 
 async function queryContexts(accountId, connection) {
   const executor = connection || pool;
+  const unified = await identityTransition.isUnified(executor);
   // 所有认证方式共用账号状态限制，口令会话不能绕过冻结或恢复要求。
   const accountStatusCondition = "a.status = 'verified'";
   const [assignmentRows] = await executor.query(
@@ -1310,6 +1320,7 @@ async function queryContexts(accountId, connection) {
         AND CONVERT(w.org_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = om.org_id
        WHERE a.id = ? AND ${accountStatusCondition}
          AND ${natureEligibility.assignmentPredicate('ma')}
+         ${unified ? "AND d.id IS NOT NULL AND i.id IS NOT NULL AND nature.id IS NOT NULL AND (ma.work_group_id IS NULL OR ma.work_group_id = '' OR w.id IS NOT NULL)" : ''}
       ORDER BY o.created_at DESC, ma.created_at ASC, ma.id ASC`,
     [safeString(accountId)]
   );
@@ -1339,15 +1350,23 @@ async function queryContexts(accountId, connection) {
        FROM accounts a
        JOIN persons p ON p.id = a.person_id AND p.status = 'active'
        JOIN admin_grants ag ON ag.person_id = p.id AND ag.status = 'active'
-       JOIN organizations o ON (ag.admin_level = 'super_admin' AND ag.org_id = '')
+       JOIN organizations o ON (ag.admin_level = 'super_admin' AND (ag.org_id = '' OR ? = 1))
                               OR CONVERT(o.id USING utf8mb4) COLLATE utf8mb4_unicode_ci = ag.org_id
        WHERE a.id = ? AND ${accountStatusCondition}
-      ORDER BY ag.admin_level = 'super_admin' DESC, o.created_at DESC`,
-    [safeString(accountId)]
+      ORDER BY ag.admin_level = 'super_admin' DESC, o.created_at DESC, (ag.org_id = '') DESC, ag.created_at, ag.id`,
+    [unified ? 1 : 0, safeString(accountId)]
   );
+  let legacyAdminIds = null;
+  if (unified && adminRows.some(row => row.admin_level === 'admin')) {
+    const assignmentIds = new Set(assignmentRows.map(row => row.assignment_id));
+    const links = await identityTransition.activeLinksForPerson(executor, adminRows[0].person_id);
+    legacyAdminIds = new Set(links.filter(link => assignmentIds.has(link.assignmentId)).map(link => link.grantId));
+  }
   const contexts = assignmentRows.map(mapAssignmentContext)
     .concat(membershipRows.map(mapMembershipContext))
-    .concat(adminRows.map(mapAdminContext));
+    .concat(adminRows.filter(row => row.admin_level === 'super_admin' || !legacyAdminIds || legacyAdminIds.has(row.admin_grant_id))
+      .map(row => mapAdminContext(row, unified)));
+  if (unified) for (const context of contexts) context.unifiedAuthorization = true;
   const seen = new Set();
   return contexts.filter((item) => {
     if (!item.contextId || seen.has(item.contextId)) return false;
@@ -1363,21 +1382,26 @@ function contextRank(context) {
   return 3;
 }
 
-function chooseFallbackContext(contexts, preferredOrganizationId) {
+function chooseFallbackContext(contexts, preferredOrganizationId, preferSuper = false) {
   const orgId = safeString(preferredOrganizationId);
   const scoped = orgId
     ? contexts.filter((item) => item.organizationId === orgId)
     : [];
   const candidates = scoped.length ? scoped : contexts;
+  if (preferSuper) {
+    const superContext = candidates.find(context => context.accountType === 'super_admin');
+    if (superContext) return superContext;
+  }
   return candidates.slice().sort((left, right) => contextRank(left) - contextRank(right))[0] || null;
 }
 
 async function resolveContextSelection(accountId, requestedSelection, connection) {
-  const contexts = await listContexts(accountId, connection);
-  if (!contexts.length) return { context: null, fallback: false, reason: 'no_context' };
   const selection = requestedSelection && typeof requestedSelection === 'object'
     ? requestedSelection
     : { contextId: requestedSelection };
+  const available = await listContexts(accountId, connection);
+  const { contexts, identityModel } = selectClientContexts(available, selection.identityModel);
+  if (!contexts.length) return { context: null, fallback: false, reason: 'no_context', identityModel };
   const requestedContextId = safeString(selection.contextId);
   const requestedOrganizationId = safeString(selection.organizationId);
   const requestedIdentityId = safeString(selection.identityId);
@@ -1392,12 +1416,15 @@ async function resolveContextSelection(accountId, requestedSelection, connection
       && item.authIdentityId === requestedIdentityId
     )) || null;
   }
-  if (matched) return { context: matched, fallback: false, reason: '' };
-  const fallback = chooseFallbackContext(contexts, requestedOrganizationId);
+  if (matched) return { context: matched, fallback: false, reason: '', identityModel };
+  const previous = identityModel === 'unified' && available.find(item => item.contextId === requestedContextId);
+  const fallback = chooseFallbackContext(contexts, requestedOrganizationId || (isLegacyAdminContext(previous) ? previous.organizationId : ''),
+    identityModel === 'unified');
   return {
     context: fallback,
     fallback: hasPreference,
-    reason: hasPreference ? 'selection_unavailable' : ''
+    reason: hasPreference ? 'selection_unavailable' : '',
+    identityModel
   };
 }
 
@@ -1476,6 +1503,7 @@ async function createSession(account, requestedSelection, metadata, options) {
       bindingMode,
       deviceRecognized: false,
       deviceKeyHash: null,
+      identityModel: resolvedSelection.identityModel,
       selectionFallback: resolvedSelection.fallback,
       selectionFallbackReason: resolvedSelection.reason
     };
@@ -1528,10 +1556,10 @@ async function activateSelection(sessionId, accountId, requestedSelection) {
     );
     const session = rows[0];
     if (!session) throw new IdentityError('session_expired', localeCopy.copy_c337bd9350, 401);
-    const contexts = await listContexts(accountId, connection);
     const selection = requestedSelection && typeof requestedSelection === 'object'
       ? requestedSelection
       : { contextId: requestedSelection };
+    const { contexts } = selectClientContexts(await listContexts(accountId, connection), selection.identityModel);
     const requestedContextId = safeString(selection.contextId);
     const requestedOrganizationId = safeString(selection.organizationId);
     const requestedIdentityId = safeString(selection.identityId);
@@ -3242,6 +3270,7 @@ module.exports = {
   createBootstrapSession,
   getBootstrapSession,
   listContexts,
+  selectClientContexts,
   resolveContextSelection,
   resolveContext,
   createSession,

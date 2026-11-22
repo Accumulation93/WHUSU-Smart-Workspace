@@ -157,7 +157,8 @@ const canReadProfiles = computed(() => hasAdminCapability(profile.value, 'hr.peo
 const canReadGovernance = computed(() => [
   ['auth.identity.verify', 'auth.identity.read'],
   ['auth.accounts.recover', 'auth.recovery.read'],
-  ['auth.accounts.global_manage', 'auth.accounts.read']
+  ...['read', 'update', 'freeze', 'unbindWechat', 'resetPassphrase', 'revokePassphrase', 'revokeSession', 'manageRecoveryCode', 'approveRecovery']
+    .map(action => ['auth.accounts.global_manage', 'auth.accounts.' + action])
 ].some(([legacy, capability]) => hasAdminCapability(profile.value, legacy, capability)));
 const canMembers = computed(() => canReadProfiles.value || canReadGovernance.value);
 const canMigration = computed(() => hasAdminCapability(profile.value, 'hr.people', 'hr.profileMigration.read'));
@@ -239,7 +240,7 @@ async function refreshPerson(event) {
     const result=requireSuccess(await callApi('listHrGovernance',{organizationId:session.context?.organizationId}));
     if(disposed||expected!==scope()||request!==generation)return;
     const updated=(result.rows||[]).find(row=>(row.hrId||row.id)===id);
-    rows.value=rows.value.map(row=>(row.hrId||row.id)===id ? (updated ? {...row,...updated} : {...row,canGlobalAccountManage:false,canVerifyIdentity:false,canRecoverAccount:false,auth:null}) : row);
+    rows.value=rows.value.map(row=>(row.hrId||row.id)===id ? (updated ? {...row,...updated} : {...row,accountOperations:{},canGlobalAccountManage:false,canVerifyIdentity:false,canRecoverAccount:false,auth:null}) : row);
   } catch(error) { if(!disposed&&expected===scope())loadNotice.value=errorText(error,copy.errors.requestFailed); }
 }
 

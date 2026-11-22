@@ -333,15 +333,26 @@ async function expectCode(promise, code, message) {
   );
   const approvalRoute = routeSource.slice(
     routeSource.indexOf("router.post('/approveStep'"),
-    routeSource.indexOf("router.post('/rejectStep'")
+    routeSource.indexOf('async function resolveDirectStampAssignment')
   );
+  const directRoute = routeSource.slice(routeSource.indexOf("router.post('/directApproveSubmission'"),
+    routeSource.indexOf("router.post('/rejectStep'"));
+  const fileWriter = routeSource.slice(routeSource.indexOf('async function commitApprovalStepFiles'),
+    routeSource.indexOf("router.post('/approveStep'"));
   assert(approvalRoute.includes('getCurrentBySubmissionIdForUpdate(submissionId, conn)')
-    && approvalRoute.includes('resolveActorAssignmentForUpdate(actor, orgId, conn)')
+    && approvalRoute.includes('lockAndRefreshAuditActor(conn, actorContext)')
     && approvalRoute.includes('resolveApprovalMaterials({')
-    && approvalRoute.indexOf('resolveApprovalMaterials({') < approvalRoute.indexOf('updateStatus(stepId'),
+    && approvalRoute.indexOf('resolveApprovalMaterials({') < approvalRoute.indexOf('commitApprovalStepFiles(conn')
+    && fileWriter.includes('updateStatus(step.id'),
   '审批材料必须在步骤状态写入前完成锁定与校验');
-  assert(approvalRoute.includes('const filesToProcess = currentFiles;')
-    && approvalRoute.includes('prepareEvidence({') && approvalRoute.includes('requireAll: true'),
+  assert(directRoute.includes('directApprovalActor.resolve(req, conn, orgId)')
+    && directRoute.includes('getBySubmissionIdForUpdate(submissionId, conn)')
+    && directRoute.includes('resolveApprovalMaterials({')
+    && directRoute.indexOf('resolveApprovalMaterials({') < directRoute.indexOf('commitApprovalStepFiles(conn'),
+  '直接通过必须锁定当轮全部步骤并在写入前验证所有签章');
+  assert(fileWriter.includes('const filesToProcess = currentFiles;')
+    && fileWriter.includes('prepareEvidence({')
+    && approvalRoute.includes('requireAll: true') && directRoute.includes('requireAll: true'),
   '每一步必须从全部当前附件生成凭证，不能依赖本次新增图层');
 
   const stampModelSource = fs.readFileSync(

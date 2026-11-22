@@ -236,7 +236,7 @@ test('小程序真实页面方法完成选择、预览、保存和重新打开�
   await page.save();
   const preview = data.calls.find(item => item.name === 'previewAuthorizationRule').data;
   const saved = data.calls.find(item => item.name === 'saveAuthorizationRule').data;
-  assert.deepEqual(saved, preview);
+  assert.deepEqual(saved, { ...preview, identityModel: 'unified' });
   const reopen = pageHarness(data.api, { id: 'rule-a' }); await reopen.load();
   assert.equal(reopen.data.draft.name, '只查看本人借用');
   assert.deepEqual(reopen.data.draft.policy.subjects, [{ kind: 'assignments', ids: ['job-a'] }]);
@@ -327,7 +327,7 @@ test('委托编辑分别保存分配者和可授权岗位，重新打开仍保�
   const saved = data.calls.find(item => item.name === 'saveAuthorizationDelegation').data;
   assert.deepEqual(saved.subjects, [{ kind: 'adminGrants', ids: ['grant-a'] }]);
   assert.deepEqual(saved.envelope.subjects, [{ kind: 'assignments', ids: ['job-a'] }]);
-  assert.deepEqual(saved, data.calls.find(item => item.name === 'previewAuthorizationDelegation').data);
+  assert.deepEqual(saved, { ...data.calls.find(item => item.name === 'previewAuthorizationDelegation').data, identityModel: 'unified' });
   assert.equal(data.calls.some(item => item.name === 'saveAuthorizationRule'), false);
   const reopen = pageHarness(data.api, { kind: 'delegation', id: 'delegation-a' }); await reopen.load();
   assert.deepEqual(reopen.data.draft.audience, saved.subjects);
@@ -340,10 +340,24 @@ test('委托编辑分别保存分配者和可授权岗位，重新打开仍保�
   assert.deepEqual(reopen.data.draft.policy.subjects, saved.envelope.subjects);
 });
 
-test('非超级管理员不能通过直达委托编辑页配置分配权', async () => {
-  const data = fixture(); data.state.isSuper = false;
+test('没有转授资格的普通岗位不能通过直达编辑页配置分配权', async () => {
+  const data = fixture();
+  Object.assign(data.state, { unifiedIdentity: true, isSuper: false, canManage: true, canManageDelegations: false });
   const page = pageHarness(data.api, { kind: 'delegation' }); await page.load();
   assert.equal(page.data.ready, false); assert.ok(page.data.notice);
+});
+
+test('有转授资格的普通岗位只能使用明确允许转授的上一级资格', async () => {
+  const data = fixture();
+  const envelope = { subjects: [{ kind: 'assignments', ids: ['job-a'] }], capabilities: ['venue.bookings.read'], scopes: [{ kind: 'self' }], fields: null };
+  Object.assign(data.state, { unifiedIdentity: true, isSuper: false, canManage: true, canManageDelegations: true,
+    delegationOptions: [{ id: 'use-only', name: '分配资格', allowRedelegation: false, envelope },
+      { id: 'redelegate', name: '转授资格', allowRedelegation: true, envelope }] });
+  const page = pageHarness(data.api, { kind: 'delegation' }); await page.load();
+  assert.equal(page.data.ready, true);
+  assert.equal(page.data.formAvailable, true);
+  assert.equal(page.data.delegation.id, 'redelegate');
+  assert.deepEqual(Array.from(page.data.delegationOptions, option => option.id), ['', 'redelegate']);
 });
 
 test('只有查询资格时深链编辑不读取配置候选也不展示表单', async () => {
@@ -400,7 +414,7 @@ test('规则批量选择保留筛选外已选项，删除页逐条列出版本�
   await changes.load();
   assert.deepEqual(Array.from(changes.data.cards, item => item.name), ['规则甲', '规则乙']);
   assert.equal(saved, undefined); await changes.confirm();
-  assert.deepEqual(saved, previewed);
+  assert.deepEqual(saved, { ...previewed, identityModel: 'unified' });
   assert.deepEqual(saved.rules, [{ id: 'rule-a', version: 1 }, { id: 'rule-b', version: 2 }]);
 });
 
@@ -418,7 +432,7 @@ test('删除委托先显示具体分配人和范围，取消不写入，确认�
         roles: [{ role: 'admin', subjectId: 'grant-a', name: '管理员甲' }] } };
     }
     if (input.name === 'deleteAuthorizationDelegation') {
-      assert.deepEqual(JSON.parse(JSON.stringify(input.data)), deletionPreview); removed++;
+      assert.deepEqual(JSON.parse(JSON.stringify(input.data)), { ...deletionPreview, identityModel: 'unified' }); removed++;
       return { status: 'success' };
     }
     return data.api(input);

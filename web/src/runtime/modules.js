@@ -1,6 +1,9 @@
 import copy from '@/locales/zh-CN/index.js';
 import identityCardCopy from '@/locales/zh-CN/shared/identityCard.js';
 import calendarCopy from '@/locales/zh-CN/shared/calendar.js';
+import portalCopy from '@/locales/zh-CN/shared/portal.js';
+import authorizationCopy from '@/locales/zh-CN/shared/authorization.js';
+import { canOpenAuthorization, canOpenConfigurationCopy, domainAccess } from '@/shared/authorizationEntryView.js';
 
 export const MODULE_STATUS = Object.freeze({
   ready: 'ready',
@@ -122,6 +125,26 @@ export const ADMIN_CARDS = Object.freeze([
 
 export function cardsForRole(role) {
   return role === 'admin' ? ADMIN_CARDS : USER_CARDS;
+}
+
+export function cardsForContext(role, identityModel, access) {
+  if (identityModel !== 'unified') return cardsForRole(role);
+  const domains = USER_CARDS.filter(card => card.key !== 'verification')
+    .concat(ADMIN_CARDS.filter(card => card.key === 'system'));
+  const cards = domains.flatMap(card => {
+    const permissions = domainAccess(access, card.key);
+    if (!permissions.business && !permissions.management) return [];
+    const startInManagement = !permissions.business && permissions.management && card.key !== 'system';
+    const route = startInManagement ? { ...card.route, query: { area: 'management' } } : card.route;
+    if (card.key === 'venue') return [{ ...card, route, label: portalCopy.cards.venue,
+      searchAliases: [portalCopy.cards.venueBooking, portalCopy.cards.venueManage] }];
+    if (card.key === 'audit') return [{ ...card, route, searchAliases: [portalCopy.cards.auditVerification, copy.audit.verificationTitle] }];
+    return [{ ...card, route }];
+  });
+  if (canOpenAuthorization(access)) cards.push(ADMIN_CARDS.find(card => card.key === 'permissions'));
+  if (canOpenConfigurationCopy(access)) cards.push({ key: 'organizationCopy',
+    label: authorizationCopy.configurationCopy.title, iconName: 'file', status: READY, route: { name: 'organizationCopy' } });
+  return cards;
 }
 
 export function shellTabsForRole(role) {

@@ -1,8 +1,8 @@
 const pool = require('../../../config/db');
 
 // 活动规则已解绑组织 — 只与场地关联
-async function getByVenueId(venueId) {
-  const [rows] = await pool.query(
+async function getByVenueId(venueId, connection = pool) {
+  const [rows] = await connection.query(
     'SELECT * FROM venue_activity_rules WHERE venue_id = ? ORDER BY cycle_type, time_start',
     [venueId]
   );

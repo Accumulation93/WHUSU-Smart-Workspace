@@ -48,7 +48,7 @@ const originalScope = scope(); let disposed = false, generation = 0;
 const current = () => !disposed && !document.hidden && originalScope === scope();
 async function load() {
   const request = ++generation; loading.value = true; notice.value = '';
-  try { const result = requireSuccess(await callApi('listAdmins', {})); if (!current() || request !== generation) return;
+  try { const result = requireSuccess(await callApi('listAdmins', session.identityModel === 'unified' ? { identityModel: 'unified' } : {})); if (!current() || request !== generation) return;
     const roleNames = { admin: homeCopy.text.admin, super_admin: homeCopy.text.superAdmin };
     const states = { verified: accountCopy.hrAccountActive, frozen: accountCopy.hrAccountFrozen,
       recovery_required: accountCopy.hrAccountRecoveryRequired, pending_verification: accountCopy.hrAccountPendingVerification };

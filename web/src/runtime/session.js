@@ -1,5 +1,6 @@
 import { computed, reactive } from 'vue';
 import copy from '@/locales/zh-CN/index.js';
+import portalCopy from '@/locales/zh-CN/shared/portal.js';
 import { callApi, errorText, requireSuccess, setAuthenticationLostHandler } from './api.js';
 import { resetSystemTimezoneConfig } from './dateTime.js';
 import { signingDrafts, resetSigningDrafts } from './signingDrafts.js';
@@ -21,6 +22,8 @@ export const session = reactive({
   user: null,
   activeRole: '',
   activeOrg: { id: '', name: '' },
+  identityModel: 'legacy',
+  needsContextSelection: false,
   notice: ''
 });
 
@@ -41,6 +44,8 @@ function applyPayload(payload) {
   signingDrafts.bind(JSON.stringify([data.user && (data.user.id || data.user.personId),
     data.context && data.context.organizationId, data.context && data.context.contextId]));
   session.context = data.context || null;
+  session.identityModel = data.identityModel === 'unified' ? 'unified' : 'legacy';
+  session.needsContextSelection = session.identityModel === 'unified' && data.needsContextSelection === true;
   session.contexts = Array.isArray(data.contexts) ? data.contexts : [];
   session.workContexts = Array.isArray(data.workContexts) ? data.workContexts : [];
   session.organizations = Array.isArray(data.organizations) ? data.organizations : [];
@@ -69,6 +74,8 @@ export function clearSession(notice) {
   session.organizations = [];
   session.user = null;
   session.activeRole = '';
+  session.identityModel = 'legacy';
+  session.needsContextSelection = false;
   session.activeOrg = { id: '', name: '' };
   session.notice = notice || '';
   resetSystemTimezoneConfig();
@@ -77,7 +84,7 @@ export function clearSession(notice) {
 /** 页面刷新或首次进入时确认登录状态；网络异常不冒充已登录，也不谎称未登录。 */
 async function loadSession() {
   try {
-    const result = await callApi('auth/contexts', {}, { skipAuthRedirect: true });
+    const result = await callApi('auth/contexts', { identityModel: 'unified' }, { skipAuthRedirect: true });
     requireSuccess(result);
     applyPayload(result);
     return 'authenticated';
@@ -104,14 +111,14 @@ export function reloadSession() {
 }
 
 export async function activateContext(contextId) {
-  const result = await callApi('auth/contexts/activate', { contextId });
+  const result = await callApi('auth/contexts/activate', { contextId, identityModel: 'unified' });
   requireSuccess(result);
   applyPayload(result);
   return result;
 }
 
 export async function activateSelection(organizationId, identityId) {
-  const result = await callApi('auth/contexts/activate', { organizationId, identityId });
+  const result = await callApi('auth/contexts/activate', { organizationId, identityId, identityModel: 'unified' });
   requireSuccess(result);
   applyPayload(result);
   return result;
@@ -128,6 +135,8 @@ export async function logout() {
 
 export function roleLabelOf(context) {
   if (!context) return copy.portal.workContext.signedOut;
+  if (context.accountType === 'super_admin') return portalCopy.workContext.superAdmin;
+  if (context.accountType === 'user') return context.assignmentLabel || context.identityName || portalCopy.workContext.user;
   if (context.role === 'admin') {
     return context.adminLevel === 'super_admin'
       ? copy.portal.workContext.superAdmin

@@ -1785,7 +1785,7 @@ module.exports = Behavior({
           detailHrAuditStatusText: '',
           loadingDetailHr: false
         });
-        if (this.data.canGlobalAccountManage && governance.personId && !isFormer) {
+        if (!isFormer && this.canLoadHrAccountSecurity(governance)) {
           this.loadDetailHrSecurity(governance.personId, detailRequestId);
         } else {
           this.setData({ detailHrSecurity: null });
@@ -1816,9 +1816,7 @@ module.exports = Behavior({
         detailHrSecurity: null,
         loadingDetailHr: true
       });
-      if (this.data.canGlobalAccountManage
-        && governance && governance.personId
-        && governance.membershipStatus !== 'left') {
+      if (governance && governance.membershipStatus !== 'left' && this.canLoadHrAccountSecurity(governance)) {
         this.loadDetailHrSecurity(governance.personId, detailRequestId);
       }
       try {
@@ -3351,7 +3349,7 @@ module.exports = Behavior({
     },
 
     async unbindHrWechat(e) {
-      if (!this.data.canGlobalAccountManage) return;
+      if (!this.canOperateHrAccount('unbindWechat')) return;
       const hrId = String(e.currentTarget.dataset.hrId || '');
       if (!hrId) return;
       const row = this.getHrGovernanceRow(hrId);
