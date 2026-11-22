@@ -127,6 +127,15 @@ test('permission groups select an entire task and keep unrelated selections when
     ['venue.bookings.approve', 'approve'], ['venue.bookings.delete', 'delete']
   ].map(([key, action]) => ({ ...capability, key, action, resourceType: key.slice(0, key.lastIndexOf('.')), classification: 'general' }));
   await page.goto('/web/admin/authorization/edit?kind=scheme');
+  const search = page.getByLabel(ui.unified.permissionSearchPlaceholder);
+  await expect(search).toBeVisible();
+  const searchBox = await search.boundingBox();
+  const searchIcon = await page.locator('.search-bar .ui-icon').boundingBox();
+  expect(searchIcon.x + searchIcon.width).toBeLessThan(searchBox.x);
+  expect(Math.abs(searchIcon.y + searchIcon.height / 2 - searchBox.y - searchBox.height / 2)).toBeLessThan(2);
+  const allFilter = await page.getByRole('button', { name: ui.unified.permissionFilterAll, exact: true }).boundingBox();
+  const selectedFilter = await page.getByRole('button', { name: ui.unified.permissionFilterSelected, exact: true }).boundingBox();
+  expect(Math.abs(allFilter.y - selectedFilter.y)).toBeLessThan(2);
   const module = page.locator('.authorization-picker-module').filter({ hasText: ui.businessGroups.venue });
   await expect(module.locator('.authorization-picker-group')).toHaveCount(0);
   await module.locator('.authorization-disclosure').click();

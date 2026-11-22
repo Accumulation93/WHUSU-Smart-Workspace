@@ -363,8 +363,6 @@ onBeforeUnmount(() => { disposed = true; clear(); document.removeEventListener('
 <style scoped>
 .authorization-page { max-width: var(--ui-permission-page-width); }
 .effective-summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--ui-inline-gap); }
-.search-bar { display: flex; align-items: center; gap: var(--ui-inline-gap); padding: var(--ui-control-padding-y) var(--ui-control-padding-x); border: var(--ui-field-border); border-radius: var(--ui-field-radius); background: var(--ui-field-bg); }
-.search-input { display: block; min-width: 0; flex: 1; border: 0; background: transparent; color: var(--ui-text); font: inherit; }
 .button-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-inline-gap); }
 details > summary { cursor: pointer; }
 details[open] > summary { margin-bottom: var(--ui-list-gap); }

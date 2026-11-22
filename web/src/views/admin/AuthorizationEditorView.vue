@@ -87,14 +87,14 @@
             <section v-if="controlledCapabilities.length && !draft.schemeId" class="stack-tight"><h3 class="field-label">{{ ui.systemControlledTitle }}</h3><p class="muted">{{ ui.systemControlledHelp }}</p><span v-for="item in controlledCapabilities" :key="item.key">{{ capabilityText(item.key) }}</span></section>
             <label class="search-bar"><UiIcon name="search" tone="muted" size-role="row-leading" /><input v-model="operationQuery" type="search" class="search-input" :placeholder="ui.unified.permissionSearchPlaceholder" :aria-label="ui.unified.permissionSearchPlaceholder" /></label>
             <div class="authorization-picker-tools">
-              <div v-if="!draft.schemeId" class="row row-wrap">
+              <div v-if="!draft.schemeId" class="authorization-picker-filters">
                 <button v-for="filter in permissionFilters" :key="filter.selected" type="button" class="btn btn-secondary btn-small" :class="{ selected: selectedOnly === filter.selected }" :aria-pressed="selectedOnly === filter.selected" @click="selectPermissionFilter(filter.selected)">{{ filter.label }}</button>
               </div>
               <span class="chip chip-blue" aria-live="polite">{{ ui.selectedOperations(draft.policy.capabilities.length) }}</span>
             </div>
             <p v-if="!draft.schemeId && operationQuery.trim()" class="muted">{{ ui.unified.permissionSearchBulkHelp }}</p>
             <p v-else-if="!draft.schemeId && selectedOnly" class="muted">{{ ui.unified.permissionSelectedOnlyHelp }}</p>
-            <p v-if="!capabilityModules.length" class="empty-state">{{ selectedOnly && !operationQuery.trim() ? ui.unified.permissionNoSelected : ui.unified.permissionNoSearchResults }}</p>
+              <p v-if="!capabilityModules.length" class="empty-state">{{ operationQuery.trim() ? ui.unified.permissionNoSearchResults : selectedOnly ? ui.unified.permissionNoSelected : ui.noConfiguredPermissions }}</p>
             <section v-for="module in capabilityModules" :key="module.key" class="glass-panel authorization-picker-module">
               <div class="authorization-picker-head">
                 <button type="button" class="authorization-disclosure" :aria-expanded="permissionOpen(module)" @click="togglePermissionModule(module)">
