@@ -5,10 +5,12 @@ const { callFunction, getErrorText, showShortToast, createResultError, createLoc
 const orgSession = require('../../../../utils/orgSession');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const { formatListTime } = require('../../../../utils/dateTime');
+const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 
 Page({
   data: { ui, navTopPx: 0, heroTone: 'blue', loading: true, busy: false, notice: '', deleting: false, ready: false,
-    targetName: '', impactText: '', cards: [], labels: [], versions: [], restoreVersion: 0, previewOnly: false, deletingDelegation: false, unified: false },
+    targetName: '', impactText: '', cards: [], labels: [], versions: [], restoreVersion: 0, previewOnly: false, deletingDelegation: false, unified: false,
+    schemeBlocked: false, blockedOperations: [], canEditScheme: false },
   onLoad: function(options) { this._options = options; this.setData({ deleting: ['delete', 'deleteDelegation'].includes(options.kind), deletingDelegation: options.kind === 'deleteDelegation', navTopPx: getNavigationBarMetrics().totalHeight }); },
   onShow: function() { this._active = true; orgSession.consume(this); this.setData({ heroTone: orgSession.getSnapshot().role === 'admin' ? 'admin' : 'blue' }); this.load(); },
   onResize: function() { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight }); },
@@ -16,16 +18,25 @@ Page({
   onUnload: function() { this.clear(); },
   clear: function() {
     this._active = false; orgSession.invalidateRequests(this); this._state = null; this._directory = null; this._payload = null;
-    this.setData({ ready: false, cards: [], labels: [], versions: [], busy: false });
+    this._schemePayload = null;
+    this.setData({ ready: false, cards: [], labels: [], versions: [], busy: false,
+      schemeBlocked: false, blockedOperations: [], canEditScheme: false });
   },
   call: async function(name, data) {
     const result = await callFunction({ name, data });
-    if (result.status !== 'success') throw createResultError(result, ui.operationFailed);
+    if (result.status !== 'success') {
+      const error = createResultError(result, ui.operationFailed);
+      error.data = result;
+      throw error;
+    }
     return result;
   },
   load: async function() {
     const request = orgSession.beginRequest(this, 'authorizationChanges');
-    this.setData({ loading: true, ready: false, notice: '', restoreVersion: 0 });
+    this._payload = null;
+    this._schemePayload = null;
+    this.setData({ loading: true, ready: false, notice: '', targetName: '', restoreVersion: 0, versions: [],
+      schemeBlocked: false, blockedOperations: [], canEditScheme: false });
     try {
       const results = await Promise.all([this.call('getAuthorizationManagement', {}), this.call('getAuthorizationCandidates', {})]);
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
@@ -53,21 +64,44 @@ Page({
       } else {
         const scheme = this._state.schemes.find(item => item.id === this._options.id);
         if (!scheme) throw createLocalError(ui.conflict);
-        this._payload = { id: scheme.id, version: scheme.version, expectedRevision: this._state.revision };
-        const values = await Promise.all([this.call('previewAuthorizationScheme', this._payload), this.call('getAuthorizationSchemeVersions', { id: scheme.id })]);
+        this._schemePayload = { id: scheme.id, version: scheme.version, expectedRevision: this._state.revision };
+        this.setData({ targetName: scheme.name, canEditScheme: scheme.canEdit !== false });
+        const [preview, history] = await Promise.all([
+          this.call('previewAuthorizationScheme', this._schemePayload).then(value => ({ value }), failure => ({ failure })),
+          this.call('getAuthorizationSchemeVersions', { id: scheme.id })
+        ]);
         if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
-        result = values[0];
-        this.setData({ targetName: scheme.name, versions: values[1].versions.map(item => ({
-          version: item.version, title: ui.schemeVersion(item.version), publishedAtText: formatListTime(item.publishedAt), labels: this.labels(item.capabilities) })) });
+        this.setData({ versions: history.versions.map(item => ({
+          version: item.version, title: ui.schemeVersion(item.version), publishedAtText: formatListTime(item.publishedAt),
+          labels: this.labels(item.capabilities), blocked: !!(item.blockedCapabilityKeys && item.blockedCapabilityKeys.length) })) });
+        if (preview.failure) throw preview.failure;
+        this._payload = this._schemePayload;
+        result = preview.value;
       }
       this.present(result);
     } catch (error) {
-      if (this._active && orgSession.isRequestCurrent(this, request)) { this._payload = null; this.setData({ ready: false, notice: getErrorText(error, ui.operationFailed) }); }
+      if (this._active && orgSession.isRequestCurrent(this, request) && !this.showSchemeRestriction(error, 0)) {
+        this._payload = null;
+        this.setData({ ready: false, notice: getErrorText(error, ui.operationFailed) });
+      }
     } finally {
       if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
   },
   labels: function(values) { return (values || []).map(key => presentation.capabilityLabel(key, this._state.catalog, ui)); },
+  showSchemeRestriction: function(error, version) {
+    if (this.data.deleting || error.code !== 'authorization_special_capabilities') return false;
+    const keys = error.data && error.data.blockedCapabilityKeys || [];
+    this._payload = null;
+    this.setData({ ready: false, schemeBlocked: true, restoreVersion: version,
+      blockedOperations: keys.map(key => ({ key, label: presentation.capabilityLabel(key, this._state.catalog, ui) })),
+      notice: version ? ui.unified.schemeRestoreBlocked : ui.unified.schemePublishBlocked });
+    return true;
+  },
+  editBlockedScheme: function() {
+    if (this.data.busy || !this.data.schemeBlocked || !this.data.canEditScheme || !this._schemePayload) return;
+    navigateToTrustedRoute('/subpackages/org/pages/authorizationEditor/authorizationEditor?kind=scheme&id=' + encodeURIComponent(this._schemePayload.id));
+  },
   present: function(result) {
     const cards = result.rules.map(rule => {
       const before = this.data.deleting ? rule.impact.before : rule.before;
@@ -78,21 +112,25 @@ Page({
         after: after ? presentation.policySections(after, this._directory, this._state.catalog, ui) : null,
         roles: roles.map(item => ({ key: item.role + ':' + item.subjectId, name: item.name, assignmentLabel: item.role === 'admin' ? ui.adminGrants : presentation.assignmentLabel(item) })) };
     });
-    this.setData({ ready: true, unified: this._state.unifiedIdentity === true, previewOnly: this._state.mode === 'shadow', impactText: ui.impactCount(result.peopleCount, result.roleCount), cards, labels: this.labels(result.capabilities) });
+    this.setData({ ready: true, schemeBlocked: false, blockedOperations: [], unified: this._state.unifiedIdentity === true, previewOnly: this._state.mode === 'shadow', impactText: ui.impactCount(result.peopleCount, result.roleCount), cards, labels: this.labels(result.capabilities) });
   },
   previewVersion: async function(event) {
-    if (this.data.busy || !this._payload) return;
+    if (this.data.busy || !this._schemePayload) return;
     const version = Number(event.currentTarget.dataset.version);
-    if (!this.data.versions.some(item => item.version === version)) return;
+    if (!this.data.versions.some(item => item.version === version && !item.blocked)) return;
     const request = orgSession.beginRequest(this, 'authorizationChangeWrite');
-    const payload = Object.assign({}, this._payload, { restoreVersion: version });
+    const payload = Object.assign({}, this._schemePayload, { restoreVersion: version });
     this.setData({ busy: true, notice: '' });
     try {
       const result = await this.call('previewAuthorizationScheme', payload);
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
       this._payload = payload; this.present(result); this.setData({ restoreVersion: version });
       wx.pageScrollTo({ scrollTop: 0, duration: 0 });
-    } catch (error) { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ notice: getErrorText(error, ui.operationFailed) }); }
+    } catch (error) {
+      if (this._active && orgSession.isRequestCurrent(this, request) && !this.showSchemeRestriction(error, version)) {
+        this.setData({ notice: getErrorText(error, ui.operationFailed) });
+      }
+    }
     finally { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ busy: false }); }
   },
   confirm: async function() {
@@ -105,7 +143,10 @@ Page({
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
       showShortToast(this.data.deleting ? ui.removedSuccess : ui.publishedSuccess); wx.navigateBack();
     } catch (error) {
-      if (this._active && orgSession.isRequestCurrent(this, request)) { this._payload = null; this.setData({ ready: false, notice: getErrorText(error, ui.operationFailed) }); }
+      if (this._active && orgSession.isRequestCurrent(this, request) && !this.showSchemeRestriction(error, this.data.restoreVersion)) {
+        this._payload = null;
+        this.setData({ ready: false, notice: getErrorText(error, ui.operationFailed) });
+      }
     } finally { if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ busy: false }); }
   },
   cancel: function() { if (!this.data.busy) wx.navigateBack(); }

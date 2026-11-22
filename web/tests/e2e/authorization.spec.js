@@ -667,6 +667,45 @@ test('scheme publication and restoration require an impact preview and append a 
   await expect(page.getByText(ui.schemeVersion(2), { exact: true })).toBeVisible();
 });
 
+test('superadmin can remove special draft permissions while legacy versions stay visible', async ({ page }) => {
+  const { state } = await setup(page);
+  const special = 'auth.persons.delete';
+  const general = { ...capability, classification: 'general' };
+  state.unifiedIdentity = true;
+  state.catalog = [general, { key: special, resourceType: 'auth.persons', action: 'delete', classification: 'special', scopes: ['organization'], fields: [] }];
+  const scheme = {
+    id: 'restricted-role', name: 'Legacy role', version: 2, publishedVersion: 1, canEdit: true, canPublish: false,
+    draftRestrictedCapabilities: [special], capabilities: [general.key, special], publishedCapabilities: [general.key, special]
+  };
+  state.schemes = [scheme];
+  let saved;
+  await page.route('**/api/getAuthorizationSchemeVersions', route => route.fulfill({ json: {
+    status: 'success', versions: [{ version: 1, capabilities: [general.key, special], blockedCapabilityKeys: [special], publishedAt: '2026-10-31T00:00:00.000Z' }]
+  } }));
+  await page.route('**/api/saveAuthorizationScheme', route => {
+    saved = route.request().postDataJSON();
+    Object.assign(scheme, { version: 3, capabilities: saved.capabilities, canPublish: true, draftRestrictedCapabilities: [] });
+    return route.fulfill({ json: { status: 'success' } });
+  });
+  await page.goto('/web/admin/authorization?tab=schemes');
+  await page.locator('.authorization-scheme > summary').click();
+  await expect(page.getByText(ui.unified.schemeBlockedStatus, { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: ui.publish, exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: ui.versionHistory, exact: true }).click();
+  await expect(page.getByText(ui.unified.schemePublishBlocked, { exact: true })).toBeVisible();
+  await expect(page.getByText(ui.unified.schemeRestoreBlocked, { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: ui.previewRestore, exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: ui.editSchemeTitle, exact: true }).click();
+  await expect(page.getByText(ui.unified.schemeBlockedCapabilitiesTitle, { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: ui.unified.removeSchemeBlockedCapabilities, exact: true }).click();
+  expect(saved).toBeUndefined();
+  await page.getByRole('button', { name: ui.saveDraft, exact: true }).click();
+  await expect(page).toHaveURL(/tab=schemes$/);
+  expect(saved.capabilities).toEqual([general.key]);
+  await page.locator('.authorization-scheme > summary').click();
+  await expect(page.getByRole('button', { name: ui.publish, exact: true })).toBeVisible();
+});
+
 test('deleting a prohibition names the rule and shows the permission expansion warning before saving', async ({ page }) => {
   const { state } = await setup(page);
   const policy = { effect: 'deny', enabled: true, subjects: [{ kind: 'assignments', ids: ['job-a'] }], capabilities: [capability.key], scopes: [{ kind: 'organization' }], fields: null };

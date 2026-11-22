@@ -2,7 +2,12 @@
   <div class="page stack authorization-changes authorization-workspace">
     <WorkspaceHero :tone="session.activeRole === 'admin' ? 'admin' : 'blue'" :page-name="ui.previewChanges" :person-name="personName" :identity-name="roleName" :organization-name="organizationName" @switch="switchRole" />
     <AppLoading v-if="loading" :text="ui.loading" />
-    <section v-if="notice" class="card stack" role="alert"><p>{{ notice }}</p><button type="button" class="btn btn-secondary" :disabled="busy" @click="load">{{ ui.refresh }}</button></section>
+    <section v-if="notice" class="card stack" role="alert">
+      <p>{{ notice }}</p>
+      <div v-if="blockedDraft.length" class="row row-wrap"><span v-for="key in blockedDraft" :key="key" class="chip chip-orange">{{ capabilityText(key) }}</span></div>
+      <button v-if="blockedDraft.length" type="button" class="btn btn-secondary" :disabled="busy" @click="editScheme">{{ ui.editSchemeTitle }}</button>
+      <button v-else type="button" class="btn btn-secondary" :disabled="busy" @click="load">{{ ui.refresh }}</button>
+    </section>
     <template v-if="result">
       <p v-if="state.mode === 'shadow'" class="notice-line">{{ ui.previewOnly }}</p>
       <section class="card stack">
@@ -20,21 +25,22 @@
           <strong>{{ person.name }}</strong><span class="muted">{{ person.role === 'admin' ? ui.adminGrants : presentation.assignmentLabel(person) }}</span>
         </div>
       </article>
+    </template>
       <section v-if="!deleting && versions.length" class="card stack">
         <h2 class="section-title">{{ ui.versionHistory }}</h2>
         <article v-for="version in versions" :key="version.version" class="glass-panel stack">
           <div class="panel-head"><strong>{{ ui.schemeVersion(version.version) }}</strong><span class="muted">{{ formatListTime(version.publishedAt) }}</span></div>
           <div class="row row-wrap"><span v-for="key in version.capabilities" :key="key" class="chip chip-sky">{{ capabilityText(key) }}</span></div>
-          <button type="button" class="btn btn-secondary" :disabled="busy || restoreVersion === version.version" @click="previewVersion(version.version)">{{ ui.previewRestore }}</button>
+          <p v-if="version.blockedCapabilityKeys?.length" class="muted">{{ ui.unified.schemeRestoreBlocked }}</p>
+          <button v-else type="button" class="btn btn-secondary" :disabled="busy || restoreVersion === version.version" @click="previewVersion(version.version)">{{ ui.previewRestore }}</button>
         </article>
       </section>
-      <div class="button-row">
+      <div v-if="result" class="button-row">
         <button type="button" class="btn btn-secondary" :disabled="busy" @click="leave">{{ ui.cancel }}</button>
         <button type="button" class="btn" :class="deleting ? 'btn-danger' : 'btn-primary'" :disabled="busy" @click="confirm">
           <AppLoading v-if="busy" :text="deleting ? ui.saving : ui.publishing" /><template v-else>{{ deletingDelegation ? ui.revokeDelegation : deleting ? ui.remove : restoreVersion ? ui.confirmRestore : ui.confirmPublish }}</template>
         </button>
       </div>
-    </template>
   </div>
 </template>
 <script setup>
@@ -59,6 +65,7 @@ const busy = ref(false);
 const result = ref(null);
 const notice = ref('');
 const versions = ref([]);
+const blockedDraft = ref([]);
 const restoreVersion = ref(0);
 const targetName = ref('');
 const deletingDelegation = computed(() => route.query.kind === 'deleteDelegation');
@@ -73,7 +80,7 @@ const ruleChanges = computed(() => (result.value?.rules || []).map(rule => delet
   ? { id: rule.id, name: rule.name, before: rule.impact.before, after: null, roles: rule.impact.roles }
   : { ...rule, roles: result.value.roles.filter(person => person.ruleIds.includes(rule.id)) }));
 function capabilityText(key) { return presentation.capabilityLabel(key, state.value.catalog, ui); }
-function clear() { generation++; result.value = null; versions.value = []; payload = null; directory.value = { assignments: [], adminGrants: [] }; state.value = { catalog: [], mode: '' }; notice.value = ''; }
+function clear() { generation++; result.value = null; versions.value = []; blockedDraft.value = []; payload = null; directory.value = { assignments: [], adminGrants: [] }; state.value = { catalog: [], mode: '' }; notice.value = ''; }
 async function load() {
   clear();
   if (disposed || document.hidden || session.status !== 'authenticated') { loading.value = false; return; }
@@ -108,11 +115,23 @@ async function load() {
       if (!scheme) throw createLocalError(ui.conflict);
       targetName.value = scheme.name;
       payload = { id: scheme.id, version: scheme.version, expectedRevision: state.value.revision };
+      if (scheme.draftRestrictedCapabilities?.length) {
+        const history = await callApi('getAuthorizationSchemeVersions', { id: scheme.id });
+        if (request !== generation) return;
+        requireSuccess(history);
+        versions.value = history.versions;
+        blockedDraft.value = scheme.draftRestrictedCapabilities;
+        notice.value = ui.unified.schemePublishBlocked;
+        return;
+      }
       const responses = await Promise.all([callApi('previewAuthorizationScheme', payload), callApi('getAuthorizationSchemeVersions', { id: scheme.id })]);
       if (request !== generation) return;
       responses.forEach(requireSuccess); result.value = responses[0]; versions.value = responses[1].versions;
     }
-  } catch (error) { if (request === generation) { payload = null; result.value = null; notice.value = errorText(error, ui.operationFailed); } }
+  } catch (error) { if (request === generation) {
+    payload = null; result.value = null;
+    notice.value = error.code === 'authorization_special_capabilities' ? ui.unified.schemePublishBlocked : errorText(error, ui.operationFailed);
+  } }
   finally { if (request === generation) loading.value = false; }
 }
 async function previewVersion(version) {
@@ -122,8 +141,10 @@ async function previewVersion(version) {
   try {
     const response = await callApi('previewAuthorizationScheme', next);
     if (request !== generation) return;
-    requireSuccess(response); payload = next; result.value = response; restoreVersion.value = version; window.scrollTo({ top: 0 });
-  } catch (error) { if (request === generation) notice.value = errorText(error, ui.operationFailed); }
+    requireSuccess(response); payload = next; result.value = response; blockedDraft.value = []; restoreVersion.value = version; window.scrollTo({ top: 0 });
+  } catch (error) { if (request === generation) {
+    notice.value = error.code === 'authorization_special_capabilities' ? ui.unified.schemeRestoreBlocked : errorText(error, ui.operationFailed);
+  } }
   finally { if (request === generation) busy.value = false; }
 }
 async function confirm() {
@@ -138,6 +159,7 @@ async function confirm() {
   finally { if (request === generation) busy.value = false; }
 }
 function leave() { if (!busy.value) router.push({ name: 'authorization' }); }
+function editScheme() { if (!busy.value) router.push({ name: 'authorizationEditor', query: { kind: 'scheme', id: route.query.id } }); }
 function switchRole() { if (!busy.value) router.push({ name: 'workRole' }); }
 function visibilityChanged() { if (document.hidden) { clear(); busy.value = false; } else load(); }
 onBeforeRouteLeave(() => !busy.value || session.status !== 'authenticated');

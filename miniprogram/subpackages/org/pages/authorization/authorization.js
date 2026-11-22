@@ -91,7 +91,8 @@ Page({
       cards: presentation.ruleCards(this._state.rules, this._directory, this._state.catalog, ui, keyword).map(item => Object.assign({}, item, { summaryLabels: item.capabilityLabels.slice(0, 3), capabilityCountText: ui.effectiveCount(item.capabilityLabels.length) })),
       schemes: this._state.schemes.filter(item => item.name.toLowerCase().includes(keyword)).map(item => Object.assign({}, item, {
         versionText: item.publishedVersion ? ui.schemeVersion(item.publishedVersion) : ui.draft,
-        countText: ui.effectiveCount((item.publishedVersion ? item.publishedCapabilities : item.capabilities).length) })) });
+        countText: ui.effectiveCount((item.publishedVersion ? item.publishedCapabilities : item.capabilities).length),
+        draftRestrictedLabels: (item.draftRestrictedCapabilities || []).map(key => ({ key, label: presentation.capabilityLabel(key, this._state.catalog, ui) })) })) });
   },
   search: function(event) { this.setData({ keyword: event.detail.value }); this.refreshCards(); this.refreshEffectiveGroups(); },
   refreshEffectiveGroups: function() {

@@ -81,6 +81,12 @@
         <section class="card stack">
           <h2 class="section-title">{{ !advanced ? ui.stepIdentity : kind === 'scheme' ? ui.schemeCapabilitiesTitle : kind === 'delegation' ? ui.delegationCapabilities : draft.policy.effect === 'deny' ? ui.denyCapabilitiesTitle : ui.allowCapabilitiesTitle }}</h2>
           <p class="muted">{{ kind === 'scheme' ? ui.unified.schemePickHelp : kind === 'delegation' ? ui.unified.delegationPickHelp : draft.schemeId ? ui.unified.publishedRoleReadOnlyHelp : draft.policy.effect === 'deny' ? ui.unified.customDenyPickHelp : advanced ? ui.unified.customAllowPickHelp : ui.unified.landingRuleHelp }}</p>
+          <div v-if="blockedSchemeCapabilities.length" class="glass-panel stack-tight">
+            <strong>{{ ui.unified.schemeBlockedCapabilitiesTitle }}</strong>
+            <p class="muted">{{ ui.unified.schemeBlockedCapabilitiesHelp }}</p>
+            <div class="row row-wrap"><span v-for="key in blockedSchemeCapabilities" :key="key" class="chip chip-orange">{{ capabilityText(key) }}</span></div>
+            <button type="button" class="btn btn-secondary btn-small" :disabled="busy" @click="removeBlockedSchemeCapabilities">{{ ui.unified.removeSchemeBlockedCapabilities }}</button>
+          </div>
           <label v-if="kind === 'rule'" class="field"><span class="field-label">{{ ui.useScheme }}</span><select :value="draft.schemeId" class="field-input" :disabled="busy" @change="selectScheme"><option value="">{{ advanced ? ui.selectOperations : ui.identityPlaceholder }}</option><option v-for="scheme in availableSchemes" :key="scheme.id" :value="scheme.id">{{ scheme.name }}</option></select></label>
           <div v-if="kind === 'rule' && !availableSchemes.length" class="stack-tight"><p class="muted">{{ delegation ? ui.emptyAssignableSchemes : ui.noSchemes }}</p><button type="button" class="btn btn-secondary" :disabled="busy" @click="router.push({ name: 'authorization', query: { tab: 'schemes' } })">{{ ui.identitySettingsEntry }}</button></div>
           <template v-if="advanced || draft.schemeId">
@@ -190,6 +196,13 @@ const directory = ref({ assignments: [], adminGrants: [] });
 const draft = ref(editor.createDraft());
 const advanced = ref(false);
 const unified = computed(() => state.value.unifiedIdentity === true);
+const blockedSchemeCapabilities = computed(() => kind.value === 'scheme' && unified.value
+  ? draft.value.policy.capabilities.filter(key => state.value.catalog.some(item => item.key === key && item.classification === 'special')) : []);
+function removeBlockedSchemeCapabilities() {
+  if (busy.value) return;
+  draft.value.policy.capabilities = draft.value.policy.capabilities.filter(key => !blockedSchemeCapabilities.value.includes(key));
+  notice.value = draft.value.policy.capabilities.length ? '' : ui.unified.schemeNeedsGeneralCapability;
+}
 const assignmentMode = ref('fixed');
 const selectedPostCount = computed(() => new Set(draft.value.policy.subjects
   .filter(item => item.kind === 'assignments').flatMap(item => item.ids)).size);
@@ -380,7 +393,9 @@ async function review() {
   const request = generation; busy.value = true; notice.value = '';
   try {
     if (kind.value === 'scheme') {
-      if (!draft.value.name.trim() || !draft.value.policy.capabilities.length) throw createLocalError(ui.invalidPolicy);
+      if (!draft.value.name.trim()) throw createLocalError(ui.invalidPolicy);
+      if (blockedSchemeCapabilities.value.length) throw createLocalError(ui.unified.schemePublishBlocked);
+      if (!draft.value.policy.capabilities.length) throw createLocalError(ui.unified.schemeNeedsGeneralCapability);
       const result = await callApi('saveAuthorizationScheme', { identityModel: 'unified', id: draft.value.id, version: draft.value.version, delegationId: selectedDelegation.value || undefined,
         name: draft.value.name.trim(), capabilities: draft.value.policy.capabilities });
       if (request !== generation) return;

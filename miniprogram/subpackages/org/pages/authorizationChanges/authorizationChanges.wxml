@@ -3,7 +3,13 @@
 <view class="permission-page" style="min-height: calc(100vh - {{navTopPx}}px)">
   <workspace-hero class="workspace-hero-host" app-name="{{ui.appName}}" page-name="{{ui.previewChanges}}" tone="{{heroTone}}" />
   <app-loading wx:if="{{loading}}" text="{{ui.loading}}" />
-  <view wx:if="{{notice}}" class="permission-card authorization-toolbar"><view>{{notice}}</view><button class="secondary-btn ui-motion-button" disabled="{{busy}}" bindtap="load" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.refresh}}</button></view>
+  <view wx:if="{{schemeBlocked}}" class="permission-card authorization-toolbar">
+    <view class="permission-section-title">{{targetName}}</view>
+    <view role="alert">{{notice}}</view>
+    <view wx:if="{{blockedOperations.length}}" class="authorization-chips"><text wx:for="{{blockedOperations}}" wx:key="key" class="authorization-status authorization-status-warning">{{item.label}}</text></view>
+    <button wx:if="{{canEditScheme}}" class="secondary-btn ui-motion-button authorization-compact" disabled="{{busy}}" bindtap="editBlockedScheme" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.editSchemeTitle}}</button>
+  </view>
+  <view wx:elif="{{notice}}" class="permission-card authorization-toolbar"><view>{{notice}}</view><button class="secondary-btn ui-motion-button" disabled="{{busy}}" bindtap="load" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.refresh}}</button></view>
   <block wx:if="{{ready}}">
     <view wx:if="{{previewOnly}}" class="permission-empty">{{ui.previewOnly}}</view>
     <view class="permission-card"><view class="permission-section-title">{{targetName}}</view><view class="authorization-label">{{impactText}}</view><view class="permission-admin-meta">{{deletingDelegation ? (unified ? ui.unified.revokeDelegationCascadeNotice : ui.deleteDelegationNotice) : deleting ? ui.deleteRuleNotice : ui.publishSchemeNotice}}</view><view class="authorization-chips"><text wx:for="{{labels}}" wx:key="*this" class="authorization-chip">{{item}}</text></view></view>
@@ -16,12 +22,17 @@
       </view>
       <view wx:for="{{item.roles}}" wx:for-item="person" wx:key="key" class="authorization-details"><view>{{person.name}}</view><view class="permission-admin-meta">{{person.assignmentLabel}}</view></view>
     </view>
-    <view wx:if="{{!deleting && versions.length}}" class="permission-card">
-      <view class="permission-section-title">{{ui.versionHistory}}</view>
-      <view wx:for="{{versions}}" wx:key="version" class="authorization-details"><view class="authorization-label">{{item.title}}</view><view class="permission-admin-meta">{{item.publishedAtText}}</view><view class="authorization-chips"><text wx:for="{{item.labels}}" wx:for-item="label" wx:key="*this" class="authorization-chip">{{label}}</text></view><button class="secondary-btn ui-motion-button" data-version="{{item.version}}" disabled="{{busy || restoreVersion === item.version}}" bindtap="previewVersion" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.previewRestore}}</button></view>
-    </view>
-    <view class="authorization-footer"><button class="secondary-btn ui-motion-button" disabled="{{busy}}" bindtap="cancel" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.cancel}}</button><button class="{{deleting ? 'danger-btn' : 'primary-btn'}} ui-motion-button" disabled="{{busy}}" bindtap="confirm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{deletingDelegation ? ui.revokeDelegation : deleting ? ui.remove : restoreVersion ? ui.confirmRestore : ui.confirmPublish}}</button></view>
-    <app-loading wx:if="{{busy}}" text="{{ui.saving}}" />
   </block>
+  <view wx:if="{{!deleting && versions.length}}" class="permission-card">
+    <view class="permission-section-title">{{ui.versionHistory}}</view>
+    <view wx:for="{{versions}}" wx:key="version" class="authorization-details">
+      <view class="authorization-label">{{item.title}}</view><view class="permission-admin-meta">{{item.publishedAtText}}</view>
+      <view class="authorization-chips"><text wx:for="{{item.labels}}" wx:for-item="label" wx:key="*this" class="authorization-chip">{{label}}</text></view>
+      <view wx:if="{{item.blocked}}" class="permission-admin-meta">{{ui.unified.schemeRestoreBlocked}}</view>
+      <button wx:else class="secondary-btn ui-motion-button authorization-compact" data-version="{{item.version}}" disabled="{{busy || restoreVersion === item.version}}" bindtap="previewVersion" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.previewRestore}}</button>
+    </view>
+  </view>
+  <view wx:if="{{ready}}" class="authorization-footer"><button class="secondary-btn ui-motion-button" disabled="{{busy}}" bindtap="cancel" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.cancel}}</button><button class="{{deleting ? 'danger-btn' : 'primary-btn'}} ui-motion-button" disabled="{{busy}}" bindtap="confirm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{deletingDelegation ? ui.revokeDelegation : deleting ? ui.remove : restoreVersion ? ui.confirmRestore : ui.confirmPublish}}</button></view>
+  <app-loading wx:if="{{busy}}" text="{{ui.saving}}" />
   <app-toast />
 </view>

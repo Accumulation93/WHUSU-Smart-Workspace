@@ -118,6 +118,7 @@
         <details v-for="scheme in schemes" :key="scheme.id" :open="!!opened['scheme:' + scheme.id]" class="card authorization-scheme" @toggle.stop="trackOpen($event, 'scheme:' + scheme.id)">
           <summary><strong class="section-title">{{ scheme.name }}</strong><span class="chip chip-blue">{{ scheme.publishedVersion ? ui.schemeVersion(scheme.publishedVersion) : ui.draft }}</span><span class="muted">{{ ui.effectiveCount((scheme.publishedVersion ? scheme.publishedCapabilities : scheme.capabilities).length) }}</span><UiIcon class="disclosure-chevron" name="chevron-right" size-role="row-leading" /></summary>
           <template v-if="opened['scheme:' + scheme.id]">
+          <p v-if="scheme.draftRestrictedCapabilities?.length" class="notice-line">{{ ui.unified.schemeBlockedStatus }}</p>
           <details v-for="version in schemeVersions(scheme)" :key="version.key" :open="!!opened[version.key]" class="glass-panel" @toggle.stop="trackOpen($event, version.key)">
             <summary>{{ version.title }}</summary>
             <div v-if="opened[version.key]" class="stack-tight">
@@ -134,7 +135,7 @@
               <p v-else-if="!version.modules.length" class="muted">{{ ui.noConfiguredPermissions }}</p>
             </div>
           </details>
-          <div class="button-row"><button v-if="scheme.canEdit !== false" type="button" class="btn btn-secondary authorization-edit" @click="edit('scheme', scheme.id)">{{ ui.edit }}</button><button v-if="scheme.canPublish !== false" type="button" class="btn btn-primary" @click="changes('publish', scheme.id)">{{ ui.publish }}</button></div>
+          <div class="button-row"><button v-if="scheme.canEdit !== false" type="button" class="btn btn-secondary authorization-edit" @click="edit('scheme', scheme.id)">{{ ui.edit }}</button><button v-if="scheme.canPublish !== false" type="button" class="btn btn-primary" @click="changes('publish', scheme.id)">{{ ui.publish }}</button><button v-else-if="scheme.canEdit !== false && scheme.publishedVersion && scheme.draftRestrictedCapabilities?.length" type="button" class="btn btn-secondary" @click="changes('publish', scheme.id)">{{ ui.versionHistory }}</button></div>
           </template>
         </details>
       </template>

@@ -61,6 +61,9 @@ function handler(work) {
       const data = await work(req.body, reference, createGuard(reference, req.body.delegationId));
       return res.json(Object.assign({ status: 'success' }, data));
     } catch (error) {
+      if (error.code === 'authorization_special_capabilities') {
+        return res.status(409).json({ status: error.code, blockedCapabilityKeys: error.blockedCapabilityKeys });
+      }
       const expected = ERRORS[error.code];
       if (expected) return res.status(expected[0]).json({ status: error.code, message: copy[expected[1]] });
       if (req.logger) req.logger.error('Authorization operation failed', { code: error.code || 'unexpected_error' });

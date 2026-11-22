@@ -331,6 +331,8 @@ async function schemeVersions(input, orgId, guard) {
       try { await guard.validateChange(connection, { draft_capabilities_json: row.capabilities_json }, { kind: 'scheme', capabilities }, true); }
       catch (error) { if (error.code === 'authorization_forbidden') continue; throw error; }
       versions.push({ version: Number(row.version), capabilities,
+        blockedCapabilityKeys: actor.unifiedAuthorization === true
+          ? capabilities.filter(key => CATALOG.get(key)?.classification === 'special') : [],
         publishedAt: row.published_at instanceof Date ? row.published_at.toISOString() : row.published_at });
     }
     return { id: scheme.id, publishedVersion: Number(scheme.published_version), versions };

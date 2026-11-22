@@ -12,6 +12,10 @@ const { candidateActor } = require('./authorizationImpact');
 
 function forbidden() { throw Object.assign(new Error('authorization_forbidden'), { code: 'authorization_forbidden' }); }
 
+function specialCapabilities(keys, unified) {
+  return unified === true ? keys.filter(key => CATALOG.get(key)?.classification === 'special') : [];
+}
+
 async function activeDelegations(connection, actor, now = Date.now(), lock = false) {
   let rows = await model.listDelegations(connection, actor.organizationId, lock);
   if (actor.unifiedAuthorization === true) {
@@ -77,7 +81,12 @@ function createGuard(reference, delegationId) {
       const oldKeys = before && (before.capabilities || (typeof before.draft_capabilities_json === 'string'
         ? JSON.parse(before.draft_capabilities_json) : before.draft_capabilities_json)) || [];
       if (after && after.capabilities.some(key => CATALOG.get(key)?.systemControlled && !oldKeys.includes(key))) forbidden();
-      if (after && actor.unifiedAuthorization === true && after.capabilities.some(key => CATALOG.get(key)?.classification === 'special')) forbidden();
+      const blocked = after ? specialCapabilities(after.capabilities, actor.unifiedAuthorization) : [];
+      if (blocked.length) {
+        if (!actor.isSuper) forbidden();
+        if (!independentRead) throw Object.assign(new Error('authorization_special_capabilities'),
+          { code: 'authorization_special_capabilities', blockedCapabilityKeys: blocked });
+      }
       if (after && after.kind !== 'scheme' && actor.unifiedAuthorization !== true
         && after.subjects.some(subject => subject.kind !== 'adminGrants')
         && after.capabilities.some(key => CATALOG.get(key)?.governance)) forbidden();
@@ -159,6 +168,7 @@ async function readManagement(connection, reference) {
   const canEditRule = policy => actor.isSuper || withinEnvelopes(policy, envelopes, actor.unifiedAuthorization)
     && !policy.subjects.some(subject => subjectMatches(subject, actor));
   const canPublishScheme = scheme => {
+    if (specialCapabilities(scheme.capabilities, actor.unifiedAuthorization).length) return false;
     const linked = state.rules.filter(rule => rule.schemeId === scheme.id);
     try {
       for (const rule of linked) {
@@ -188,6 +198,7 @@ async function readManagement(connection, reference) {
     schemes: (actor.isSuper ? schemes : schemes.filter(scheme => schemeAllowed(scheme.capabilities, envelopes)
       || scheme.publishedVersion && schemeAllowed(scheme.publishedCapabilities, envelopes)))
       .map(scheme => ({ ...scheme, canEdit: actor.isSuper || schemeAllowed(scheme.capabilities, envelopes),
+        draftRestrictedCapabilities: actor.isSuper ? specialCapabilities(scheme.capabilities, actor.unifiedAuthorization) : [],
         canPublish: canPublishScheme(scheme) })),
     delegations,
     basicCapabilities: actor.unifiedAuthorization === true ? [...CATALOG.values()]

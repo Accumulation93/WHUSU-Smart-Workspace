@@ -87,6 +87,17 @@
       <view class="permission-card">
         <view class="permission-section-title">{{!advanced ? ui.stepIdentity : kind === 'scheme' ? ui.schemeCapabilitiesTitle : kind === 'delegation' ? ui.delegationCapabilities : draft.policy.effect === 'deny' ? ui.denyCapabilitiesTitle : ui.allowCapabilitiesTitle}}</view>
         <view class="permission-admin-meta">{{draft.schemeId ? ui.unified.publishedRoleReadOnlyHelp : kind === 'scheme' ? ui.unified.schemePickHelp : kind === 'delegation' ? ui.unified.delegationPickHelp : draft.policy.effect === 'deny' ? ui.unified.customDenyPickHelp : advanced ? ui.unified.customAllowPickHelp : ui.unified.landingRuleHelp}}</view>
+        <view wx:if="{{schemeRestrictedOperations.length}}" class="authorization-permission-group">
+          <view class="authorization-permission-group-head">
+            <view class="authorization-permission-heading">
+              <view class="authorization-permission-group-title">{{ui.unified.schemeBlockedCapabilitiesTitle}}</view>
+              <view class="permission-admin-meta">{{ui.unified.schemeBlockedCapabilitiesHelp}}</view>
+            </view>
+          </view>
+          <view class="authorization-chips"><text wx:for="{{schemeRestrictedOperations}}" wx:key="key" class="authorization-status authorization-status-warning">{{item.label}}</text></view>
+          <button class="secondary-btn ui-motion-button authorization-compact" disabled="{{busy}}" bindtap="removeSchemeBlockedCapabilities" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.unified.removeSchemeBlockedCapabilities}}</button>
+        </view>
+        <view wx:if="{{schemeNeedsGeneralCapability}}" class="permission-admin-meta">{{ui.unified.schemeNeedsGeneralCapability}}</view>
         <picker wx:if="{{kind === 'rule'}}" range="{{schemes}}" range-key="name" value="{{schemeIndex}}" disabled="{{busy}}" bindchange="selectScheme"><view class="authorization-input">{{!advanced && !draft.schemeId ? ui.identityPlaceholder : schemes[schemeIndex].name}}</view></picker>
         <view wx:if="{{kind === 'rule' && schemes.length === 1}}" class="authorization-group"><view class="permission-admin-meta">{{delegation ? ui.emptyAssignableSchemes : ui.noSchemes}}</view><button class="secondary-btn ui-motion-button" disabled="{{busy}}" bindtap="openIdentitySettings" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.identitySettingsEntry}}</button></view>
         <view wx:if="{{sensitiveLabels.length}}" class="authorization-group"><view class="authorization-label">{{ui.sensitiveOperations}}</view><view wx:for="{{sensitiveLabels}}" wx:key="*this">{{item}}</view></view>

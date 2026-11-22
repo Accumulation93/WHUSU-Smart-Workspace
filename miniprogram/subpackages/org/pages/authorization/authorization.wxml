@@ -121,12 +121,19 @@
       </view>
       <view wx:if="{{!schemes.length}}" class="permission-empty">{{ui.noSchemes}}</view>
       <view wx:for="{{schemes}}" wx:key="id" class="permission-card authorization-body">
-        <view class="authorization-disclosure ui-motion-card" data-id="{{'scheme:' + item.id}}" bindtap="toggleDetails" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><view><view class="permission-section-title">{{item.name}}</view><view class="authorization-summary">{{item.countText}}</view></view><text class="authorization-chip">{{item.versionText}}</text><ui-icon name="chevron-right" sizeRole="row-leading" /></view>
+        <view class="authorization-disclosure ui-motion-card" data-id="{{'scheme:' + item.id}}" bindtap="toggleDetails" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><view><view class="permission-section-title">{{item.name}}</view><view class="authorization-summary">{{item.countText}}</view><view wx:if="{{item.draftRestrictedLabels.length}}" class="authorization-summary">{{ui.unified.schemeBlockedStatus}}</view></view><text class="authorization-chip">{{item.versionText}}</text><ui-icon name="chevron-right" sizeRole="row-leading" /></view>
         <block wx:if="{{expanded['scheme:' + item.id]}}">
         <template wx:if="{{item.publishedVersion}}" is="schemePermissionVersion" data="{{title: ui.schemePublishedTitle, versionKey: 'published:' + item.id, expanded, schemePermissions, ui}}" />
         <template wx:if="{{item.canEdit !== false}}" is="schemePermissionVersion" data="{{title: ui.schemeDraftTitle, versionKey: 'draft:' + item.id, expanded, schemePermissions, ui}}" />
-        <button wx:if="{{item.canEdit !== false}}" class="secondary-btn ui-motion-button authorization-edit" data-id="{{item.id}}" data-kind="scheme" bindtap="edit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.edit}}</button>
-        <button wx:if="{{item.canPublish !== false}}" class="primary-btn ui-motion-button" data-id="{{item.id}}" data-kind="publish" bindtap="changes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.publish}}</button>
+        <view wx:if="{{item.draftRestrictedLabels.length}}" class="authorization-group authorization-body">
+          <view class="permission-admin-meta">{{ui.unified.schemePublishBlocked}}</view>
+          <view class="authorization-chips"><text wx:for="{{item.draftRestrictedLabels}}" wx:for-item="blocked" wx:key="key" class="authorization-status authorization-status-warning">{{blocked.label}}</text></view>
+        </view>
+        <view class="authorization-row-actions">
+          <button wx:if="{{item.canEdit !== false}}" class="secondary-btn ui-motion-button authorization-link authorization-edit" data-id="{{item.id}}" data-kind="scheme" bindtap="edit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{item.draftRestrictedLabels.length ? ui.editSchemeTitle : ui.edit}}</button>
+          <button wx:if="{{item.canPublish !== false && !item.draftRestrictedLabels.length}}" class="primary-btn ui-motion-button" data-id="{{item.id}}" data-kind="publish" bindtap="changes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.publish}}</button>
+          <button wx:if="{{item.publishedVersion && item.draftRestrictedLabels.length}}" class="secondary-btn ui-motion-button authorization-link" data-id="{{item.id}}" data-kind="publish" bindtap="changes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.versionHistory}}</button>
+        </view>
         </block>
       </view>
     </block>

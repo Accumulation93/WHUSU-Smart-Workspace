@@ -12,18 +12,20 @@ function pageHarness(api, options = {}, pageName = 'authorizationEditor') {
   const file = path.join(__dirname, '../../miniprogram/subpackages/org/pages', pageName, pageName + '.js');
   const localRequire = createRequire(file);
   let definition, generation = 0;
+  const navigation = [];
   const context = { Page(value) { definition = value; }, wx: { navigateBack() {}, pageScrollTo() {} },
     require(request) {
       if (request.endsWith('/utils/authorizationAccess')) return { readCurrentAuthorizationAccess: async () => ({ mode: 'shadow', grantedCapabilities: [] }) };
-      if (request.endsWith('/utils/api')) return { callFunction: api, getErrorText: error => error.message, createLocalError: message => new Error(message), showShortToast() {} };
+      if (request.endsWith('/utils/api')) return { callFunction: api, getErrorText: error => error.message, createLocalError: message => new Error(message),
+        createResultError: (result, fallback) => Object.assign(new Error(fallback), { code: result.code || result.status }), showShortToast() {} };
       if (request.endsWith('/utils/orgSession')) return { consume() {}, getSnapshot() { return { role: 'admin' }; }, beginRequest() { return generation; }, invalidateRequests() { generation++; }, isRequestCurrent(_page, request) { return request === generation; } };
       if (request.endsWith('/utils/navigationBarMetrics')) return { getNavigationBarMetrics: () => ({ totalHeight: 88 }) };
-      if (request.endsWith('/utils/trustedNavigation')) return { navigateToTrustedRoute() {} };
-      if (request.endsWith('/utils/dateTime')) return { formatDetailTime: value => value, splitSystemDateTime: value => ({ date: value.slice(0, 10), time: value.slice(11, 16) }), systemDateTimeToIsoUtc: (date, time) => date + 'T' + time + ':00.000Z' };
+      if (request.endsWith('/utils/trustedNavigation')) return { navigateToTrustedRoute: url => navigation.push(url) };
+      if (request.endsWith('/utils/dateTime')) return { formatListTime: value => value, formatDetailTime: value => value, splitSystemDateTime: value => ({ date: value.slice(0, 10), time: value.slice(11, 16) }), systemDateTimeToIsoUtc: (date, time) => date + 'T' + time + ':00.000Z' };
       return localRequire(request);
     } };
   vm.runInNewContext(fs.readFileSync(file, 'utf8'), context, { filename: file });
-  const page = Object.assign({}, definition, { data: JSON.parse(JSON.stringify(definition.data)),
+  const page = Object.assign({}, definition, { navigation, data: JSON.parse(JSON.stringify(definition.data)),
     setData(patch) {
       for (const [key, value] of Object.entries(patch)) {
         const parts = key.split('.'); let target = this.data;
@@ -282,6 +284,95 @@ test('委托人只能批量选择上级授予的候选操作', async () => {
   assert.deepEqual(Array.from(page.data.draft.policy.capabilities), []);
   page.toggleCapabilityGroup({ currentTarget: { dataset: { key: 'venue', group: 'venueRecords' } } });
   assert.deepEqual(Array.from(page.data.draft.policy.capabilities), ['venue.bookings.read']);
+});
+
+test('特殊权限草稿在角色列表标明问题，编辑移除后必须选择一般权限再重新保存', async () => {
+  const data = fixture();
+  const blockedKey = 'system.keys.manage';
+  data.state.unifiedIdentity = true;
+  data.state.catalog.push({ key: blockedKey, resourceType: 'system.keys', action: 'manage', classification: 'special', scopes: [], fields: [] });
+  data.state.schemes = [{ id: 'role-restricted', name: '历史角色', version: 3, publishedVersion: 1,
+    publishedCapabilities: ['venue.bookings.read'], capabilities: [blockedKey], draftRestrictedCapabilities: [blockedKey],
+    canEdit: true, canPublish: false }];
+  const saved = [];
+  const api = async input => {
+    if (input.name !== 'saveAuthorizationScheme') return data.api(input);
+    saved.push(JSON.parse(JSON.stringify(input.data)));
+    const role = Object.assign({}, data.state.schemes[0], { version: 4, capabilities: input.data.capabilities,
+      draftRestrictedCapabilities: [], canPublish: true });
+    data.state.schemes[0] = role;
+    return { status: 'success', scheme: role };
+  };
+  const home = pageHarness(api, { tab: 'schemes' }, 'authorization'); await home.load();
+  assert.equal(home.data.schemes[0].draftRestrictedLabels[0].label, copy.capabilityNames[blockedKey]);
+  const page = pageHarness(api, { kind: 'scheme', id: 'role-restricted' }); await page.load();
+  assert.equal(page.data.schemeRestrictedOperations[0].label, copy.capabilityNames[blockedKey]);
+  assert.deepEqual(page.data.capabilityBusinesses.flatMap(group => group.keys), ['venue.bookings.read']);
+  await page.review();
+  assert.equal(page.data.notice, copy.unified.schemePublishBlocked);
+  assert.equal(saved.length, 0);
+  page.removeSchemeBlockedCapabilities();
+  assert.equal(page.data.schemeRestrictedOperations.length, 0);
+  assert.equal(page.data.schemeNeedsGeneralCapability, true);
+  await page.review();
+  assert.equal(page.data.notice, copy.unified.schemeNeedsGeneralCapability);
+  assert.equal(saved.length, 0);
+  page.toggleCapabilityGroup({ currentTarget: { dataset: { key: 'venue' } } });
+  await page.review();
+  assert.deepEqual(saved, [{ identityModel: 'unified', id: 'role-restricted', version: 3, name: '历史角色',
+    capabilities: ['venue.bookings.read'] }]);
+  const reopened = pageHarness(api, { kind: 'scheme', id: 'role-restricted' }); await reopened.load();
+  assert.equal(reopened.data.schemeRestrictedOperations.length, 0);
+  assert.deepEqual(Array.from(reopened.data.draft.policy.capabilities), ['venue.bookings.read']);
+});
+
+test('草稿发布受限时仍可看历史，恢复受限有专用解释并禁止提交错误版本', async () => {
+  const data = fixture();
+  const blockedKey = 'system.keys.manage';
+  data.state.unifiedIdentity = true;
+  data.state.catalog.push({ key: blockedKey, resourceType: 'system.keys', action: 'manage', classification: 'special', scopes: [], fields: [] });
+  data.state.schemes = [{ id: 'role-restricted', name: '历史角色', version: 4, capabilities: [blockedKey], canEdit: true }];
+  const previews = [], publications = [];
+  const api = async input => {
+    if (input.name === 'previewAuthorizationScheme') {
+      const version = input.data.restoreVersion;
+      previews.push(version);
+      if (!version || version === 3) return { status: 'authorization_special_capabilities', blockedCapabilityKeys: [blockedKey] };
+      return { status: 'success', rules: [], roles: [], peopleCount: 0, roleCount: 0, capabilities: ['venue.bookings.read'] };
+    }
+    if (input.name === 'getAuthorizationSchemeVersions') return { status: 'success', versions: [
+      { version: 3, capabilities: [blockedKey] }, { version: 2, capabilities: [blockedKey], blockedCapabilityKeys: [blockedKey] },
+      { version: 1, capabilities: ['venue.bookings.read'] }
+    ] };
+    if (input.name === 'publishAuthorizationScheme') {
+      publications.push(JSON.parse(JSON.stringify(input.data)));
+      throw { code: 'authorization_special_capabilities', data: { blockedCapabilityKeys: [blockedKey] } };
+    }
+    return data.api(input);
+  };
+  const page = pageHarness(api, { kind: 'publish', id: 'role-restricted' }, 'authorizationChanges'); await page.load();
+  assert.equal(page.data.ready, false);
+  assert.equal(page.data.notice, copy.unified.schemePublishBlocked);
+  assert.equal(page.data.blockedOperations[0].label, copy.capabilityNames[blockedKey]);
+  assert.equal(page.data.versions.length, 3);
+  assert.equal(page.data.versions.find(item => item.version === 2).blocked, true);
+  await page.confirm(); assert.equal(publications.length, 0);
+  page.editBlockedScheme();
+  assert.equal(page.navigation[0], '/subpackages/org/pages/authorizationEditor/authorizationEditor?kind=scheme&id=role-restricted');
+
+  const restore = version => page.previewVersion({ currentTarget: { dataset: { version } } });
+  await restore(2); assert.deepEqual(previews, [undefined]);
+  await restore(3);
+  assert.equal(page.data.ready, false);
+  assert.equal(page.data.notice, copy.unified.schemeRestoreBlocked);
+  assert.equal(page.data.restoreVersion, 3);
+  await page.confirm(); assert.equal(publications.length, 0);
+
+  await restore(1); assert.equal(page.data.ready, true);
+  await page.confirm();
+  assert.deepEqual(publications, [{ id: 'role-restricted', version: 4, expectedRevision: 1, restoreVersion: 1, identityModel: 'unified' }]);
+  assert.equal(page.data.ready, false);
+  assert.equal(page.data.notice, copy.unified.schemeRestoreBlocked);
 });
 
 test('字段限制通过实际页面方法保存回读，取消全部选中不能放宽', async () => {

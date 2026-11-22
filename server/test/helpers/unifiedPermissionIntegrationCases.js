@@ -51,6 +51,63 @@ module.exports = async function unifiedPermissionIntegrationCases(admin, post) {
   assert.equal(modernAdmins.status, 'success');
   assert(modernAdmins.creatableLevels.every(row => row.value === 'super_admin'));
 
+  const general = 'audit.submissions.read';
+  const special = 'auth.persons.delete';
+  for (const [id, capabilities, publishedVersion] of [
+    ['repairable-draft', [general, special], 0], ['special-only-draft', [special], 0],
+    ['published-legacy-role', [general, special], 1], ['referenced-draft', [general, special], 0]
+  ]) {
+    await admin.query('INSERT INTO authorization_schemes (id,org_id,name,draft_capabilities_json,published_version) VALUES (?,?,?,?,?)',
+      [id, org, id, JSON.stringify(capabilities), publishedVersion]);
+  }
+  await admin.query('INSERT INTO authorization_scheme_versions (id,org_id,scheme_id,version,capabilities_json,actor_context_id) VALUES (?,?,?,?,?,?)',
+    ['legacy-version', org, 'published-legacy-role', 1, JSON.stringify([general, special]), 'context']);
+  await admin.query('UPDATE authorization_rules SET scheme_id=? WHERE org_id=? AND id=?', ['referenced-draft', org, saved.rule.id]);
+
+  const blocked = await post('previewAuthorizationScheme', { id: 'repairable-draft', version: 1, expectedRevision: await revision() });
+  assert.equal(blocked.status, 409);
+  assert.deepEqual(await blocked.json(), { status: 'authorization_special_capabilities', blockedCapabilityKeys: [special] });
+  const beforeRepair = await (await post('getAuthorizationManagement', {})).json();
+  assert.equal(beforeRepair.schemes.find(scheme => scheme.id === 'repairable-draft').canPublish, false);
+  const repairSql = fs.readFileSync(path.join(__dirname, '../../db/deploy/20261122222000_repair_unpublished_authorization_drafts.sql'), 'utf8');
+  await admin.query(repairSql);
+  const afterFirstRepair = await revision();
+  await admin.query(repairSql);
+  assert.equal(await revision(), afterFirstRepair);
+  const [changes] = await admin.query("SELECT before_json,after_json FROM authorization_changes WHERE action='scheme_draft_repair'");
+  assert.equal(changes.length, 1);
+  const parse = value => typeof value === 'string' ? JSON.parse(value) : value;
+  assert.deepEqual(parse(changes[0].before_json).capabilities, [general, special]);
+  assert.deepEqual(parse(changes[0].after_json).capabilities, [general]);
+  const repaired = (await (await post('getAuthorizationManagement', {})).json()).schemes;
+  assert.deepEqual(repaired.find(scheme => scheme.id === 'repairable-draft').capabilities, [general]);
+  assert.deepEqual(repaired.find(scheme => scheme.id === 'special-only-draft').capabilities, [special]);
+  assert.deepEqual(repaired.find(scheme => scheme.id === 'referenced-draft').capabilities, [general, special]);
+  assert.deepEqual(repaired.find(scheme => scheme.id === 'published-legacy-role').capabilities, [general, special]);
+
+  const publishedRequest = { identityModel, id: 'repairable-draft', version: 2, expectedRevision: await revision() };
+  const publicationPreview = await (await post('previewAuthorizationScheme', publishedRequest)).json();
+  assert.equal(publicationPreview.status, 'success');
+  assert.deepEqual(publicationPreview.capabilities, [general]);
+  assert.equal((await (await post('publishAuthorizationScheme', publishedRequest)).json()).publishedVersion, 1);
+  const allocationRequest = { ...body, expectedRevision: await revision(), schemeId: 'repairable-draft', name: 'Allocation from repaired role' };
+  const allocationPreview = await (await post('previewAuthorizationRule', allocationRequest)).json();
+  assert.equal(allocationPreview.status, 'success');
+  const allocation = await (await post('saveAuthorizationRule', { ...allocationRequest, previewToken: allocationPreview.previewToken })).json();
+  assert.equal(allocation.status, 'success');
+  const allocationReadback = (await (await post('getAuthorizationManagement', {})).json()).rules.find(rule => rule.id === allocation.rule.id);
+  assert.equal(allocationReadback.schemeId, 'repairable-draft');
+  assert.deepEqual(allocationReadback.policy.capabilities, [general]);
+
+  const history = await (await post('getAuthorizationSchemeVersions', { id: 'published-legacy-role' })).json();
+  assert.equal(history.status, 'success');
+  assert.deepEqual(history.versions[0].capabilities, [general, special]);
+  assert.deepEqual(history.versions[0].blockedCapabilityKeys, [special]);
+  const restore = await post('publishAuthorizationScheme', { identityModel, id: 'published-legacy-role', version: 1,
+    restoreVersion: 1, expectedRevision: await revision() });
+  assert.equal(restore.status, 409);
+  assert.equal((await restore.json()).status, 'authorization_special_capabilities');
+
   for (const suffix of ['issuer', 'child', 'recipient']) {
     const person = 'delegation-' + suffix;
     await admin.query('INSERT INTO persons(id,name,student_id,normalized_student_id) VALUES (?,?,?,?)', [person, person, person, person]);
