@@ -1,4 +1,5 @@
 <page-meta page-style="{{(picker ? 'overflow:hidden;' : '') + '--ui-navbar-height:' + navTopPx + 'px;'}}"></page-meta>
+<import src="./authorizationPermissionTree.wxml" />
 <ui-navbar title="{{ui.title}}" />
 <template name="grantDetails">
   <view class="authorization-details">
@@ -9,6 +10,17 @@
     <view class="authorization-label">{{ui.conditions}}</view><view wx:if="{{!grant.startsAtText && !grant.endsAtText}}">{{ui.noConditions}}</view><view wx:if="{{grant.startsAtText}}">{{ui.startsAt}} · {{grant.startsAtText}}</view><view wx:if="{{grant.endsAtText}}">{{ui.endsAt}} · {{grant.endsAtText}}</view>
   </view>
 </template>
+<template name="schemePermissionVersion">
+  <view class="authorization-disclosure ui-motion-card" role="button" aria-expanded="{{expanded[versionKey] === true}}" data-id="{{versionKey}}" bindtap="toggleDetails" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+    <view class="authorization-label">{{title}}</view>
+    <view class="authorization-permission-chevron {{expanded[versionKey] ? 'authorization-permission-chevron-open' : ''}}"><ui-icon name="chevron-right" sizeRole="row-leading" /></view>
+  </view>
+  <block wx:if="{{expanded[versionKey]}}">
+    <template is="permissionTree" data="{{businesses: schemePermissions[versionKey].businesses, prefix: 'version:' + versionKey + ':', expanded, readOnly: true}}" />
+    <view wx:if="{{schemePermissions[versionKey].missing}}" class="permission-admin-meta">{{ui.unavailableReference}}</view>
+    <view wx:elif="{{!schemePermissions[versionKey].businesses.length}}" class="permission-admin-meta">{{ui.noConfiguredPermissions}}</view>
+  </block>
+</template>
 <view class="permission-page authorization-page" style="min-height: calc(100vh - {{navTopPx}}px)">
   <workspace-hero class="workspace-hero-host" app-name="{{ui.appName}}" page-name="{{ui.title}}" tone="{{heroTone}}" />
   <view class="authorization-tabs">
@@ -18,13 +30,16 @@
   <app-loading wx:if="{{loading}}" text="{{ui.loading}}" />
   <view wx:if="{{notice}}" class="permission-card authorization-toolbar"><view>{{notice}}</view><button class="secondary-btn ui-motion-button" bindtap="load" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.retry}}</button></view>
   <block wx:if="{{ready && !loading}}">
-    <view class="permission-card authorization-toolbar">
-      <view class="permission-section-desc">{{tab === 'rules' && !canManageDelegations ? ui.rulesTaskHelp : ui.tabHelp[tab]}}</view>
-      <block wx:if="{{tab === 'rules' && canManage && !hasPublishedSchemes}}"><view class="permission-admin-meta">{{ui.firstUse}}</view><button class="primary-btn ui-motion-button" data-tab="schemes" bindtap="switchTab" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.identitySettingsEntry}}</button></block>
-      <button wx:if="{{canCopy}}" class="secondary-btn ui-motion-button authorization-compact" bindtap="openOrganizationCopy" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.configurationCopy.title}}</button>
+    <view wx:if="{{canCopy}}" class="permission-card authorization-toolbar">
+      <button class="secondary-btn ui-motion-button authorization-compact" bindtap="openOrganizationCopy" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.configurationCopy.title}}</button>
     </view>
     <view wx:if="{{tab !== 'effective'}}" class="permission-card authorization-toolbar">
-      <view class="permission-section-head"><view class="permission-section-title">{{ui[tab]}}</view><button class="primary-btn ui-motion-button" bindtap="edit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{tab === 'rules' ? ui.createRule : ui.createScheme}}</button></view>
+      <view class="permission-section-head">
+        <view class="permission-section-title">{{unified && ui.unified[tab] || ui[tab]}}</view>
+        <button wx:if="{{tab === 'schemes' || !unified || hasPublishedSchemes}}" class="primary-btn ui-motion-button" bindtap="edit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{tab === 'rules' && unified ? ui.unified.assignPublishedRole : tab === 'rules' ? ui.createRule : ui.createScheme}}</button>
+        <button wx:elif="{{canManage}}" class="secondary-btn ui-motion-button" data-tab="schemes" bindtap="switchTab" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.identitySettingsEntry}}</button>
+      </view>
+      <view class="permission-section-desc">{{!unified ? ui.tabHelp[tab] : tab === 'schemes' ? ui.unified.landingRoleHelp : hasPublishedSchemes ? ui.unified.landingRuleHelp : canManage ? ui.unified.landingNoPublishedRole : ui.unified.landingAskForPublishedRole}}</view>
       <view class="ui-list-filter-search"><ui-icon name="search" tone="muted" sizeRole="row-leading" /><input class="ui-list-filter-input" value="{{keyword}}" bindinput="search" placeholder="{{tab === 'schemes' ? ui.searchIdentities : ui.search}}" /></view>
       <block wx:if="{{tab === 'rules'}}">
         <button class="secondary-btn ui-motion-button authorization-compact" bindtap="toggleRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{showRules ? ui.byRecipient : ui.advancedRules}}</button>
@@ -104,13 +119,12 @@
           <switch aria-label="{{item.label}}" color="#3b82f6" checked="{{item.enabled}}" disabled="{{basicBusy || !isSuper}}" data-key="{{item.key}}" bindchange="setBasicCapability" />
         </view>
       </view>
-      <view class="permission-admin-meta">{{ui.schemeLifecycleHelp}}</view>
       <view wx:if="{{!schemes.length}}" class="permission-empty">{{ui.noSchemes}}</view>
       <view wx:for="{{schemes}}" wx:key="id" class="permission-card authorization-body">
         <view class="authorization-disclosure ui-motion-card" data-id="{{'scheme:' + item.id}}" bindtap="toggleDetails" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><view><view class="permission-section-title">{{item.name}}</view><view class="authorization-summary">{{item.countText}}</view></view><text class="authorization-chip">{{item.versionText}}</text><ui-icon name="chevron-right" sizeRole="row-leading" /></view>
         <block wx:if="{{expanded['scheme:' + item.id]}}">
-        <block wx:if="{{item.publishedVersion}}"><view class="authorization-disclosure ui-motion-card" data-id="{{'published:' + item.id}}" bindtap="toggleDetails" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><view class="authorization-label">{{ui.schemePublishedTitle}}</view><ui-icon name="chevron-right" sizeRole="row-leading" /></view><view wx:if="{{expanded['published:' + item.id]}}" class="authorization-chips"><text wx:for="{{item.publishedLabels}}" wx:for-item="label" wx:key="*this" class="authorization-chip">{{label}}</text></view></block>
-        <block wx:if="{{item.canEdit !== false}}"><view class="authorization-disclosure ui-motion-card" data-id="{{'draft:' + item.id}}" bindtap="toggleDetails" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><view class="authorization-label">{{ui.schemeDraftTitle}}</view><ui-icon name="chevron-right" sizeRole="row-leading" /></view><view wx:if="{{expanded['draft:' + item.id]}}" class="authorization-chips"><text wx:for="{{item.labels}}" wx:for-item="label" wx:key="*this" class="authorization-chip">{{label}}</text></view></block>
+        <template wx:if="{{item.publishedVersion}}" is="schemePermissionVersion" data="{{title: ui.schemePublishedTitle, versionKey: 'published:' + item.id, expanded, schemePermissions, ui}}" />
+        <template wx:if="{{item.canEdit !== false}}" is="schemePermissionVersion" data="{{title: ui.schemeDraftTitle, versionKey: 'draft:' + item.id, expanded, schemePermissions, ui}}" />
         <button wx:if="{{item.canEdit !== false}}" class="secondary-btn ui-motion-button authorization-edit" data-id="{{item.id}}" data-kind="scheme" bindtap="edit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.edit}}</button>
         <button wx:if="{{item.canPublish !== false}}" class="primary-btn ui-motion-button" data-id="{{item.id}}" data-kind="publish" bindtap="changes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.publish}}</button>
         </block>
@@ -120,7 +134,7 @@
       <view class="permission-card authorization-toolbar">
         <view class="permission-section-head"><view class="permission-section-title">{{inspectionLabel}}</view><button class="secondary-btn ui-motion-button" disabled="{{inspecting}}" bindtap="inspect" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.refresh}}</button></view>
         <view class="permission-section-title">{{inspectingOther ? ui.effective : ui.ownPermissions}}</view>
-        <view wx:if="{{!inspectingOther}}" class="permission-admin-meta">{{unified ? ui.unified.ownPermissionsHelp : ui.ownPermissionsHelp}}</view>
+        <view wx:if="{{!inspectingOther}}" class="permission-admin-meta">{{canInspectOthers ? ui.unified.landingEffectiveHelp : ui.unified.landingOwnEffectiveHelp}}</view>
         <view wx:if="{{canInspectOthers}}" class="authorization-label">{{ui.inspectOthers}}</view>
         <view wx:if="{{canInspectOthers}}" class="authorization-actions">
           <button class="secondary-btn ui-motion-button" disabled="{{candidateLoading}}" data-role="user" bindtap="openInspection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.inspectAssignment}}</button>

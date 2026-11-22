@@ -1,4 +1,5 @@
 <page-meta page-style="{{(picker ? 'overflow:hidden;' : '') + '--ui-navbar-height:' + navTopPx + 'px;'}}"></page-meta>
+<import src="../authorization/authorizationPermissionTree.wxml" />
 <ui-navbar title="{{ui.title}}" />
 <view class="permission-page" style="min-height: calc(100vh - {{navTopPx}}px)">
   <workspace-hero class="workspace-hero-host" app-name="{{ui.appName}}" page-name="{{ui.title}}" tone="{{heroTone}}" />
@@ -85,20 +86,23 @@
       </view>
       <view class="permission-card">
         <view class="permission-section-title">{{!advanced ? ui.stepIdentity : kind === 'scheme' ? ui.schemeCapabilitiesTitle : kind === 'delegation' ? ui.delegationCapabilities : draft.policy.effect === 'deny' ? ui.denyCapabilitiesTitle : ui.allowCapabilitiesTitle}}</view>
-        <view class="permission-admin-meta">{{kind === 'scheme' ? ui.schemeCapabilitiesHelp : kind === 'delegation' ? ui.delegationNotice : draft.policy.effect === 'deny' ? ui.denyCapabilitiesHelp : draft.schemeId ? ui.identityCapabilitiesHelp : ui.allowCapabilitiesHelp}}</view>
-        <view wx:if="{{kind === 'rule' && draft.policy.effect === 'deny' && draft.schemeId}}" class="permission-admin-meta">{{ui.identityCapabilitiesHelp}}</view>
+        <view class="permission-admin-meta">{{draft.schemeId ? ui.unified.publishedRoleReadOnlyHelp : kind === 'scheme' ? ui.unified.schemePickHelp : kind === 'delegation' ? ui.unified.delegationPickHelp : draft.policy.effect === 'deny' ? ui.unified.customDenyPickHelp : advanced ? ui.unified.customAllowPickHelp : ui.unified.landingRuleHelp}}</view>
         <picker wx:if="{{kind === 'rule'}}" range="{{schemes}}" range-key="name" value="{{schemeIndex}}" disabled="{{busy}}" bindchange="selectScheme"><view class="authorization-input">{{!advanced && !draft.schemeId ? ui.identityPlaceholder : schemes[schemeIndex].name}}</view></picker>
         <view wx:if="{{kind === 'rule' && schemes.length === 1}}" class="authorization-group"><view class="permission-admin-meta">{{delegation ? ui.emptyAssignableSchemes : ui.noSchemes}}</view><button class="secondary-btn ui-motion-button" disabled="{{busy}}" bindtap="openIdentitySettings" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.identitySettingsEntry}}</button></view>
-        <view class="authorization-summary">{{selectedCapabilityText}}</view>
-        <block wx:if="{{!advanced && draft.schemeId}}"><view class="authorization-disclosure ui-motion-card" data-key="identity" bindtap="toggleGroup" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><view>{{ui.identityCapabilitiesTitle}}</view><ui-icon name="chevron-right" sizeRole="row-leading" /></view><view wx:if="{{expanded.identity}}" class="authorization-chips"><text wx:for="{{sections.capabilityLabels}}" wx:key="*this" class="authorization-chip">{{item}}</text></view></block>
         <view wx:if="{{sensitiveLabels.length}}" class="authorization-group"><view class="authorization-label">{{ui.sensitiveOperations}}</view><view wx:for="{{sensitiveLabels}}" wx:key="*this">{{item}}</view></view>
-        <block wx:if="{{advanced}}">
-        <view wx:if="{{controlledLabels.length}}" class="authorization-group"><view class="authorization-label">{{ui.systemControlledTitle}}</view><view class="permission-admin-meta">{{ui.systemControlledHelp}}</view><view wx:for="{{controlledLabels}}" wx:key="*this">{{item}}</view></view>
-        <view class="ui-list-filter-search"><ui-icon name="search" tone="muted" sizeRole="row-leading" /><input class="ui-list-filter-input" value="{{capabilityKeyword}}" bindinput="searchCapabilities" placeholder="{{ui.searchOperations}}" /></view>
-        <view wx:for="{{capabilityBusinesses}}" wx:key="key" class="authorization-group">
-          <view class="authorization-disclosure ui-motion-card" data-key="{{item.key}}" bindtap="toggleGroup" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><view>{{item.label}}<text class="authorization-status" wx:if="{{item.selectedCount}}">{{item.selectedCount}}</text></view><ui-icon name="chevron-right" sizeRole="row-leading" /></view>
-          <view wx:if="{{expanded[item.key] || capabilityKeyword}}" class="authorization-body"><button wx:if="{{unified && kind === 'scheme' && !capabilityKeyword}}" class="secondary-btn ui-motion-button" data-key="{{item.key}}" disabled="{{busy}}" bindtap="toggleCapabilityGroup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{item.batchLabel}}</button><view wx:for="{{item.groups}}" wx:for-item="group" wx:key="key" class="authorization-field"><view class="authorization-label">{{group.label}}</view><view class="authorization-actions"><button wx:for="{{group.items}}" wx:key="key" wx:for-item="option" class="secondary-btn ui-motion-button authorization-option {{option.selected ? 'authorization-option-selected' : ''}}" data-key="{{option.key}}" disabled="{{busy || !!draft.schemeId}}" bindtap="capability" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{option.label}}</button></view></view></view>
-        </view>
+        <block wx:if="{{advanced || draft.schemeId}}">
+          <view wx:if="{{controlledLabels.length && !draft.schemeId}}" class="authorization-group"><view class="authorization-label">{{ui.systemControlledTitle}}</view><view class="permission-admin-meta">{{ui.systemControlledHelp}}</view><view wx:for="{{controlledLabels}}" wx:key="*this">{{item}}</view></view>
+          <view class="ui-list-filter-search"><ui-icon name="search" tone="muted" sizeRole="row-leading" /><input class="ui-list-filter-input" value="{{capabilityKeyword}}" bindinput="searchCapabilities" placeholder="{{ui.unified.permissionSearchPlaceholder}}" confirm-type="search" /></view>
+          <view class="authorization-permission-filters">
+            <block wx:if="{{!draft.schemeId}}">
+              <button class="secondary-btn ui-motion-button authorization-compact authorization-option {{!selectedCapabilitiesOnly ? 'authorization-option-selected' : ''}}" aria-pressed="{{!selectedCapabilitiesOnly}}" data-filter="all" bindtap="switchCapabilityFilter" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.unified.permissionFilterAll}}</button>
+              <button class="secondary-btn ui-motion-button authorization-compact authorization-option {{selectedCapabilitiesOnly ? 'authorization-option-selected' : ''}}" aria-pressed="{{selectedCapabilitiesOnly}}" data-filter="selected" bindtap="switchCapabilityFilter" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.unified.permissionFilterSelected}}</button>
+            </block>
+            <view class="authorization-chip" aria-live="polite">{{selectedCapabilityText}}</view>
+          </view>
+          <view wx:if="{{!draft.schemeId && (capabilitySearchActive || selectedCapabilitiesOnly)}}" class="permission-admin-meta">{{capabilitySearchActive ? ui.unified.permissionSearchBulkHelp : ui.unified.permissionSelectedOnlyHelp}}</view>
+          <view wx:if="{{!capabilityBusinesses.length}}" class="permission-empty">{{capabilitySearchActive ? ui.unified.permissionNoSearchResults : selectedCapabilitiesOnly ? ui.unified.permissionNoSelected : ui.noConfiguredPermissions}}</view>
+          <template is="permissionTree" data="{{businesses: capabilityBusinesses, prefix: 'editor:', expanded, searching: capabilitySearchActive, searchCollapsed, readOnly: !!draft.schemeId, busy}}" />
         </block>
       </view>
       <view wx:if="{{kind !== 'scheme'}}" class="permission-card">

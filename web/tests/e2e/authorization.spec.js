@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { mockApi } from './fixtures.js';
 import ui from '../../src/locales/zh-CN/shared/authorization.js';
+import presentation from '../../src/shared/authorizationPresentation.js';
 
 const capability = { key: 'venue.bookings.read', resourceType: 'venue.bookings', action: 'read', scopes: ['organization', 'self', 'records', 'assignmentScope'], fields: [] };
 const assignment = { assignmentId: 'job-a', name: 'Example member', natureId: 'staff', natureName: 'Staff', departmentId: 'dept-a', departmentName: 'Department A', identityCategoryId: 'identity-a', identityCategoryName: 'Member' };
@@ -111,6 +112,52 @@ async function setup(page, ordinary = false) {
   });
   return { state, calls };
 }
+
+test('permission groups select an entire task and keep unrelated selections when searching', async ({ page }) => {
+  const { state } = await setup(page);
+  state.unifiedIdentity = true;
+  let saved;
+  await page.route('**/api/saveAuthorizationScheme', route => {
+    saved = route.request().postDataJSON();
+    state.schemes = [{ id: 'grouped-role', name: saved.name, version: 1, capabilities: saved.capabilities }];
+    return route.fulfill({ json: { status: 'success' } });
+  });
+  state.catalog = [
+    ['venue.schedule.read', 'read'], ['venue.bookings.create', 'create'],
+    ['venue.bookings.approve', 'approve'], ['venue.bookings.delete', 'delete']
+  ].map(([key, action]) => ({ ...capability, key, action, resourceType: key.slice(0, key.lastIndexOf('.')), classification: 'general' }));
+  await page.goto('/web/admin/authorization/edit?kind=scheme');
+  const module = page.locator('.authorization-picker-module').filter({ hasText: ui.businessGroups.venue });
+  await expect(module.locator('.authorization-picker-group')).toHaveCount(0);
+  await module.locator('.authorization-disclosure').click();
+  const booking = module.locator('.authorization-picker-group').filter({ has: page.getByRole('heading', { name: ui.unified.permissionSections.venueBooking, exact: true }) });
+  const review = module.locator('.authorization-picker-group').filter({ has: page.getByRole('heading', { name: ui.unified.permissionSections.venueRecords, exact: true }) });
+  const removal = module.locator('.authorization-picker-group').filter({ has: page.getByRole('heading', { name: ui.unified.permissionSections.removeOrRevoke, exact: true }) });
+  await expect(booking.locator('.choice-card')).toHaveCount(2);
+  await expect(review.locator('.choice-card')).toHaveCount(1);
+  await expect(removal.locator('.choice-card')).toHaveCount(1);
+  await booking.locator('.choice-card').first().click();
+  await expect(booking.getByText(ui.unified.permissionGroupCount(1, 2), { exact: true })).toBeVisible();
+  await booking.getByRole('button', { name: ui.unified.selectPermissionGroup(ui.unified.permissionSections.venueBooking), exact: true }).click();
+  await expect(booking.locator('.choice-card[aria-pressed=true]')).toHaveCount(2);
+  await expect(review.locator('.choice-card[aria-pressed=false]')).toHaveCount(1);
+  await page.getByLabel(ui.unified.permissionSearchPlaceholder).fill(ui.unified.permissionSections.venueRecords);
+  await module.getByRole('button', { name: ui.unified.selectMatchingInGroup(ui.businessGroups.venue), exact: true }).click();
+  await expect(page.getByText(ui.selectedOperations(3), { exact: true })).toBeVisible();
+  await page.getByLabel(ui.unified.permissionSearchPlaceholder).clear();
+  await page.getByRole('button', { name: ui.unified.permissionFilterSelected, exact: true }).click();
+  await expect(booking.locator('.choice-card[aria-pressed=true]')).toHaveCount(2);
+  await expect(review.locator('.choice-card[aria-pressed=true]')).toHaveCount(1);
+  await expect(removal).toHaveCount(0);
+  await page.getByLabel(ui.schemeName, { exact: true }).fill('Grouped venue role');
+  await page.getByRole('button', { name: ui.saveDraft, exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/authorization\?tab=schemes$/);
+  expect(new Set(saved.capabilities)).toEqual(new Set(['venue.schedule.read', 'venue.bookings.create', 'venue.bookings.approve']));
+  await page.goto('/web/admin/authorization/edit?kind=scheme&id=grouped-role');
+  await expect(page.getByText(ui.selectedOperations(3), { exact: true })).toBeVisible();
+  await module.locator('.authorization-disclosure').click();
+  await expect(removal.locator('.choice-card[aria-pressed=false]')).toHaveCount(1);
+});
 
 test('unified authorization confirms the exact list of selected posts before saving', async ({ page }) => {
   const { state, calls } = await setup(page);
@@ -318,13 +365,14 @@ test('authorization cards and grouped editor keep controls visible and preserve 
   await page.getByRole('button', { name: ui.deny, exact: true }).click();
   await expect(page.getByRole('button', { name: ui.deny, exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: ui.allow, exact: true }).click();
-  await expect(page.locator('.authorization-module')).not.toHaveAttribute('open');
-  await page.getByLabel(ui.searchOperations, { exact: true }).fill(ui.actions.read);
-  await expect(page.getByRole('button', { name: ui.actions.read, exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await page.getByLabel(ui.searchOperations, { exact: true }).fill('no matching operation');
-  await expect(page.locator('.authorization-module')).toHaveCount(0);
-  await page.getByLabel(ui.searchOperations, { exact: true }).fill(ui.actions.read);
-  await expect(page.getByRole('button', { name: ui.actions.read, exact: true })).toHaveAttribute('aria-pressed', 'true');
+  const readBooking = presentation.capabilityLabel(capability.key, state.catalog, ui);
+  await expect(page.locator('.authorization-disclosure')).toHaveAttribute('aria-expanded', 'false');
+  await page.getByLabel(ui.unified.permissionSearchPlaceholder, { exact: true }).fill(readBooking);
+  await expect(page.getByRole('button', { name: readBooking, exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByLabel(ui.unified.permissionSearchPlaceholder, { exact: true }).fill('no matching operation');
+  await expect(page.locator('.authorization-picker-module')).toHaveCount(0);
+  await page.getByLabel(ui.unified.permissionSearchPlaceholder, { exact: true }).fill(readBooking);
+  await expect(page.getByRole('button', { name: readBooking, exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.screenshot({ path: test.info().outputPath('authorization-editor-refined.png'), fullPage: true, animations: 'disabled' });
 });
 
@@ -363,7 +411,7 @@ test('field restrictions save and reopen without turning an empty selection into
 });
 
 test('rule editor selects an assignment, previews, saves and rereads the rule without mixing roles', async ({ page }) => {
-  const { calls } = await setup(page);
+  const { state, calls } = await setup(page);
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/web/admin/authorization');
@@ -375,9 +423,8 @@ test('rule editor selects an assignment, previews, saves and rereads the rule wi
   await page.getByRole('button', { name: ui.selectRecipientAssignment, exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: /Example member/ }).click();
   await page.getByRole('dialog').locator('footer button').last().click();
-  await page.locator('.authorization-module > summary').filter({ hasText: ui.businessGroups.venue }).click();
-  await page.locator('.authorization-resource > summary').filter({ hasText: ui.resources['venue.bookings'] }).click();
-  await page.getByRole('button', { name: ui.actions.read, exact: true }).click();
+  await page.locator('.authorization-disclosure').filter({ hasText: ui.businessGroups.venue }).click();
+  await page.getByRole('button', { name: presentation.capabilityLabel(capability.key, state.catalog, ui), exact: true }).click();
   await page.getByRole('button', { name: ui.ownRecords, exact: true }).click();
   await page.getByLabel(ui.startsAt, { exact: true }).fill('2026-11-13T10:15');
   await page.getByLabel(ui.endsAt, { exact: true }).fill('2026-11-14T11:25');
@@ -545,9 +592,8 @@ test('delegation recipients stay separate from eligible assignees through save, 
   await page.locator('section').filter({ has: page.getByRole('heading', { name: ui.delegationSubjects, exact: true }) }).getByRole('button', { name: ui.selectRecipientAssignment, exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: /Example member/ }).click();
   await page.getByRole('dialog').locator('footer button').last().click();
-  await page.locator('.authorization-module > summary').filter({ hasText: ui.businessGroups.venue }).click();
-  await page.locator('.authorization-resource > summary').filter({ hasText: ui.resources['venue.bookings'] }).click();
-  await page.getByRole('button', { name: ui.actions.read, exact: true }).click();
+  await page.locator('.authorization-disclosure').filter({ hasText: ui.businessGroups.venue }).click();
+  await page.getByRole('button', { name: presentation.capabilityLabel(capability.key, state.catalog, ui), exact: true }).click();
   await page.getByRole('button', { name: ui.ownRecords, exact: true }).click();
   await page.getByRole('button', { name: ui.previewChanges, exact: true }).click();
   await expect(page.getByText(ui.delegationNotice, { exact: true })).toBeVisible();

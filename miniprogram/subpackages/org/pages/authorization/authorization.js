@@ -1,5 +1,6 @@
 'use strict';
 const ui = require('../../../../locales/zh-CN/authorization');
+const editor = require('../../utils/authorizationEditor');
 const presentation = require('../../utils/authorizationPresentation');
 const { callFunction, getErrorText, createResultError } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
@@ -15,7 +16,7 @@ Page({
     ready: false, canCopy: false, notice: '', keyword: '', cards: [], schemes: [], effective: [], inspecting: false, recipientCards: [], showRules: false,
     previewOnly: false, expanded: {}, effectiveGroups: [], effectiveExpanded: {}, effectiveRange: 'granted', dynamicRules: [], isSuper: false, delegations: [], showDelegations: false,
     inspectionLabel: ui.ownRole, picker: '', pickerOptions: [], pickerValue: [], candidateLoading: false, inspectionLoaded: false, inspectionUnavailable: false, inspectingOther: false, controlledEffective: [],
-    selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '', unified: false, basicCapabilities: [], basicBusy: false },
+    selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '', unified: false, basicCapabilities: [], basicBusy: false, schemePermissions: {} },
   onLoad: function(options) { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight, tab: options && options.tab === 'schemes' ? 'schemes' : 'rules' }); },
   onResize: function() { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight }); },
   onShow: function() { this._active = true; orgSession.consume(this); this.setData({ heroTone: orgSession.getSnapshot().role === 'admin' ? 'admin' : 'blue' }); this.load(); },
@@ -26,14 +27,14 @@ Page({
     this._inspectionTarget = null;
     this.setData({ recipientCards: [], showRules: false, selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '', unified: false, basicCapabilities: [], basicBusy: false,
       inspectionLabel: ui.ownRole, picker: '', pickerOptions: [], pickerValue: [], candidateLoading: false, inspectionLoaded: false, inspectionUnavailable: false, inspectingOther: false, controlledEffective: [],
-      ready: false, canCopy: false, keyword: '', cards: [], schemes: [], dynamicRules: [], effective: [], effectiveGroups: [], effectiveRange: 'granted', effectiveExpanded: {}, expanded: {}, inspecting: false, isSuper: false, delegations: [], showDelegations: false });
+      ready: false, canCopy: false, keyword: '', cards: [], schemes: [], schemePermissions: {}, dynamicRules: [], effective: [], effectiveGroups: [], effectiveRange: 'granted', effectiveExpanded: {}, expanded: {}, inspecting: false, isSuper: false, delegations: [], showDelegations: false });
   },
   load: async function() {
     const request = orgSession.beginRequest(this, 'authorization');
     readCurrentAuthorizationAccess().then(access => {
       if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ canCopy: canOpenConfigurationCopy(access) });
     }).catch(() => {});
-    this.setData({ loading: true, ready: false, notice: '', cards: [], schemes: [], effective: [], effectiveGroups: [],
+    this.setData({ loading: true, ready: false, notice: '', cards: [], schemes: [], schemePermissions: {}, expanded: {}, effective: [], effectiveGroups: [],
       selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '' });
     try {
       const management = await callFunction({ name: 'getAuthorizationManagement', data: {} });
@@ -90,9 +91,7 @@ Page({
       cards: presentation.ruleCards(this._state.rules, this._directory, this._state.catalog, ui, keyword).map(item => Object.assign({}, item, { summaryLabels: item.capabilityLabels.slice(0, 3), capabilityCountText: ui.effectiveCount(item.capabilityLabels.length) })),
       schemes: this._state.schemes.filter(item => item.name.toLowerCase().includes(keyword)).map(item => Object.assign({}, item, {
         versionText: item.publishedVersion ? ui.schemeVersion(item.publishedVersion) : ui.draft,
-        countText: ui.effectiveCount((item.publishedVersion ? item.publishedCapabilities : item.capabilities).length),
-        labels: item.capabilities.map(key => presentation.capabilityLabel(key, this._state.catalog, ui)),
-        publishedLabels: (item.publishedCapabilities || []).map(key => presentation.capabilityLabel(key, this._state.catalog, ui)) })) });
+        countText: ui.effectiveCount((item.publishedVersion ? item.publishedCapabilities : item.capabilities).length) })) });
   },
   search: function(event) { this.setData({ keyword: event.detail.value }); this.refreshCards(); this.refreshEffectiveGroups(); },
   refreshEffectiveGroups: function() {
@@ -142,7 +141,25 @@ Page({
   },
   toggleDetails: function(event) {
     const id = event.currentTarget.dataset.id;
-    this.setData({ expanded: Object.assign({}, this.data.expanded, { [id]: !this.data.expanded[id] }) });
+    const isOpen = !this.data.expanded[id];
+    const patch = { expanded: Object.assign({}, this.data.expanded, { [id]: isOpen }) };
+    const separator = id.indexOf(':');
+    const kind = id.slice(0, separator);
+    if (isOpen && ['published', 'draft'].includes(kind) && !this.data.schemePermissions[id]) {
+      const role = this._state.schemes.find(item => item.id === id.slice(separator + 1));
+      if (role) {
+        const capabilities = (kind === 'published' ? role.publishedCapabilities : role.capabilities) || [];
+        const businesses = editor.permissionGroups({ catalog: this._state.catalog, capabilities, copy: ui, kind: 'scheme',
+          unified: this.data.unified, readOnly: true });
+        const missing = capabilities.some(key => !this._state.catalog.some(definition => definition.key === key));
+        patch.schemePermissions = Object.assign({}, this.data.schemePermissions, { [id]: { businesses, missing } });
+      }
+    }
+    this.setData(patch);
+  },
+  togglePermissionModule: function(event) {
+    const key = event.currentTarget.dataset.key;
+    this.setData({ expanded: Object.assign({}, this.data.expanded, { [key]: !this.data.expanded[key] }) });
   },
   toggleDelegations: function() { this.setData({ showDelegations: !this.data.showDelegations }); },
   edit: function(event) {

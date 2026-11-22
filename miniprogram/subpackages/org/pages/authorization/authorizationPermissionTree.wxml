@@ -1,0 +1,42 @@
+<template name="permissionTree">
+  <view wx:for="{{businesses}}" wx:for-item="business" wx:key="key" class="authorization-permission-module">
+    <view class="authorization-permission-module-head">
+      <view class="authorization-permission-disclosure ui-motion-card" role="button" aria-label="{{business.label}}"
+        aria-expanded="{{searching ? !searchCollapsed[prefix + business.key] : expanded[prefix + business.key] === true}}"
+        data-key="{{prefix + business.key}}" bindtap="togglePermissionModule"
+        hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+        <view class="authorization-permission-heading">
+          <view class="authorization-title">{{business.label}}</view>
+          <view class="authorization-summary">{{business.summary}}</view>
+        </view>
+        <view class="authorization-permission-chevron {{(searching ? !searchCollapsed[prefix + business.key] : expanded[prefix + business.key]) ? 'authorization-permission-chevron-open' : ''}}">
+          <ui-icon name="chevron-right" tone="muted" sizeRole="row-leading" />
+        </view>
+      </view>
+      <button wx:if="{{!readOnly}}" class="secondary-btn ui-motion-button authorization-compact authorization-permission-batch"
+        data-key="{{business.key}}" aria-label="{{business.batchAriaLabel}}" disabled="{{busy}}" bindtap="toggleCapabilityGroup"
+        hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{business.batchLabel}}</button>
+    </view>
+    <block wx:if="{{searching ? !searchCollapsed[prefix + business.key] : expanded[prefix + business.key]}}">
+      <view wx:for="{{business.groups}}" wx:for-item="group" wx:key="key" class="authorization-permission-group">
+        <view class="authorization-permission-group-head">
+          <view class="authorization-permission-heading">
+            <view class="authorization-permission-group-title">{{group.label}}</view>
+            <view class="authorization-summary">{{group.summary}}</view>
+          </view>
+          <button wx:if="{{!readOnly}}" class="secondary-btn ui-motion-button authorization-compact authorization-permission-batch"
+            data-key="{{business.key}}" data-group="{{group.key}}" aria-label="{{group.batchAriaLabel}}" disabled="{{busy}}" bindtap="toggleCapabilityGroup"
+            hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{group.batchLabel}}</button>
+        </view>
+        <view class="authorization-permission-options">
+          <block wx:for="{{group.items}}" wx:for-item="option" wx:key="key">
+            <view wx:if="{{readOnly}}" class="authorization-permission-readonly">{{option.label}}</view>
+            <button wx:else class="secondary-btn ui-motion-button authorization-option {{option.selected ? 'authorization-option-selected' : ''}}"
+              aria-pressed="{{option.selected}}" data-key="{{option.key}}" disabled="{{busy}}" bindtap="capability"
+              hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{option.label}}</button>
+          </block>
+        </view>
+      </view>
+    </block>
+  </view>
+</template>

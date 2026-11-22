@@ -12,15 +12,13 @@
       <p>{{ notice }}</p><button type="button" class="btn btn-secondary" @click="load">{{ ui.retry }}</button>
     </section>
     <template v-else-if="ready">
-      <section class="card stack">
-        <p class="muted">{{ tab === 'rules' && !state.canManageDelegations ? ui.rulesTaskHelp : ui.tabHelp[tab] }}</p>
-        <template v-if="tab === 'rules' && state.canManage !== false && !state.schemes.some(item => item.publishedVersion)"><p>{{ ui.firstUse }}</p><button type="button" class="btn btn-primary" @click="selectTab('schemes')">{{ ui.identitySettingsEntry }}</button></template>
-      </section>
       <section v-if="tab !== 'effective'" class="card stack">
         <div class="panel-head">
           <h2 class="section-title">{{ tabLabel(tab) }}</h2>
-          <button type="button" class="btn btn-primary" @click="edit(tab === 'rules' ? 'rule' : 'scheme')">{{ tab === 'rules' ? ui.createRule : ui.createScheme }}</button>
+          <button v-if="tab === 'schemes' || !state.unifiedIdentity || hasPublishedRole" type="button" class="btn btn-primary" @click="edit(tab === 'rules' ? 'rule' : 'scheme')">{{ tab === 'rules' && state.unifiedIdentity ? ui.unified.assignPublishedRole : tab === 'rules' ? ui.createRule : ui.createScheme }}</button>
+          <button v-else-if="tabs.includes('schemes')" type="button" class="btn btn-secondary" @click="selectTab('schemes')">{{ ui.identitySettingsEntry }}</button>
         </div>
+        <p class="muted">{{ !state.unifiedIdentity ? ui.tabHelp[tab] : tab === 'schemes' ? ui.unified.landingRoleHelp : hasPublishedRole ? ui.unified.landingRuleHelp : tabs.includes('schemes') ? ui.unified.landingNoPublishedRole : ui.unified.landingAskForPublishedRole }}</p>
         <label class="search-bar">
           <UiIcon name="search" tone="muted" size-role="row-leading" />
           <input v-model="query" class="search-input" :placeholder="tab === 'schemes' ? ui.searchIdentities : ui.search" :aria-label="tab === 'schemes' ? ui.searchIdentities : ui.search" />
@@ -120,8 +118,22 @@
         <details v-for="scheme in schemes" :key="scheme.id" :open="!!opened['scheme:' + scheme.id]" class="card authorization-scheme" @toggle.stop="trackOpen($event, 'scheme:' + scheme.id)">
           <summary><strong class="section-title">{{ scheme.name }}</strong><span class="chip chip-blue">{{ scheme.publishedVersion ? ui.schemeVersion(scheme.publishedVersion) : ui.draft }}</span><span class="muted">{{ ui.effectiveCount((scheme.publishedVersion ? scheme.publishedCapabilities : scheme.capabilities).length) }}</span><UiIcon class="disclosure-chevron" name="chevron-right" size-role="row-leading" /></summary>
           <template v-if="opened['scheme:' + scheme.id]">
-          <details v-if="scheme.publishedVersion" :open="!!opened['published:' + scheme.id]" class="glass-panel" @toggle.stop="trackOpen($event, 'published:' + scheme.id)"><summary>{{ ui.schemePublishedTitle }}</summary><div v-if="opened['published:' + scheme.id]" class="row row-wrap"><span v-for="key in scheme.publishedCapabilities" :key="key" class="chip chip-sky">{{ capabilityText(key) }}</span></div></details>
-          <details v-if="scheme.canEdit !== false" :open="!!opened['draft:' + scheme.id]" class="glass-panel" @toggle.stop="trackOpen($event, 'draft:' + scheme.id)"><summary>{{ ui.schemeDraftTitle }}</summary><div v-if="opened['draft:' + scheme.id]" class="row row-wrap"><span v-for="key in scheme.capabilities" :key="key" class="chip chip-sky">{{ capabilityText(key) }}</span></div></details>
+          <details v-for="version in schemeVersions(scheme)" :key="version.key" :open="!!opened[version.key]" class="glass-panel" @toggle.stop="trackOpen($event, version.key)">
+            <summary>{{ version.title }}</summary>
+            <div v-if="opened[version.key]" class="stack-tight">
+              <details v-for="module in version.modules" :key="module.key" class="authorization-module" @toggle.stop>
+                <summary><strong>{{ module.label }}</strong><span class="chip chip-sky">{{ module.summary }}</span><UiIcon class="disclosure-chevron" name="chevron-right" size-role="row-leading" /></summary>
+                <div class="authorization-picker-groups">
+                  <section v-for="group in module.groups" :key="group.key" class="authorization-picker-group stack-tight">
+                    <strong>{{ group.label }}</strong>
+                    <div class="row row-wrap"><span v-for="item in group.items" :key="item.key" class="chip chip-sky">{{ item.label }}</span></div>
+                  </section>
+                </div>
+              </details>
+              <p v-if="version.missing" class="muted">{{ ui.unavailableReference }}</p>
+              <p v-else-if="!version.modules.length" class="muted">{{ ui.noConfiguredPermissions }}</p>
+            </div>
+          </details>
           <div class="button-row"><button v-if="scheme.canEdit !== false" type="button" class="btn btn-secondary authorization-edit" @click="edit('scheme', scheme.id)">{{ ui.edit }}</button><button v-if="scheme.canPublish !== false" type="button" class="btn btn-primary" @click="changes('publish', scheme.id)">{{ ui.publish }}</button></div>
           </template>
         </details>
@@ -129,7 +141,7 @@
       <section v-else class="card stack">
         <div class="panel-head"><h2 class="section-title">{{ inspectionTarget ? ui.effective : ui.ownPermissions }}</h2>
           <button type="button" class="btn btn-secondary" :disabled="inspecting" @click="inspect">{{ ui.refresh }}</button></div>
-        <p v-if="!inspectionTarget" class="muted">{{ state.unifiedIdentity ? ui.unified.ownPermissionsHelp : ui.ownPermissionsHelp }}</p>
+        <p v-if="!inspectionTarget" class="muted">{{ state.canInspectOthers ? ui.unified.landingEffectiveHelp : ui.unified.landingOwnEffectiveHelp }}</p>
         <AppLoading v-if="inspecting" :text="ui.loading" />
         <p v-if="state.canInspectOthers" class="field-label">{{ ui.inspectOthers }}</p>
         <div v-if="state.canInspectOthers" class="button-row">
@@ -175,6 +187,7 @@ import PersonnelPicker from '@/components/PersonnelPicker.vue';
 import AuthorizationPolicySummary from '@/components/AuthorizationPolicySummary.vue';
 import ui from '@/locales/zh-CN/shared/authorization.js';
 import presentation from '@/shared/authorizationPresentation.js';
+import editor from '@/shared/authorizationEditor.js';
 import { callApi, requireSuccess, errorText } from '@/runtime/api.js';
 import { session, roleLabelOf } from '@/runtime/session.js';
 import { readCurrentAuthorizationAccess } from '@/runtime/authorizationAccess.js';
@@ -185,6 +198,7 @@ const tabs = computed(() => state.value.canManage === false ? ['effective']
   : state.value.unifiedIdentity ? ['schemes', 'rules', 'effective'] : ['rules', 'schemes', 'effective']);
 const tab = ref(useRoute().query.tab === 'schemes' ? 'schemes' : 'rules');
 const state = ref({ rules: [], schemes: [], catalog: [] });
+const hasPublishedRole = computed(() => state.value.schemes.some(item => item.publishedVersion));
 const basicBusy = ref(false);
 const canCopy = ref(false);
 const directory = ref({ assignments: [], adminGrants: [] });
@@ -225,6 +239,14 @@ const schemes = computed(() => state.value.schemes.filter(item => item.name.toLo
 const effectiveGroups = computed(() => presentation.inspectionGroups(effective.value?.capabilities, state.value.catalog, ui, effectiveRange.value, effectiveQuery.value));
 const controlledEffective = computed(() => (effective.value?.capabilities || []).filter(item => item.systemControlled && item.rules?.length));
 function capabilityText(key) { return presentation.capabilityLabel(key, state.value.catalog, ui); }
+function schemeVersions(scheme) {
+  const versions = [];
+  if (scheme.publishedVersion) versions.push({ key: 'published:' + scheme.id, title: ui.schemePublishedTitle, capabilities: scheme.publishedCapabilities || [] });
+  if (scheme.canEdit !== false) versions.push({ key: 'draft:' + scheme.id, title: ui.schemeDraftTitle, capabilities: scheme.capabilities || [] });
+  return versions.map(version => ({ ...version, modules: opened.value[version.key] ? editor.permissionGroups({
+    catalog: state.value.catalog, capabilities: version.capabilities, copy: ui, kind: 'scheme', unified: state.value.unifiedIdentity, readOnly: true, labelFor: capabilityText
+  }) : [], missing: version.capabilities.some(key => !state.value.catalog.some(definition => definition.key === key)) }));
+}
 function tabLabel(key) { return state.value.unifiedIdentity && ui.unified[key] || ui[key]; }
 function categoryLabel(key) {
   return state.value.catalog.find(item => item.key === key)?.classification === 'special'

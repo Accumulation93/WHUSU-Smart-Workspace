@@ -11,4 +11,11 @@
 .permission-page .authorization-group { display: flex; flex-direction: column; gap: var(--ui-field-gap); margin-top: 0; }
 .permission-page .authorization-input, .permission-page .authorization-label { margin-top: 0; }
 .permission-page .authorization-actions { margin-top: 0; margin-bottom: 0; gap: var(--ui-field-gap); }
+.authorization-permission-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ui-inline-gap); }
+.authorization-permission-filters > .authorization-chip { margin-left: auto; }
+.permission-page .authorization-permission-options > button {
+  width: 100%;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
 @media (min-width: 520px) { .authorization-input { min-height: 42px; padding: 10px 12px; margin-top: 8px; } .authorization-group { margin-top: 10px; } .authorization-option { min-height: 40px; padding: 8px 12px; } }

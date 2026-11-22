@@ -21,3 +21,13 @@
 .authorization-workspace .authorization-rule-actions { gap: var(--ui-field-gap); }
 .authorization-workspace .authorization-rule-actions > button { flex: 0 1 auto; white-space: normal; }
 .authorization-workspace .choice-grid .selected { color: var(--ui-chip-blue-text); background: var(--ui-chip-blue-bg); border-color: var(--ui-blue-500); }
+.authorization-picker-tools, .authorization-picker-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ui-inline-gap); }
+.authorization-picker-tools > .chip { margin-inline-start: auto; }
+.authorization-picker-tools .selected { color: var(--ui-chip-blue-text); background: var(--ui-chip-blue-bg); border-color: var(--ui-blue-500); }
+.authorization-picker-head > .field-label { flex: 1; min-width: 0; margin: 0; }
+.authorization-picker-head > .btn { flex: none; width: auto; white-space: nowrap; }
+.authorization-disclosure { display: flex; flex: 1; min-width: 0; align-items: center; justify-content: center; gap: var(--ui-inline-gap); min-height: var(--ui-compact-height); padding: var(--ui-compact-padding-y) 0; text-align: center; color: inherit; background: transparent; border: 0; font: inherit; cursor: pointer; }
+.authorization-disclosure > strong { flex: 1; min-width: 0; text-align: start; overflow-wrap: anywhere; }
+.authorization-disclosure-open { transform: rotate(90deg); }
+.authorization-picker-groups { display: grid; gap: var(--ui-list-gap); margin-top: var(--ui-list-gap); }
+.authorization-picker-group { border-top: var(--ui-field-border); padding-top: var(--ui-list-gap); }

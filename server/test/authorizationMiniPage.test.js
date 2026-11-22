@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { createRequire } = require('node:module');
 const editor = require('../../shared/authorizationEditor');
+const copy = require('../../shared/locales/zh-CN/authorization');
 
 function pageHarness(api, options = {}, pageName = 'authorizationEditor') {
   const file = path.join(__dirname, '../../miniprogram/subpackages/org/pages', pageName, pageName + '.js');
@@ -60,8 +61,9 @@ function fixture() {
 }
 
 test('原生授权模板的条件分支不与循环同标签，避免官方编译失去前置条件', () => {
-  for (const pageName of ['authorization', 'authorizationEditor', 'authorizationChanges']) {
-    const source = fs.readFileSync(path.join(__dirname, '../../miniprogram/subpackages/org/pages', pageName, pageName + '.wxml'), 'utf8');
+  for (const template of ['authorization/authorization', 'authorization/authorizationPermissionTree',
+    'authorizationEditor/authorizationEditor', 'authorizationChanges/authorizationChanges']) {
+    const source = fs.readFileSync(path.join(__dirname, '../../miniprogram/subpackages/org/pages', template + '.wxml'), 'utf8');
     let cursor = 0;
     while (cursor < source.length) {
       const start = source.indexOf('<', cursor); if (start < 0) break;
@@ -74,7 +76,7 @@ test('原生授权模板的条件分支不与循环同标签，避免官方编�
         else if (char === '>') break;
         else attributes += char;
       }
-      assert.equal(/\bwx:(else|elif)\b/.test(attributes) && /\bwx:for\b/.test(attributes), false, pageName + ':' + source.slice(start, end + 1));
+      assert.equal(/\bwx:(else|elif)\b/.test(attributes) && /\bwx:for\b/.test(attributes), false, template + ':' + source.slice(start, end + 1));
       cursor = end + 1;
       if (attributes.startsWith('wxs ')) { const close = source.indexOf('</wxs>', cursor); if (close >= 0) cursor = close + 6; }
     }
@@ -170,7 +172,7 @@ test('权限界面按业务折叠与搜索不修改原授权，隐藏清理派�
   assert.equal(page.data.capabilityBusinesses.length, 2);
   assert.equal(page.data.organizationSelected, true);
   assert.equal(page.data.selfSelected, false);
-  page.searchCapabilities({ detail: { value: page.data.capabilityGroups[0].label } });
+  page.searchCapabilities({ detail: { value: page.data.capabilityBusinesses[0].label } });
   assert.equal(page.data.capabilityBusinesses.length, 1);
   assert.deepEqual(Array.from(page.data.draft.policy.capabilities), ['venue.bookings.read']);
   page.chooseEffect({ currentTarget: { dataset: { effect: 'deny' } } });
@@ -193,6 +195,93 @@ test('权限界面按业务折叠与搜索不修改原授权，隐藏清理派�
   assert.equal(home.data.effective.length, 2);
   home.onHide();
   assert.equal(home.data.effectiveGroups.length, 0);
+});
+
+test('小程序角色、自定义规则和委托可按模块或二级组选择，搜索和只看已选不改动组外权限', async () => {
+  const source = fixture();
+  source.state.unifiedIdentity = true;
+  source.state.catalog.push(
+    { key: 'venue.bookings.update', resourceType: 'venue.bookings', action: 'update', scopes: ['self'], fields: [] },
+    { key: 'venue.bookingRules.read', resourceType: 'venue.bookingRules', action: 'read', scopes: ['organization'], fields: [] },
+    { key: 'hr.departments.read', resourceType: 'hr.departments', action: 'read', scopes: ['organization'], fields: [] },
+    { key: 'system.keys.manage', resourceType: 'system.keys', action: 'manage', classification: 'special', scopes: ['organization'], fields: [] });
+  for (const kind of ['scheme', 'rule', 'delegation']) {
+    const page = pageHarness(source.api, { kind, advanced: '1' }); await page.load();
+    const toggle = (key, group) => page.toggleCapabilityGroup({ currentTarget: { dataset: { key, group } } });
+    const choices = () => Array.from(page.data.draft.policy.capabilities).sort();
+    const venue = page.data.capabilityBusinesses.find(item => item.key === 'venue');
+    assert.equal(venue.total, 3);
+    assert.equal(venue.groups.length, 2);
+    assert.equal(venue.groups[0].total, 2);
+    assert.ok(venue.groups[0].items[0].label.includes(copy.resources['venue.bookings']));
+    assert.equal(page.data.capabilityBusinesses.some(item => item.key === 'system'), false);
+    const moduleDisclosure = { currentTarget: { dataset: { key: 'editor:venue' } } };
+
+    toggle('hr');
+    toggle('venue');
+    assert.equal(page.data.expanded['editor:venue'], undefined);
+    assert.deepEqual(choices(), ['hr.departments.read', 'venue.bookingRules.read', 'venue.bookings.read', 'venue.bookings.update']);
+    toggle('venue', 'venueRecords');
+    assert.deepEqual(choices(), ['hr.departments.read', 'venue.bookingRules.read']);
+
+    page.togglePermissionModule(moduleDisclosure);
+    page.searchCapabilities({ detail: { value: copy.resources['venue.bookings'] } });
+    assert.equal(page.data.capabilitySearchActive, true);
+    page.togglePermissionModule(moduleDisclosure);
+    assert.equal(page.data.searchCollapsed['editor:venue'], true);
+    toggle('venue');
+    assert.deepEqual(choices(), ['hr.departments.read', 'venue.bookingRules.read', 'venue.bookings.read', 'venue.bookings.update']);
+    page.searchCapabilities({ detail: { value: '' } });
+    assert.equal(page.data.expanded['editor:venue'], true);
+    toggle('venue', 'venueRecords');
+    page.switchCapabilityFilter({ currentTarget: { dataset: { filter: 'selected' } } });
+    assert.deepEqual(page.data.capabilityBusinesses.find(item => item.key === 'venue').keys, ['venue.bookingRules.read']);
+    toggle('venue');
+    assert.deepEqual(choices(), ['hr.departments.read']);
+    page.switchCapabilityFilter({ currentTarget: { dataset: { filter: 'all' } } });
+    assert.equal(page.data.capabilityBusinesses.find(item => item.key === 'venue').total, 3);
+  }
+});
+
+test('选择已发布角色后批量与单项均保持锁定，首页能单独展开发布及草稿权限', async () => {
+  const source = fixture();
+  source.state.unifiedIdentity = true;
+  source.state.catalog.push(
+    { key: 'venue.bookings.update', resourceType: 'venue.bookings', action: 'update', scopes: ['self'], fields: [] },
+    { key: 'system.keys.manage', resourceType: 'system.keys', action: 'manage', systemControlled: true, classification: 'special', scopes: ['organization'], fields: [] });
+  source.state.schemes = [{ id: 'role-a', name: '场地查阅角色', publishedVersion: 1,
+    publishedCapabilities: ['venue.bookings.read'], capabilities: ['venue.bookings.update', 'system.keys.manage'] }];
+  const page = pageHarness(source.api); await page.load();
+  page.selectScheme({ detail: { value: 1 } });
+  assert.equal(page.data.draft.schemeId, 'role-a');
+  assert.deepEqual(page.data.capabilityBusinesses.flatMap(item => item.keys), ['venue.bookings.read']);
+  page.capability({ currentTarget: { dataset: { key: 'venue.bookings.read' } } });
+  page.toggleCapabilityGroup({ currentTarget: { dataset: { key: 'venue' } } });
+  assert.deepEqual(Array.from(page.data.draft.policy.capabilities), ['venue.bookings.read']);
+
+  const manager = pageHarness(source.api, { tab: 'schemes' }, 'authorization'); await manager.load();
+  assert.deepEqual(Object.keys(manager.data.schemePermissions), []);
+  manager.toggleDetails({ currentTarget: { dataset: { id: 'published:role-a' } } });
+  manager.toggleDetails({ currentTarget: { dataset: { id: 'draft:role-a' } } });
+  assert.deepEqual(manager.data.schemePermissions['published:role-a'].businesses.flatMap(item => item.keys), ['venue.bookings.read']);
+  assert.deepEqual(manager.data.schemePermissions['draft:role-a'].businesses.flatMap(item => item.keys), ['venue.bookings.update', 'system.keys.manage']);
+  manager.togglePermissionModule({ currentTarget: { dataset: { key: 'version:published:role-a:venue' } } });
+  assert.equal(manager.data.expanded['version:published:role-a:venue'], true);
+  assert.equal(manager.data.expanded['version:draft:role-a:venue'], undefined);
+});
+
+test('委托人只能批量选择上级授予的候选操作', async () => {
+  const source = fixture();
+  source.state.catalog.push({ key: 'venue.bookings.update', resourceType: 'venue.bookings', action: 'update', scopes: ['self'], fields: [] });
+  const envelope = { subjects: [{ kind: 'assignments', ids: ['job-a'] }], capabilities: ['venue.bookings.read'], scopes: [{ kind: 'self' }], fields: null };
+  Object.assign(source.state, { unifiedIdentity: true, isSuper: false, canManage: true, canManageDelegations: true,
+    delegationOptions: [{ id: 'redelegate', name: '转授资格', allowRedelegation: true, envelope }] });
+  const page = pageHarness(source.api, { kind: 'delegation' }); await page.load();
+  assert.deepEqual(page.data.capabilityBusinesses.flatMap(item => item.keys), ['venue.bookings.read']);
+  page.capability({ currentTarget: { dataset: { key: 'venue.bookings.update' } } });
+  assert.deepEqual(Array.from(page.data.draft.policy.capabilities), []);
+  page.toggleCapabilityGroup({ currentTarget: { dataset: { key: 'venue', group: 'venueRecords' } } });
+  assert.deepEqual(Array.from(page.data.draft.policy.capabilities), ['venue.bookings.read']);
 });
 
 test('字段限制通过实际页面方法保存回读，取消全部选中不能放宽', async () => {
@@ -298,7 +387,7 @@ test('页面隐藏后丢弃迟到目录和旧草稿', async () => {
   const waiting = new Promise(resolve => { release = resolve; });
   const page = pageHarness(async input => { await waiting; return data.api(input); });
   const load = page.load(); page.onHide(); release(); await load;
-  assert.equal(page.data.ready, false); assert.equal(page.data.draft, null); assert.equal(page.data.capabilityGroups.length, 0);
+  assert.equal(page.data.ready, false); assert.equal(page.data.draft, null); assert.equal(page.data.capabilityBusinesses.length, 0);
 });
 
 test('岗位范围与期限只修改对应条件，未填写完整日期不能被当成无限期', async () => {

@@ -69,9 +69,8 @@ function toggleCapability(draft, key, catalog) {
 }
 
 function toggleCapabilityGroup(draft, keys, catalog) {
-  if (!keys.length || keys.some(key => !catalog.some(item => item.key === key))) return draft;
+  if (draft.schemeId || !keys.length || keys.some(key => !catalog.some(item => item.key === key))) return draft;
   const next = clone(draft);
-  next.schemeId = '';
   const values = new Set(next.policy.capabilities);
   const remove = keys.every(key => values.has(key));
   for (const key of keys) {
@@ -80,6 +79,101 @@ function toggleCapabilityGroup(draft, keys, catalog) {
   }
   next.policy.capabilities = Array.from(values);
   return next;
+}
+
+const PERMISSION_SECTIONS = {
+  audit: {
+    'audit.submissions.approve': 'auditRequests', 'audit.submissions.create': 'auditRequests',
+    'audit.submissions.update': 'auditRequests', 'audit.submissions.cancel': 'auditRequests',
+    'audit.submissions': 'auditRecords', 'audit.templates': 'auditConfiguration',
+    'audit.templateCandidates': 'auditConfiguration', 'audit.stamps': 'auditConfiguration',
+    'audit.stampCandidates': 'auditConfiguration', 'audit.verification': 'auditVerification'
+  },
+  venue: {
+    'venue.resources.read': 'venueBooking', 'venue.schedule': 'venueBooking',
+    'venue.bookings.create': 'venueBooking', 'venue.bookings.cancel': 'venueBooking',
+    'venue.bookings': 'venueRecords', 'venue.bookingParticipants': 'venueRecords',
+    'venue.approvalHistory': 'venueRecords', 'venue.approvals': 'venueBookingSettings',
+    'venue.approvalCandidates': 'venueBookingSettings', 'venue.bookingRules': 'venueBookingSettings',
+    'venue.bookingWindows': 'venueBookingSettings', 'venue.purposes': 'venueBookingSettings',
+    'venue.resources': 'venueAvailability', 'venue.openRules': 'venueAvailability',
+    'venue.activityRules': 'venueAvailability', 'venue.activityParticipants': 'venueAvailability',
+    'venue.sharedConfiguration': 'venueAvailability'
+  },
+  scoring: {
+    'scoring.currentActivity': 'scoringParticipation', 'scoring.participation': 'scoringParticipation',
+    'scoring.meritSelections.update': 'scoringMerit',
+    'scoring.latestPublishedActivity': 'scoringPublished', 'scoring.publishedResults': 'scoringPublished',
+    'scoring.meritSelections': 'scoringPublished', 'scoring.activities': 'scoringConfiguration',
+    'scoring.templates': 'scoringConfiguration', 'scoring.rules': 'scoringConfiguration',
+    'scoring.results': 'scoringPublication', 'scoring.tasks': 'scoringPublication', 'scoring.publications': 'scoringPublication'
+  },
+  hr: {
+    'hr.people': 'hrMembers', 'hr.assignments': 'hrMembers', 'hr.departments': 'hrClassification',
+    'hr.identities': 'hrClassification', 'hr.workGroups': 'hrClassification', 'hr.assignmentNatures': 'hrClassification',
+    'hr.profileReview': 'hrProfiles', 'hr.profileTemplates': 'hrProfiles', 'hr.profileSelection': 'hrProfiles',
+    'contacts.entries': 'contactsBrowse', 'hr.directoryRules': 'hrDirectory',
+    'hr.import': 'downloadOrImport', 'hr.profileMigration': 'downloadOrImport'
+  },
+  calendar: { 'calendar.events': 'calendarEvents', 'calendar.rules': 'calendarRules' },
+  auth: { 'auth.accounts': 'authAccount', 'auth.policy': 'authAccount', 'auth.identity': 'authIdentity', 'auth.recovery': 'authIdentity' },
+  authorization: { 'authorization.schemes': 'authorizationRoles', 'authorization.effective': 'authorizationAllocation',
+    'authorization.rules': 'authorizationAllocation', 'authorization.delegations': 'authorizationAllocation' },
+  system: { 'system.organizations': 'systemOrganization', 'system.settings': 'systemOrganization',
+    'system.adminAccounts': 'systemSecurity', 'system.superAdministrators': 'systemSecurity', 'system.keys': 'systemSecurity' }
+};
+
+function permissionSection(definition, moduleKey) {
+  if (definition.key === 'venue.bookings.createApproved') return 'bookingOverride';
+  if (['share', 'receive'].includes(definition.action)) return 'organizationTransfer';
+  if (['delete', 'revoke'].includes(definition.action)) return 'removeOrRevoke';
+  if (definition.action === 'export') return moduleKey === 'hr' ? 'downloadOrImport' : 'exportOnly';
+  const sections = PERMISSION_SECTIONS[moduleKey] || {};
+  return sections[definition.key] || sections[definition.resourceType] || 'other';
+}
+
+function permissionGroups({ catalog, capabilities, query, selectedOnly, copy, unified, kind, draft, readOnly, labelFor }) {
+  const selected = new Set(capabilities);
+  const keyword = String(query || '').trim().toLowerCase();
+  const restrictedLegacySubject = draft && (draft.policy.subjects.some(subject => subject.kind !== 'adminGrants')
+    || (draft.audience || []).some(subject => subject.kind === 'assignments'));
+  const roleBound = readOnly || Boolean(draft && draft.schemeId);
+  const modules = new Map();
+  for (const definition of catalog) {
+    if (roleBound && !selected.has(definition.key)) continue;
+    if (!roleBound && (definition.systemControlled || (unified ? definition.classification === 'special'
+      : definition.governance && restrictedLegacySubject) || kind === 'delegation' && definition.delegation)) continue;
+    const moduleKey = definition.resourceType === 'contacts.entries' ? 'hr' : definition.resourceType.split('.')[0];
+    const groupKey = permissionSection(definition, moduleKey);
+    const moduleLabel = copy.businessGroups[moduleKey] || copy.unknownCapability;
+    const resourceLabel = copy.resources[definition.resourceType] || copy.unknownCapability;
+    const groupLabel = copy.unified.permissionSections[groupKey] || moduleLabel;
+    const label = labelFor ? labelFor(definition.key) : (copy.capabilityNames || {})[definition.key]
+      || copy.capabilityLabel(resourceLabel, copy.actions[definition.action] || copy.unknownCapability);
+    const checked = selected.has(definition.key);
+    if (selectedOnly && !checked) continue;
+    if (keyword && ![moduleLabel, groupLabel, resourceLabel, label].some(text => text.toLowerCase().includes(keyword))) continue;
+    if (!modules.has(moduleKey)) modules.set(moduleKey, { key: moduleKey, label: moduleLabel, resources: new Map() });
+    const resources = modules.get(moduleKey).resources;
+    if (!resources.has(groupKey)) resources.set(groupKey, { key: groupKey, label: groupLabel, items: [] });
+    resources.get(groupKey).items.push({ key: definition.key, label, selected: checked });
+  }
+  function summarize(items, label) {
+    const count = items.filter(item => item.selected).length;
+    const full = count === items.length;
+    const batchName = keyword ? (full ? copy.unified.clearMatchingInGroup : copy.unified.selectMatchingInGroup)
+      : (full ? copy.unified.clearPermissionGroup : copy.unified.selectPermissionGroup);
+    return { selected: count, total: items.length, keys: items.map(item => item.key),
+      summary: roleBound ? copy.effectiveCount(items.length) : copy.unified.permissionGroupCount(count, items.length),
+      batchLabel: full ? copy.clearSelection : copy.selectAll, batchAriaLabel: batchName(label) };
+  }
+  const order = new Map(Object.keys(copy.unified.permissionSections).map((key, index) => [key, index]));
+  return Array.from(modules.values(), ({ key, label, resources }) => {
+    const groups = Array.from(resources.values(), resource => Object.assign({}, resource, summarize(resource.items, resource.label)));
+    groups.sort((left, right) => (order.has(left.key) ? order.get(left.key) : order.size)
+      - (order.has(right.key) ? order.get(right.key) : order.size));
+    return Object.assign({ key, label, groups }, summarize(groups.flatMap(group => group.items), label));
+  });
 }
 
 function assignmentMethod(draft) {
@@ -276,6 +370,6 @@ function canUseIdentityFlow(draft, option) {
   return canSimplify(copy) && withinDelegation(draft, option);
 }
 
-module.exports = { createDraft, copyDraft, createDelegationDraft, setDelegationRecipients, setPersonnel, toggleCapability, toggleCapabilityGroup, assignmentMethod, subjectMatchCount,
+module.exports = { createDraft, copyDraft, createDelegationDraft, setDelegationRecipients, setPersonnel, toggleCapability, toggleCapabilityGroup, permissionGroups, assignmentMethod, subjectMatchCount,
   availableFields, availableScopes, toggleField, allFields, canSimplify, prepareSimpleDraft, validation, request, delegationRequest,
   withinDelegation, selectDelegation, delegationDirectory, assignableSchemes, toggleScope, setPeopleScope, canUseIdentityFlow };

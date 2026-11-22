@@ -4,6 +4,24 @@ const assert = require('node:assert/strict');
 const editor = require('../../shared/authorizationEditor');
 const presentation = require('../../shared/authorizationPresentation');
 const ui = require('../../shared/locales/zh-CN/authorization');
+const { CATALOG } = require('../src/core/services/authorizationCatalog');
+
+test('权限目录的工作组区分日常办理、维护与高影响操作，且可选权限不重不漏', () => {
+  const catalog = Array.from(CATALOG.values());
+  const draft = editor.createDraft();
+  const grouped = editor.permissionGroups({ catalog, draft, capabilities: [], copy: ui, unified: true, kind: 'scheme' });
+  const keys = grouped.flatMap(module => module.groups.flatMap(group => group.keys));
+  assert.equal(keys.length, new Set(keys).size);
+  assert.deepEqual(new Set(keys), new Set(catalog.filter(item => !item.systemControlled && item.classification !== 'special').map(item => item.key)));
+  const sections = new Map(grouped.flatMap(module => module.groups.map(group => [module.key + '.' + group.key, group.keys])));
+  assert.ok(sections.get('venue.venueBooking').includes('venue.bookings.create'));
+  assert.ok(sections.get('venue.venueRecords').includes('venue.bookings.approve'));
+  assert.ok(sections.get('venue.removeOrRevoke').includes('venue.bookings.delete'));
+  assert.ok(sections.get('scoring.scoringPublished').includes('scoring.meritSelections.read'));
+  assert.deepEqual(sections.get('scoring.scoringMerit'), ['scoring.meritSelections.update']);
+  assert.deepEqual(sections.get('hr.contactsBrowse'), ['contacts.entries.read']);
+  assert.ok(sections.get('hr.hrDirectory').includes('hr.directoryRules.update'));
+});
 
 test('查询范围独立于搜索，四态与未知状态不依赖旧判定字段', () => {
   const catalog = ['read', 'create', 'update', 'delete', 'export'].map(action => ({ key: 'hr.people.' + action, resourceType: 'hr.people', action }));
