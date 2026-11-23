@@ -167,6 +167,7 @@ module.exports = Object.freeze({
   copy_717083eab1: "分",
   copy_766176221d: '新增',
   copy_76c76a4d37: '尚未设置审批流程，可新增流程并配置步骤。',
+  noReadableApprovalFlows: '暂无可查看的审批流程',
   copy_777a6a2574: '指定人员审批',
   copy_789e05b4e1: "占用时段",
   copy_7963fb24a5: "添加审批步骤",

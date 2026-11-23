@@ -3160,7 +3160,7 @@
   <personnel-picker visible="{{adminCandidatePickerVisible}}" title="{{localeCopy.copy_809f3d3dd3}}" options="{{adminAccountCandidates}}" value="{{adminAccountCandidateValue}}" selectionLevel="person" multiple="{{false}}" loading="{{adminAccountCandidatesLoading}}" errorText="{{adminAccountCandidatesError}}" bindconfirm="confirmAdminCandidatePicker" bindcancel="closeAdminCandidatePicker" bindretry="openAdminCandidatePicker" />
   <personnel-picker visible="{{showDesignationPicker}}" title="{{localeCopy.copy_74b0241999}}" options="{{designationPickerHrList}}" value="{{designationPickerSelectedList}}" selectionLevel="assignment" multiple="{{true}}" confirmLoading="{{loadingMap.saveDesignations}}" bindconfirm="confirmSharedDesignationPicker" bindcancel="closeDesignationPicker" />
   <personnel-picker visible="{{stampGrantVisible}}" title="{{stampCopy.title}}" contextText="{{stampGrantContext}}" options="{{stampGrantOptions}}" value="{{stampGrantValue}}" selectionLevel="assignment" multiple="{{true}}" loading="{{stampGrantLoading}}" errorText="{{stampGrantError}}" confirmLoading="{{stampGrantSaving}}" bindconfirm="confirmStampGrants" bindcancel="closeStampGrants" bindretry="loadStampGrantCandidates" />
-  <viewport-portal wx:if="{{orgFormVisible && (isSuperAdmin || (canRenameOwnOrganization && orgFormData.id === currentOrganizationId))}}">
+  <viewport-portal wx:if="{{orgFormVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{orgFormVisible}}" bindtap="closeOrgForm">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">

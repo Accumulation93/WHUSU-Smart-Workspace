@@ -350,6 +350,7 @@ module.exports = Behavior({
     approvalFlow: null,
     approvalFlowSteps: [],
     approvalFlows: [],
+    approvalFlowsLoaded: false,
     selectedFlowId: '',
     selectedFlowName: '',
     allowUserSelectFlow: false,
@@ -525,7 +526,7 @@ module.exports = Behavior({
     this._authorizationVisible = false;
     this.setData({ actionCapabilities: {}, hasPermission: false, visibleTabs: [],
       editing: false, rulesVisible: false, ruleEditorVisible: false, purposeVisible: false,
-      venues: [], configurationVenues: [], additionalVenues: [], bookings: [], purposes: [], openRules: [], activityRules: [], bookingRules: [], approvalFlows: [] });
+      venues: [], configurationVenues: [], additionalVenues: [], bookings: [], purposes: [], openRules: [], activityRules: [], bookingRules: [], approvalFlows: [], approvalFlowsLoaded: false });
     this.releaseDialogScrollLock();
     this.unbindDialogKeyboard();
     this._bookingReferencesGeneration = (this._bookingReferencesGeneration || 0) + 1;
@@ -821,6 +822,8 @@ module.exports = Behavior({
       activityDetail: null,
       bookingRules: [],
       bookingWindowForm: emptyBookingWindow(),
+      approvalFlows: [],
+      approvalFlowsLoaded: false,
       approvalFlow: null,
       approvalFlowSteps: []
     });
@@ -2202,6 +2205,7 @@ module.exports = Behavior({
     const venueId = this.data.rulesVenueId;
     if (!venueId) return;
     const request = orgSession.beginRequest(this, 'manageApprovalFlow');
+    this.setData({ approvalFlowsLoaded: false });
     try {
       const res = await callFunction({ name: 'listVenueApprovalFlows', data: { venueId, includeInactive: true } });
       if (!orgSession.isRequestCurrent(this, request) || this.data.rulesVenueId !== venueId) return;
@@ -2214,7 +2218,7 @@ module.exports = Behavior({
           ? flows.find(function(flow) { return flow.id === this.data.selectedFlowId; }.bind(this))
           : flows[0];
         if (!selected && flows.length) selected = flows[0];
-        const patch = { approvalFlows: flows, approvalFlow: selected || null };
+        const patch = { approvalFlows: flows, approvalFlowsLoaded: true, approvalFlow: selected || null };
         if (selected) {
           patch.selectedFlowId = selected.id;
           patch.selectedFlowName = selected.name || '';

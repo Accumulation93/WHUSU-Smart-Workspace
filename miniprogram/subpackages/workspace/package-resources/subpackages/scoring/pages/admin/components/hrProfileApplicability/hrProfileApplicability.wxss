@@ -9,5 +9,5 @@
 .applicability-actions, .applicability-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-inline-gap); }
 .applicability-button { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; margin: 0; }
 .profile-applicability > .applicability-toggle { align-self: flex-start; flex: none; min-width: 0; margin: 0; }
-.profile-applicability .applicability-option-selected { border-color: #2563eb; background: #e2eeff; color: #1e40af; }
+.profile-applicability .applicability-option-selected { border-color: #2563eb; background: #e2eeff; color: #1e3a8a; }
 @media (min-width: 900px) { .applicability-options { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

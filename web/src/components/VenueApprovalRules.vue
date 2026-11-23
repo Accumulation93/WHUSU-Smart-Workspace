@@ -3,7 +3,7 @@
   <template v-if="loadNotice"><p role="alert" class="notice-line">{{ loadNotice }}</p><button type="button" class="btn-quiet" :disabled="loading || busy" @click="load">{{ copy.common.retry }}</button></template>
   <p v-if="notice && !editor" role="alert" class="notice-line">{{ notice }}</p>
   <button type="button" class="btn btn-secondary" :disabled="blocked" v-if="canCreateFlow" @click="editFlow()">+ {{ ui.copy_1aba371667 }}</button>
-  <p v-if="canReadFlow && !loading && !loadNotice && !flows.length" class="muted">{{ ui.copy_76c76a4d37 }}</p>
+  <p v-if="canReadFlow && !loading && !loadNotice && !flows.length" class="muted">{{ canCreateFlow ? ui.copy_76c76a4d37 : ui.noReadableApprovalFlows }}</p>
   <div v-for="flow in flows" :key="flow.id" class="list-row approval-row">
     <strong class="break-all">{{ flow.name || ui.copy_890d7f4874 }}</strong><span v-if="Array.isArray(flow.steps)" class="muted">{{ flow.steps.length }} {{ ui.copy_310413445b }}</span>
     <span v-if="flow.is_active != null" class="chip">{{ Number(flow.is_active) === 0 ? flowCopy.disabled : flowCopy.enabled }}</span>

@@ -245,7 +245,12 @@
         </block>
         <block wx:if="{{rulesTab === 'booking'}}">
           <button class="secondary-btn rule-add-btn ui-motion-button" wx:if="{{authorizationEnforced ? actionCapabilities['venue.approvals.create'] : canApproveVenue}}" catchtap="addApprovalFlow" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">+ {{localeCopy.copy_1aba371667}}</button>
-          <view wx:if="{{(!authorizationEnforced || actionCapabilities['venue.approvals.read']) && !approvalFlows.length}}" class="empty-inline">{{localeCopy.copy_76c76a4d37}}</view>
+          <block wx:if="{{approvalFlowsLoaded && (!authorizationEnforced || actionCapabilities['venue.approvals.read'])}}">
+            <block wx:if="{{authorizationEnforced ? actionCapabilities['venue.approvals.create'] : canApproveVenue}}">
+              <view wx:if="{{!approvalFlows.length}}" class="empty-inline">{{localeCopy.copy_76c76a4d37}}</view>
+            </block>
+            <view wx:elif="{{!approvalFlows.length}}" class="empty-inline">{{localeCopy.noReadableApprovalFlows}}</view>
+          </block>
           <block wx:if="{{approvalFlows.length}}">
             <view class="list-item list-item-stacked flow-meta-card ui-motion-card" wx:for="{{approvalFlows}}" wx:key="id">
               <view class="list-main">

@@ -1914,3 +1914,10 @@ hrImportPage.test.js 12组通过，包括2人3行标题不含首人姓名。新�
 仅有身份卡设置修改权的角色原来无法打开设置页。两端允许进入，接口在没有明确禁止读取时返回保存必需的开关状态及版本。只读角色仍不可保存。通讯录与日程只读规则响应只下发所见规则明确引用的人员姓名，创建和修改所需的候选仍由各自设置接口提供。`identityCardIntegration.test.js`、`identity-card.spec.js` 与 `authorizationIntegration.test.js` 验证入口、读写分离、保存回读和只读候选范围。
 
 场地审批保存曾附带修改独立预约窗口。两端将窗口保存留在既有窗口页面。审批方式切换按实际权限，在同一事务停用被替换的配置，保留步骤和历史引用。仅授权直接安排的工作角色使用公开场地名称与日程选择安排对象，不能由此读取管理详情。管理员安排在锁定场地后检查当时的开放和活动规则。`venue-admin-schedule.spec.js`、`venue-rules.spec.js`、`venueRuleEditorIntegration.test.js`、`venueConfigurationAuthorizationIntegration.test.js` 分别覆盖权限入口、请求体、历史保留、中途失败和并发关闭后的拒绝。
+
+
+## 2026-11-24：只读场地流程提示无法执行的操作，组织改名弹窗滚动锁与显示条件不一致
+
+场地规则区在流程加载成功后，按流程创建权限显示对应的空列表提示。组织改名弹窗的入口检查授权，权限刷新时同步关闭已失去权限的表单；弹窗和背景滚动由同一个显示状态控制。人事补充资料配置改用已批准的深蓝文字色值。
+
+`scripts/ui-audit.js --strict`、`scripts/dialog-scroll-contract-audit.js`、`scripts/dialog-keyboard-audit.js` 和 `server/test/systemOrganizationControlsMini.test.js` 分别核对色值、流程空态、弹窗滚动和组织改名操作。实体手机、Pad 竖屏和横屏未现场验证。

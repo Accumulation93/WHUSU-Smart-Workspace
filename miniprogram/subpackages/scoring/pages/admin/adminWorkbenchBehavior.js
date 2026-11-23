@@ -1039,6 +1039,10 @@ module.exports = Behavior({
 
     // 读取当前活跃组织名称
     const activeOrgName = activeSession.orgName || '';
+    const canRenameOwnOrganization = access.mode === 'enforced' && actionCapabilities['system.organizations.update'] === true;
+    const orgFormData = this.data.orgFormData;
+    const orgFormVisible = this.data.orgFormVisible && (isSuperAdmin
+      || (canRenameOwnOrganization && orgFormData.id === activeOrgId));
 
     this.clearPermissionCheckGuard();
     this.setData({
@@ -1053,7 +1057,9 @@ module.exports = Behavior({
       canReadAdmins,
       canWriteAdmins,
       canReadOrganizations: isSuperAdmin || (access.mode === 'enforced' && actionCapabilities['system.organizations.read'] === true),
-      canRenameOwnOrganization: access.mode === 'enforced' && actionCapabilities['system.organizations.update'] === true,
+      canRenameOwnOrganization,
+      orgFormVisible,
+      orgFormData: orgFormVisible ? orgFormData : { name: '' },
       canExportScoreResults: allowed(['scoring.results_export'], ['scoring.results.export']),
       canExportScoreTasks: allowed(['scoring.results_export'], ['scoring.tasks.export']),
       canReadScoreResults: allowed(['scoring.results'], ['scoring.results.read']),
