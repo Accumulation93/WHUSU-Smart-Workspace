@@ -12,7 +12,10 @@ test('权限目录的工作组区分日常办理、维护与高影响操作，�
   const grouped = editor.permissionGroups({ catalog, draft, capabilities: [], copy: ui, unified: true, kind: 'scheme' });
   const keys = grouped.flatMap(module => module.groups.flatMap(group => group.keys));
   assert.equal(keys.length, new Set(keys).size);
-  assert.deepEqual(new Set(keys), new Set(catalog.filter(item => !item.systemControlled && item.classification !== 'special').map(item => item.key)));
+  assert.deepEqual(new Set(keys), new Set(catalog.filter(item => !item.systemControlled && !item.assignmentRetired && item.classification !== 'special').map(item => item.key)));
+  const legacy = 'audit.verification.configure';
+  const historical = editor.permissionGroups({ catalog, draft, capabilities: [legacy], copy: ui, unified: true, kind: 'scheme' });
+  assert(historical.some(module => module.groups.some(group => group.items.some(item => item.key === legacy && item.selected))));
   const sections = new Map(grouped.flatMap(module => module.groups.map(group => [module.key + '.' + group.key, group.keys])));
   assert.ok(sections.get('venue.venueBooking').includes('venue.bookings.create'));
   assert.ok(sections.get('venue.venueRecords').includes('venue.bookings.approve'));

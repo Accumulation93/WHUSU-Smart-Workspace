@@ -1,9 +1,9 @@
 const pool = require('../../../config/db');
 
 // 开放时间规则已解绑组织 — 只与场地关联
-async function getByVenueId(venueId, connection = pool) {
+async function getByVenueId(venueId, connection = pool, lock = false) {
   const [rows] = await connection.query(
-    'SELECT * FROM venue_open_rules WHERE venue_id = ? ORDER BY cycle_type, time_start',
+    'SELECT * FROM venue_open_rules WHERE venue_id = ? ORDER BY cycle_type, time_start' + (lock ? ' FOR SHARE' : ''),
     [venueId]
   );
   return rows;

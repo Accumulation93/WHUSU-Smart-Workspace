@@ -6,9 +6,9 @@ const verificationImage = await createRequire(import.meta.url)('../../../server/
 const card = {name:'Identity Example',organization:'Example organization',position:'Member · Department',state:copy.active,
   stateCode:'active',positionFacts:{assignmentLabel:'Member · Department',role:'user',hasAssignment:true}};
 const image = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jU1sAAAAASUVORK5CYII=';
-test('authorized identity-card policy is editable without requesting a new code', async ({ page }, info) => {
+test('identity-card policy update alone can save without requesting a new code', async ({ page }, info) => {
   await mockApi(page);
-  const capabilities = ['identity.cardPolicy.read', 'identity.cardPolicy.update'];
+  const capabilities = ['identity.cardPolicy.update'];
   await page.route('**/api/getCurrentAuthorizationAccess', route => route.fulfill({ json: { status: 'success', mode: 'enforced',
     organizationId: CURRENT_CONTEXT.organizationId, contextId: CURRENT_CONTEXT.contextId, role: CURRENT_CONTEXT.role,
     capabilities, grantedCapabilities: capabilities } }));

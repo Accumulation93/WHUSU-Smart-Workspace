@@ -15,7 +15,7 @@ const MANAGEMENT_ACTIONS = Object.freeze({
   'scoring.activities': ['read', 'create', 'update', 'delete'], 'scoring.templates': ['read', 'create', 'update', 'delete'],
   'scoring.rules': ['read', 'create', 'update', 'delete'], 'scoring.results': ['read', 'export', 'revoke'],
   'scoring.tasks': ['read', 'export'],
-  'scoring.publications': ['read', 'create', 'update', 'delete'],
+  'scoring.publications': ['read', 'create', 'update', 'delete', 'export'],
   'hr.people': ['read', 'create', 'update', 'delete'], 'hr.import': ['read'], 'hr.profileReview': ['read'],
   'hr.directoryRules': ['read', 'create', 'update', 'delete'], 'auth.identity': ['read', 'verify'], 'auth.recovery': ['read', 'update'],
   'auth.accounts': ['read', 'update', 'freeze', 'unbindWechat', 'resetPassphrase', 'revokePassphrase', 'revokeSession', 'manageRecoveryCode', 'approveRecovery'],
@@ -32,11 +32,12 @@ const MANAGEMENT_ACTIONS = Object.freeze({
   'venue.openRules': ['read', 'create', 'update', 'delete'], 'venue.activityRules': ['read', 'create', 'update', 'delete'],
   'venue.bookings': ['read', 'create', 'update', 'cancel', 'delete'],
   'venue.purposes': ['read', 'create', 'update', 'delete'], 'calendar.rules': ['read', 'create', 'update', 'delete'],
-  'identity.cardPolicy': ['read']
+  'identity.cardPolicy': ['read', 'update']
 });
 
 function managementTabAllowed(access, tab) {
   if (tab === 'pending') return hasCapability(access, 'venue.bookings.approve', true);
+  if (tab === 'venue' && hasCapability(access, 'venue.bookings.createApproved', true)) return true;
   if (!Object.prototype.hasOwnProperty.call(MANAGEMENT_RESOURCES, tab)) return false;
   return MANAGEMENT_RESOURCES[tab].some(resource => MANAGEMENT_ACTIONS[resource]
     .some(action => hasCapability(access, resource + '.' + action, true)));

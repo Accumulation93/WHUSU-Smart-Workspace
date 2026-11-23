@@ -1,7 +1,7 @@
 'use strict';
 
 const pool = require('../../config/db');
-const { createAuthorizationSession } = require('../services/authorizationSession');
+const { createAuthorizationSession, trackAuthorizationBoundaries } = require('../services/authorizationSession');
 const { authorizationError } = require('../services/authorizationError');
 const { assignmentPredicate } = require('./identityNatureEligibility');
 
@@ -160,13 +160,15 @@ async function globalDeletionActor(reference, organizationId, target, connection
 
 async function reviewTodos(reference, organizationId, contextId) {
   return pool.withTransaction(async connection => {
-    const state = await require('./authorization').read(connection, organizationId);
-    if (state.mode === 'shadow') return null;
     const actor = await require('./authorizationIdentity').loadMessageActor(connection, reference, contextId);
+    const state = await require('./authorization').read(connection, organizationId, false, actor?.unifiedAuthorization === true);
+    if (state.mode === 'shadow') return null;
     if (state.mode !== 'enforced' || !actor || actor.organizationId !== organizationId) throw authorizationError('authorization_forbidden');
     const catalog = await require('./authorizationProfileFields').catalog(connection, organizationId, require('../services/authorizationCatalog').CATALOG);
     const { preparePolicies, evaluate } = require('../services/authorizationPolicy');
     const prepared = preparePolicies(state.rules.map(rule => rule.policy), catalog);
+    const now = Date.now();
+    trackAuthorizationBoundaries(state.rules, now);
     const [rows] = await connection.query(`SELECT r.id,r.hr_id,h.name,r.requested_at,r.updated_at,m.person_id,
       a.id AS assignment_id,a.assignment_kind,a.department_id,a.identity_id,a.work_group_id,
       CASE WHEN ${assignmentPredicate('a')} THEN 1 ELSE 0 END AS assignment_configured,
@@ -198,7 +200,7 @@ async function reviewTodos(reference, organizationId, contextId) {
           active: row.valid_assignment === 1, natureId: row.assignment_kind, departmentId: row.department_id,
           identityCategoryId: row.identity_id, workGroupId: row.work_group_id || null } : null };
       const check = (action, fields) => evaluate({ actor, resource, capability: 'hr.profileReview.' + action,
-        requestedFields: fields, catalog, prepared, now: Date.now(), businessAllowed: true }).allowed;
+        requestedFields: fields, catalog, prepared, now, businessAllowed: true }).allowed;
       if (check('read', ['name', ...requestedFields]) && check('approve', requestedFields)) result.set(row.id, row);
     }
     return [...result.values()];

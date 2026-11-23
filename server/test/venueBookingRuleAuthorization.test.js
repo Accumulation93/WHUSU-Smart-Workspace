@@ -83,9 +83,9 @@ const saveRuleSource = venueAdminSource.slice(saveRuleStart, saveRuleEnd);
 assert.ok(saveRuleSource.includes('await conn.beginTransaction()'), '预约规则切换必须使用事务');
 assert.ok(saveRuleSource.includes('venueModel.getByIdForUpdate(venueId, conn)'), '预约规则切换必须锁定场地配置入口');
 assert.ok(saveRuleSource.includes('venueBookingRuleModel.getByVenueId(venueId, conn, true)'), '必须读取当前组织当前场地生效规则');
-assert.ok(saveRuleSource.includes('for (const rule of allRules) await venueBookingRuleModel.remove(rule.id, conn)'), '直接通过必须逐条清理生效规则');
+assert.ok(saveRuleSource.includes('for (const rule of otherRules) await venueBookingRuleModel.update(rule.id, { isActive: false }, conn)'), '切换直接通过只停用其他生效规则');
 assert.ok(saveRuleSource.includes('venueApprovalFlowModel.listByVenueId(venueId, orgId, conn)'), '审批流范围必须限定组织与场地');
-assert.ok(saveRuleSource.includes('for (const flow of activeFlows) await venueApprovalFlowModel.remove(flow.id, conn)'), '直接通过清理生效审批流，保留未启用的复制草稿');
+assert.ok(saveRuleSource.includes('for (const flow of activeFlows) await venueApprovalFlowModel.update(flow.id, { isActive: false }, conn)'), '切换直接通过只停用生效审批流');
 assert.ok(saveRuleSource.includes('await conn.commit()'), '预约规则切换必须原子提交');
 
 console.log('场地旧规则岗位授权与跨组织待办测试通过');

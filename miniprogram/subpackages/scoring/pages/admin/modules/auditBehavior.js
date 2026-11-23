@@ -22,6 +22,7 @@ const orgSession = require('../../../../../utils/orgSession');
 const eventBus = require('../../../../../utils/eventBus');
 const governanceCopy = require('../../../../../locales/zh-CN/adminGovernance');
 const stampCopy = require('../../../../../locales/zh-CN/stampAuthorization');
+const feedbackCopy = require('../../../../../locales/zh-CN/requestFeedback');
 const { buildImageDataUrl, MAX_IMAGE_BYTES: MAX_STAMP_IMAGE_BYTES } = require('../../../../../utils/imageDataUrl');
 const {
   ALL_FILTER_KEY,
@@ -35,12 +36,16 @@ const AUDIT_PERSONNEL_RENDER_LIMIT = 80;
 module.exports = Behavior({
   data: {
     auditSigningCopy,
+    auditFeedbackCopy: feedbackCopy,
     governanceCopy,
     canDeleteAuditSubmissions: false,
     deletingAuditSubmission: '',
     verificationCopy,
     // ── Audit Flow Templates ──
     auditFlowTemplates: [],
+    auditTemplateLoadError: '',
+    auditTemplateDirectoryReady: false,
+    auditTemplateDirectoryError: '',
     auditTemplateForm: {
       id: '',
       name: '',
@@ -176,11 +181,30 @@ module.exports = Behavior({
       return new Promise(resolve=>wx.showModal({title:natureCopy.legacyScopeChangeTitle,content:natureCopy.legacyScopeChangeHelp(names),confirmText:natureCopy.confirmScopeChange,success:result=>resolve(result.confirm),fail:()=>resolve(false)}));
     },
     async loadAuditEditorData() {
-      const result = await this.callCloud('getAuditTemplateEditorData', {});
-      if (result.status !== 'success' || !result.data) throw createResultError(result, localeCopy.copy_b791913c7a);
-      this._hrList = result.data.people || [];
-      this.setData({ departmentList: result.data.departments || [], identityList: result.data.identities || [],
-        workGroupList: result.data.workGroups || [], auditNatureList: result.data.natures || [] });
+      if (!this.data.authorizationEnforced || !this.data.actionCapabilities['audit.templateCandidates.read']
+        || this.data.loadingMap.auditTemplateDirectory) return;
+      const request = orgSession.beginRequest(this, 'auditTemplateDirectory');
+      this.setLoading('auditTemplateDirectory', true);
+      this.setData({ auditTemplateDirectoryReady: false, auditTemplateDirectoryError: '' });
+      try {
+        const result = await this.callCloud('getAuditTemplateEditorData', {});
+        if (!orgSession.isRequestCurrent(this, request)) return;
+        if (result.status !== 'success' || !result.data) throw createResultError(result, feedbackCopy.readFailed);
+        this._hrList = result.data.people || [];
+        this.setData({ departmentList: result.data.departments || [], identityList: result.data.identities || [],
+          workGroupList: result.data.workGroups || [], auditNatureList: result.data.natures || [],
+          auditTemplateDirectoryReady: true }, () => {
+          if (orgSession.isRequestCurrent(this, request) && this.data.auditFlowTemplates.length) {
+            this.setData({ auditFlowTemplates: this.presentAuditFlowTemplates(this.data.auditFlowTemplates) });
+          }
+        });
+      } catch (error) {
+        if (orgSession.isRequestCurrent(this, request) && !(error && error.silent)) {
+          this.setData({ auditTemplateDirectoryError: getErrorText(error, feedbackCopy.readFailed) });
+        }
+      } finally {
+        if (orgSession.isRequestCurrent(this, request)) this.setLoading('auditTemplateDirectory', false);
+      }
     },
     // ═══════════════════════════════════════════════════════
     // Shared helpers
@@ -267,39 +291,28 @@ module.exports = Behavior({
     // Audit Flow Templates
     // ═══════════════════════════════════════════════════════
 
+    presentAuditFlowTemplates(templates) {
+      return templates.map(template => Object.assign({}, template, {
+        steps: (template.steps || []).map(step => Object.assign({}, step, {
+          _approverIdentityName: this._auditIdentityName(step.approverIdentityId),
+          _approverHrName: this._auditHrName(step.approverHrId),
+          _resolvedConditions: (step.conditions || []).map(condition => this._auditResolveCondition(condition)),
+          _conditionSummary: this._auditConditionSummary(step.conditions && step.conditions[0])
+        }))
+      }));
+    },
+
     async loadAuditFlowTemplates() {
       const request = orgSession.beginRequest(this, 'auditFlowTemplates');
       this.setLoading('auditTemplates', true);
       try {
         const res = await this.callCloud('listAuditFlowTemplates', {});
         if (!orgSession.isRequestCurrent(this, request)) return;
-        if (res.status === 'success') {
-          let that = this;
-          let templates = (res.templates || []).map(function (t) {
-            t.steps = (t.steps || []).map(function (s) {
-              // Always resolve names from master lists
-              s._approverIdentityName = that._auditIdentityName(s.approverIdentityId);
-              s._approverHrName = that._auditHrName(s.approverHrId);
-              // Resolve conditions with display names
-              if (s.conditions && s.conditions.length) {
-                s._resolvedConditions = s.conditions.map(function (c) {
-                  return that._auditResolveCondition(c);
-                });
-              } else {
-                s._resolvedConditions = [];
-              }
-              // Build condition summary
-              s._conditionSummary = that._auditConditionSummary(s.conditions && s.conditions[0] ? s.conditions[0] : null);
-              return s;
-            });
-            return t;
-          });
-          this.setData({ auditFlowTemplates: templates });
-        } else {
-        }
-      } catch (e) {
-        if (!orgSession.isRequestCurrent(this, request) || (e && e.silent)) return;
-        this.setData({ auditFlowTemplates: [] });
+        if (res.status !== 'success') throw createResultError(res, feedbackCopy.readFailed);
+        this.setData({ auditFlowTemplates: this.presentAuditFlowTemplates(res.templates || []), auditTemplateLoadError: '' });
+      } catch (error) {
+        if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
+        this.setData({ auditTemplateLoadError: getErrorText(error, feedbackCopy.readFailed) });
       } finally {
         if (orgSession.isRequestCurrent(this, request)) this.setLoading('auditTemplates', false);
       }
@@ -340,6 +353,7 @@ module.exports = Behavior({
     },
 
     editAuditTemplate(e) {
+      if (this.data.authorizationEnforced && !this.data.auditTemplateDirectoryReady) return;
       const id = e.currentTarget.dataset.id;
       const template = this.data.auditFlowTemplates.find(function (t) { return t.id === id; });
       if (!template) return;
@@ -1198,6 +1212,7 @@ module.exports = Behavior({
     },
 
     async saveAuditFlowTemplate() {
+      if (this.data.authorizationEnforced && !this.data.auditTemplateDirectoryReady) return;
       const form = this.data.auditTemplateForm;
       if (!form.name) { showShortToast(localeCopy.copy_cf05c2ba56); return; }
       if (!form.steps.length) { showShortToast(localeCopy.copy_6dc1d42f93); return; }
@@ -1317,7 +1332,8 @@ module.exports = Behavior({
         if (!orgSession.isRequestCurrent(this, request)) return;
         if (res.status === 'success') {
           this.setData({ stamps: (res.stamps || []).map(stamp => Object.assign({}, stamp, {
-            authorizationText: stampCopy.count((stamp.assignedPeople || []).filter(person => person.available).length)
+            hasAssignedPeople: Array.isArray(stamp.assignedPeople),
+            authorizationText: Array.isArray(stamp.assignedPeople) ? stampCopy.count(stamp.assignedPeople.filter(person => person.available).length) : ''
           })), stampLoadError: '' });
         } else {
           this.setData({ stampLoadError: res.message || stampCopy.loadingFailed });

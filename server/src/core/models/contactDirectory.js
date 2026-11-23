@@ -62,15 +62,19 @@ async function list(connection, orgId, scope) {
 async function configuration(orgId, authorize) {
   return pool.withTransaction(async connection => {
     const authorization = await authorize(connection, { action: 'read', ids: [] });
-    const rules = await list(connection, orgId, authorization && authorization.scope);
-    if (authorization && !rules.length && !authorization.can('read', '') && !authorization.can('create', '')) throw new policy.DirectoryError('forbidden');
+    const stored = await list(connection, orgId, authorization && authorization.scope);
+    const canCreate = !authorization || authorization.can('create', '');
+    if (authorization && !stored.length && !authorization.can('read', '') && !canCreate) throw new policy.DirectoryError('forbidden');
+    const rules = stored.map(rule => authorization ? { ...rule, canUpdate: authorization.can('update', rule.id), canDelete: authorization.can('delete', rule.id) } : rule);
+    const needsCandidates = canCreate || rules.some(rule => rule.canUpdate);
+    const references = needsCandidates ? null : new Set(rules.flatMap(policy.referenceIds));
     const data = await catalog(connection, orgId);
-    const people = data.people.map(person => ({ personId: person.personId, name: person.name,
-      assignments: person.assignments.map(assignment => ({ id: assignment.id, nature: assignment.nature, departmentId: assignment.departmentId,
+    const people = data.people.filter(person => !references || references.has(person.personId))
+      .map(person => ({ personId: person.personId, name: person.name,
+      assignments: needsCandidates ? person.assignments.map(assignment => ({ id: assignment.id, nature: assignment.nature, departmentId: assignment.departmentId,
         identityCategoryId: assignment.identityCategoryId, workGroupId: assignment.workGroupId,
-        departmentName: assignment.departmentName, identityCategoryName: assignment.identityCategoryName, workGroupName: assignment.workGroupName })) }));
-    return { rules: rules.map(rule => authorization ? { ...rule, canUpdate: authorization.can('update', rule.id), canDelete: authorization.can('delete', rule.id) } : rule),
-      canCreate: !authorization || authorization.can('create', ''), people, fields: data.fields,
+        departmentName: assignment.departmentName, identityCategoryName: assignment.identityCategoryName, workGroupName: assignment.workGroupName })) : [] }));
+    return { rules, canCreate, people, fields: data.fields,
       natures: data.natures, departments: data.departments, identities: data.identities, workGroups: data.workGroups };
   });
 }

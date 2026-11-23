@@ -99,8 +99,8 @@ async function main() {
     const savePolicy = (expectedVersion, issueEnabled, publicVerificationEnabled) => post('saveIdentityCardPolicy', {
       expectedVersion, issueEnabled, publicVerificationEnabled, organizationId: 'other'
     }, true);
-    async function grantPolicy(capabilities) {
-      const policy = { id: 'policy-management', organizationId: 'org', effect: 'allow', enabled: true,
+    async function grantPolicy(capabilities, effect = 'allow') {
+      const policy = { id: effect === 'allow' ? 'policy-management' : 'policy-read-deny', organizationId: 'org', effect, enabled: true,
         subjects: [{ kind: 'assignments', ids: ['job'] }], capabilities, scopes: [{ kind: 'organization' }], fields: null };
       await admin.query(`INSERT INTO authorization_rules (id, org_id, name, policy_json) VALUES (?, 'org', ?, ?)
         ON DUPLICATE KEY UPDATE policy_json=VALUES(policy_json)`, [policy.id, policy.id, JSON.stringify(policy)]);
@@ -112,7 +112,13 @@ async function main() {
       status: 'success', policy: { version: 0, issueEnabled: true, publicVerificationEnabled: true }, canUpdate: false
     });
     assert.equal((await savePolicy(0, false, true)).status, 403);
-    await grantPolicy(['identity.cardPolicy.read', 'identity.cardPolicy.update']);
+    await grantPolicy(['identity.cardPolicy.update']);
+    assert.deepEqual(await (await readPolicy()).json(), {
+      status: 'success', policy: { version: 0, issueEnabled: true, publicVerificationEnabled: true }, canUpdate: true
+    });
+    await grantPolicy(['identity.cardPolicy.read'], 'deny');
+    assert.equal((await readPolicy()).status, 403);
+    await admin.query("DELETE FROM authorization_rules WHERE id='policy-read-deny'");
     assert.equal((await savePolicy(0, 'false', true)).status, 400);
     assert.deepEqual((await (await savePolicy(0, false, true)).json()).policy,
       { version: 1, issueEnabled: false, publicVerificationEnabled: true });

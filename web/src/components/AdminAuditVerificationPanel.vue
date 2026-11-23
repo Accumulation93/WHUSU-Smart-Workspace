@@ -1,6 +1,6 @@
 <template>
   <section v-if="canConfigure" class="card stack"><span class="section-title">{{ native.copy_edef2184fb }}</span><button class="btn-quiet" :disabled="blocked" @click="choose">{{ state.grantee?.name || native.copy_0afb532e6f }}</button><p v-if="actionNotice" class="notice-line">{{ actionNotice }}</p><button class="btn btn-primary" :disabled="blocked || !state.grantee" @click="grant">{{ native.copy_0d4cc3a70e }}</button></section>
-  <section v-if="canRead" class="card stack"><span class="section-title">{{ native.copy_2aaf72c584 }}</span><p v-if="notice" class="notice-line">{{ notice }}<button class="btn-quiet" :disabled="busy || loading" @click="load">{{ text.retry }}</button></p><p v-if="loading"><AppLoading :text="copy.common.loading" /></p><p v-else-if="!notice && !rows.length">{{ native.copy_3239064773 }}</p><div v-for="row in rows" :key="row.id" class="list-row"><span>{{ row.granteeName }}</span><button v-if="canConfigure" class="btn-quiet btn-quiet-danger" :disabled="blocked" @click="revoke(row)">{{ native.copy_3f75d366b0 }}</button></div></section>
+  <section v-if="canRead" class="card stack"><span class="section-title">{{ unifiedAuthorization ? native.legacyGrantTitle : native.copy_2aaf72c584 }}</span><p v-if="notice" class="notice-line">{{ notice }}<button class="btn-quiet" :disabled="busy || loading" @click="load">{{ text.retry }}</button></p><p v-if="loading"><AppLoading :text="copy.common.loading" /></p><p v-else-if="!notice && !rows.length">{{ unifiedAuthorization ? native.legacyGrantEmpty : native.copy_3239064773 }}</p><div v-for="row in rows" :key="row.id" class="list-row"><span>{{ row.granteeName }}</span><button v-if="canConfigure" class="btn-quiet btn-quiet-danger" :disabled="blocked" @click="revoke(row)">{{ native.copy_3f75d366b0 }}</button></div></section>
   <AuditVerificationView v-if="canVerify" embedded @busy="verificationBusy=$event" />
   <PersonnelPicker v-if="picker && canConfigure" mode="person" :multiple="false" :title="native.copy_0afb532e6f" :options="candidates" :value="state.grantee ? [state.grantee] : []" @cancel="picker=false" @confirm="state.grantee=$event[0]||null;picker=false" />
 </template>
@@ -20,9 +20,10 @@ const props=defineProps({state:Object,disabled:Boolean});const emit=defineEmits(
 const rows=ref([]),candidates=ref([]),loading=ref(true),busy=ref(false),verificationBusy=ref(false),picker=ref(false),notice=ref(''),actionNotice=ref('');
 const requests=auditRequests();let alive=true,sequence=0;
 const authorizationAccess = useAdminAuthorizationAccess();
+const unifiedAuthorization = computed(() => authorizationAccess.value?.mode === 'enforced');
 const canRead=useAdminCapability('audit.verification','audit.verification.read');
 const canConfigureLegacy = useAdminCapability('audit.verification','audit.verification.configure');
-const canConfigure = computed(() => authorizationAccess.value?.mode !== 'enforced' && canConfigureLegacy.value);
+const canConfigure = computed(() => !unifiedAuthorization.value && canConfigureLegacy.value);
 const canVerify=useAdminCapability('audit.verification','audit.verification.verify');
 const blocked=computed(()=>props.disabled||loading.value||busy.value||verificationBusy.value||!!notice.value||props.state.pending);
 async function load(){const request=++sequence;if(!canRead.value){rows.value=[];loading.value=false;notice.value='';props.state.pending=false;props.state.grantee=null;return;}loading.value=true;try{const response=requireSuccess(await requests.call('listVerificationPermissions',{}));if(!alive||request!==sequence)return;rows.value=response.permissions||[];notice.value='';if(props.state.pending){props.state.pending=false;props.state.grantee=null;}}catch(error){if(alive&&request===sequence)notice.value=errorText(error,copy.errors.requestFailed);}finally{if(alive&&request===sequence)loading.value=false;}}

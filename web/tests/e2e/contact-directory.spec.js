@@ -184,6 +184,48 @@ test('directory-only admin can configure without loading member records, copy an
   await expect(page.getByPlaceholder(ui.namePlaceholder)).toHaveValue('Department rule');
 });
 
+test('directory rules show only the granted actions and batch-select only deletable rules', async ({ page }) => {
+  await mockApi(page, { activeContextId: 'ctx-admin' });
+  await page.route('**/api/getMyAdminPermissions', route => route.fulfill({ json: { status: 'success', organizationId: 'org-1', adminLevel: 'admin', permissions: { 'hr.directory.manage': true } } }));
+  const rule = { version: 1, enabled: true, audience: [{ type: 'people', personIds: ['p'] }],
+    targets: [{ type: 'self' }], fieldIds: [] };
+  let rules = [
+    { ...rule, id: 'view', name: 'Readable rule', canUpdate: false, canDelete: false },
+    { ...rule, id: 'edit', name: 'Editable rule', canUpdate: true, canDelete: false },
+    { ...rule, id: 'delete', name: 'Deletable rule', canUpdate: false, canDelete: true }
+  ];
+  const writes = [];
+  await page.route('**/api/getContactDirectoryConfiguration', route => route.fulfill({ json: { status: 'success',
+    canCreate: false, rules, people: [{ personId: 'p', name: 'Member', assignments: [] }],
+    fields: [], departments: [], identities: [], workGroups: [] } }));
+  await page.route('**/api/batchContactDirectoryRules', route => {
+    const body = route.request().postDataJSON();
+    writes.push(body);
+    if (body.action === 'delete') rules = rules.filter(item => !body.rules.some(row => row.id === item.id));
+    return route.fulfill({ json: { status: 'success' } });
+  });
+  await page.goto('/web/admin?subApp=hr');
+  const readable = page.locator('article').filter({ hasText: 'Readable rule' });
+  const editable = page.locator('article').filter({ hasText: 'Editable rule' });
+  await expect(readable.getByRole('button', { name: ui.expand, exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: ui.add, exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: ui.copy, exact: true })).toHaveCount(0);
+  await expect(readable.getByRole('button', { name: ui.edit, exact: true })).toHaveCount(0);
+  await expect(readable.getByRole('button', { name: ui.disable, exact: true })).toHaveCount(0);
+  await editable.getByRole('button', { name: ui.disable, exact: true }).click();
+  await expect.poll(() => writes[0]).toEqual({ action: 'disable', rules: [{ id: 'edit', version: 1 }] });
+  await page.getByRole('button', { name: ui.manageSelection, exact: true }).click();
+  await expect(page.locator('article').getByRole('checkbox')).toHaveCount(1);
+  await page.getByRole('button', { name: ui.selectAll, exact: true }).click();
+  await page.getByRole('button', { name: ui.deleteSelected, exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByText('Deletable rule', { exact: true })).toBeVisible();
+  await expect(dialog.getByText('Readable rule', { exact: true })).toHaveCount(0);
+  await dialog.getByRole('button', { name: ui.remove, exact: true }).click();
+  await expect.poll(() => writes[1]).toEqual({ action: 'delete', rules: [{ id: 'delete', version: 1 }] });
+  await expect(page.getByRole('button', { name: ui.manageSelection, exact: true })).toHaveCount(0);
+});
+
 test('contact detail shows pending feedback, retries, and discards a response after leaving', async ({page}) => {
   await mockApi(page);
   let pending, attempts=0;

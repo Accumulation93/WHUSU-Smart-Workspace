@@ -49,6 +49,11 @@ function canOperate(page, resource, action) {
   return page._authorizationVisible !== false && (!page.data.authorizationEnforced || (page.data.actionCapabilities || {})[resource + '.' + action] === true);
 }
 
+const FLOW_FLAGS = ['allow_user_select', 'allow_designate_first', 'allow_designate_next'];
+function hasFlowMetadata(flow) {
+  return typeof flow.name === 'string' && FLOW_FLAGS.every(key => flow[key] != null);
+}
+
 function ruleResource(type, flow) {
   return type === 'open' ? 'venue.openRules' : type === 'activity' ? 'venue.activityRules'
     : flow ? 'venue.approvals' : 'venue.bookingRules';
@@ -322,7 +327,7 @@ module.exports = Behavior({
 
     venues: [],
     configurationVenues: [],
-    configurationOnlyVenues: [],
+    additionalVenues: [],
     loading: false,
     editing: false,
     editId: '',
@@ -375,7 +380,6 @@ module.exports = Behavior({
     condMultiPickerFilteredList: [],
     condMultiPickerDeptTabs: [],
     condMultiPickerActiveDeptTab: '',
-    bookingWindow: null,
     bookingWindowForm: emptyBookingWindow(),
     advanceHourOptions: Array.from({ length: 721 }, (_, index) => String(index) + localeCopy.copy_7bbe7387fa),
     advanceMinuteOptions: Array.from({ length: 60 }, (_, index) => String(index).padStart(2, '0') + localeCopy.copy_4f57bde8f7),
@@ -391,7 +395,7 @@ module.exports = Behavior({
     ruleEditId: '',
     ruleEditorType: '',
     ruleEditorScrollIntoView: '',
-    ruleForm: { name: '', cycleType: 'weekly', cycleValues: [], _cycleTypeIndex: 1, timeStart: '09:00', timeEnd: '18:00', ruleType: 'admin', bookingWindow: emptyBookingWindow() },
+    ruleForm: { name: '', cycleType: 'weekly', cycleValues: [], _cycleTypeIndex: 1, timeStart: '09:00', timeEnd: '18:00', ruleType: 'admin' },
 
     // Reference data
     allIdentities: [], natureCopy, allNatures: [],
@@ -521,7 +525,7 @@ module.exports = Behavior({
     this._authorizationVisible = false;
     this.setData({ actionCapabilities: {}, hasPermission: false, visibleTabs: [],
       editing: false, rulesVisible: false, ruleEditorVisible: false, purposeVisible: false,
-      venues: [], configurationVenues: [], configurationOnlyVenues: [], bookings: [], purposes: [], openRules: [], activityRules: [], bookingRules: [], approvalFlows: [] });
+      venues: [], configurationVenues: [], additionalVenues: [], bookings: [], purposes: [], openRules: [], activityRules: [], bookingRules: [], approvalFlows: [] });
     this.releaseDialogScrollLock();
     this.unbindDialogKeyboard();
     this._bookingReferencesGeneration = (this._bookingReferencesGeneration || 0) + 1;
@@ -551,7 +555,7 @@ module.exports = Behavior({
         bookingsPage: 1, selectedBooking: null, scheduleVisible: false,
         adminBookingVisible: false, occupiedPopupVisible: false, occupiedPopupTime: '', purposeEditId: '', purposeEditText: '',
         rulesVisible: false, ruleEditorVisible: false, bookingDetailVisible: false,
-        venues: [], bookings: [], purposes: [], openRules: [], activityRules: [], bookingRules: [],
+        venues: [], configurationVenues: [], additionalVenues: [], bookings: [], purposes: [], openRules: [], activityRules: [], bookingRules: [],
         approvalFlow: null, approvalFlowSteps: [], timetableColumns: [],
         loading: false, bookingsLoading: false, deletingVenueBooking: ''
       });
@@ -723,14 +727,26 @@ module.exports = Behavior({
     const request = orgSession.beginRequest(this, 'manageVenues');
     this.setData({ loading: true });
     try {
-      const res = await callFunction({ name: 'listVenues', data: {} });
+      const includeSchedule = this.data.authorizationEnforced && this.data.actionCapabilities['venue.bookings.createApproved'];
+      const [res, scheduleRes] = await Promise.all([
+        callFunction({ name: 'listVenues', data: {} }),
+        includeSchedule ? callFunction({ name: 'listVenuesForBooking', data: {} }) : { status: 'success', venues: [] }
+      ]);
       if (!orgSession.isRequestCurrent(this, request)) return;
-      if (res.status === 'success') {
-        const venues = res.venues || [];
-        const configurationVenues = res.configurationVenues || [];
-        this.setData({ venues, configurationVenues,
-          configurationOnlyVenues: configurationVenues.filter(item => !venues.some(venue => venue.id === item.id)) });
+      if (res.status !== 'success' || scheduleRes.status !== 'success') {
+        throw createResultError(res.status !== 'success' ? res : scheduleRes, localeCopy.copy_e52119b17e);
       }
+      const venues = res.venues || [];
+      const configurationVenues = res.configurationVenues || [];
+      const known = new Set(venues.map(venue => venue.id));
+      const extra = new Map();
+      for (const { id, name } of configurationVenues) {
+        if (!known.has(id)) extra.set(id, { id, name, configuration: true });
+      }
+      for (const { id, name } of scheduleRes.venues || []) {
+        if (!known.has(id)) extra.set(id, Object.assign({}, extra.get(id), { id, name, schedule: true }));
+      }
+      this.setData({ venues, configurationVenues, additionalVenues: Array.from(extra.values()) });
     } catch (e) {
       if (orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(e, localeCopy.copy_e52119b17e));
     } finally {
@@ -804,7 +820,6 @@ module.exports = Behavior({
       activityDetailVisible: false,
       activityDetail: null,
       bookingRules: [],
-      bookingWindow: null,
       bookingWindowForm: emptyBookingWindow(),
       approvalFlow: null,
       approvalFlowSteps: []
@@ -869,7 +884,6 @@ module.exports = Behavior({
       if (!orgSession.isRequestCurrent(this, request) || this.data.rulesVenueId !== venueId) return;
       if (res.status === 'success') {
         this.setData({
-          bookingWindow: res.bookingWindow || null,
           bookingWindowForm: bookingWindowFromRow(res.bookingWindow),
           bookingRules: buildBookingRuleDisplayList(res.rules)
         });
@@ -973,7 +987,7 @@ module.exports = Behavior({
     const type = e.currentTarget.dataset.type; // 'open' | 'activity' | 'booking'
     const ruleId = e.currentTarget.dataset.id || '';
     if (!canOperate(this, ruleResource(type, false), ruleId ? 'update' : 'create')) return;
-    let form = { name: '', cycleType: 'weekly', cycleValues: [], _cycleTypeIndex: type === 'activity' ? 1 : 1, timeStart: '09:00', timeEnd: '18:00', ruleType: 'admin', bookingWindow: bookingWindowFromRow(this.data.bookingWindow), approverIdentityId: '', approverHrId: '', approverIdentityName: '', approverHrName: '', approverIdentityIndex: 0, approverHrIndex: 0 };
+    let form = { name: '', cycleType: 'weekly', cycleValues: [], _cycleTypeIndex: type === 'activity' ? 1 : 1, timeStart: '09:00', timeEnd: '18:00', ruleType: 'admin', approverIdentityId: '', approverHrId: '', approverIdentityName: '', approverHrName: '', approverIdentityIndex: 0, approverHrIndex: 0 };
     if (type === 'activity') form.cycleValues = emptyActivityCycleValues();
     if (ruleId) {
       if (type === 'open') {
@@ -1126,28 +1140,6 @@ module.exports = Behavior({
   onRuleFormField(e) {
     const f = e.currentTarget.dataset.field;
     this.setData({ ['ruleForm.' + f]: e.detail.value });
-  },
-
-  onBookingWindowMode(e) {
-    const side = e.currentTarget.dataset.side;
-    const modes = ['none', 'days', 'duration'];
-    const mode = modes[Number(e.detail.value)] || 'none';
-    this.setData({ ['ruleForm.bookingWindow.' + side + '.mode']: mode });
-  },
-
-  onBookingWindowDays(e) {
-    const side = e.currentTarget.dataset.side;
-    this.setData({ ['ruleForm.bookingWindow.' + side + '.days']: e.detail.value });
-  },
-
-  onBookingWindowHours(e) {
-    const side = e.currentTarget.dataset.side;
-    this.setData({ ['ruleForm.bookingWindow.' + side + '.hours']: Number(e.detail.value) || 0 });
-  },
-
-  onBookingWindowMinutes(e) {
-    const side = e.currentTarget.dataset.side;
-    this.setData({ ['ruleForm.bookingWindow.' + side + '.minutes']: Number(e.detail.value) || 0 });
   },
 
   onCycleTypeChange(e) {
@@ -1307,14 +1299,6 @@ module.exports = Behavior({
       && (this.data.bookingReferencesLoading || this.data.bookingReferencesError)) return;
     const { ruleEditId, ruleEditorType, ruleForm, rulesVenueId } = this.data;
     let endpoint, data;
-    if (ruleEditorType === 'booking') {
-      const openMinutes = bookingWindowMinutes(ruleForm.bookingWindow && ruleForm.bookingWindow.open);
-      const deadlineMinutes = bookingWindowMinutes(ruleForm.bookingWindow && ruleForm.bookingWindow.deadline);
-      if (openMinutes !== null && deadlineMinutes !== null && openMinutes < deadlineMinutes) {
-        showShortToast(localeCopy.copy_b1545efd70);
-        return;
-      }
-    }
     if (ruleEditorType === 'open') {
       endpoint = 'saveVenueOpenRule';
       data = { id: ruleEditId, venueId: rulesVenueId, name: ruleForm.name, cycleType: ruleForm.cycleType, cycleValues: ruleForm.cycleValues, timeStart: ruleForm.timeStart, timeEnd: ruleForm.timeEnd };
@@ -1347,8 +1331,7 @@ module.exports = Behavior({
           allowUserSelect: this.data.allowUserSelectFlow,
           allowDesignateFirst: this.data.allowDesignateFirstFlow,
           allowDesignateNext: this.data.allowDesignateNextFlow,
-          steps: stepsData,
-          ...(canOperate(this, 'venue.bookingWindows', 'create') ? { bookingWindow: ruleForm.bookingWindow } : {})
+          steps: stepsData
         };
       } else {
         endpoint = 'saveVenueBookingRule';
@@ -1356,18 +1339,19 @@ module.exports = Behavior({
           approverIdentityId: ruleForm.approverIdentityId || '', approverHrId: ruleForm.approverHrId || '',
           approverAssignmentId: ruleForm.approverAssignmentId || '',
           scopeDepartmentId: ruleForm.scopeDepartmentId || '', scopeWorkGroupId: ruleForm.scopeWorkGroupId || '',
-          sortOrder: ruleForm.sortOrder, ...(canOperate(this, 'venue.bookingWindows', 'create') ? { bookingWindow: ruleForm.bookingWindow } : {}) };
+          sortOrder: ruleForm.sortOrder };
       }
     }
-    const removesDirectRule = ruleEditorType === 'booking' && ruleForm.ruleType === 'flow' && ruleForm.isActive !== false
+    const disablesDirectRule = ruleEditorType === 'booking' && ruleForm.ruleType === 'flow' && ruleForm.isActive !== false
       && (this.data.bookingRules || []).some(function(rule) { return rule.rule_type === 'direct' && Number(rule.is_active) !== 0; });
-    const removesFlows = ruleEditorType === 'booking' && ruleForm.ruleType === 'direct' && ruleForm.isActive !== false
-      && (this.data.approvalFlows || []).some(function(flow) { return Number(flow.is_active) !== 0; });
-    if (removesDirectRule || removesFlows) {
+    const disablesOtherConfiguration = ruleEditorType === 'booking' && ruleForm.ruleType === 'direct' && ruleForm.isActive !== false
+      && ((this.data.approvalFlows || []).some(function(flow) { return Number(flow.is_active) === 1; })
+        || (this.data.bookingRules || []).some(function(rule) { return rule.id !== ruleEditId && Number(rule.is_active) === 1; }));
+    if (disablesDirectRule || disablesOtherConfiguration) {
       const confirmed = await new Promise(function(resolve) {
         wx.showModal({
           title: flowManagementCopy.switchTitle,
-          content: removesDirectRule ? flowManagementCopy.directToFlow : flowManagementCopy.flowToDirect,
+          content: disablesDirectRule ? flowManagementCopy.directToFlow : flowManagementCopy.flowToDirect,
           success: function(result) { resolve(Boolean(result.confirm)); },
           fail: function() { resolve(false); }
         });
@@ -1689,8 +1673,10 @@ module.exports = Behavior({
 
   async openVenueSchedule(e) {
     const id = e.currentTarget.dataset.id;
-    const v = this.data.venues.find(v => v.id === id);
-    this.setData({ scheduleVisible: true, scheduleVenueId: id, scheduleVenueName: v ? v.name : '', timetableColumns: [] });
+    const venue = this.data.venues.find(item => item.id === id)
+      || this.data.additionalVenues.find(item => item.id === id && item.schedule);
+    if (!venue) return;
+    this.setData({ scheduleVisible: true, scheduleVenueId: id, scheduleVenueName: venue.name, timetableColumns: [] });
     await this.loadVenueTimetable();
   },
   closeVenueSchedule() { this.setData({ scheduleVisible: false, bookingDetailVisible: false, activityDetailVisible: false, activityDetail: null, expandedNodeKey: '' }); },
@@ -2220,7 +2206,10 @@ module.exports = Behavior({
       const res = await callFunction({ name: 'listVenueApprovalFlows', data: { venueId, includeInactive: true } });
       if (!orgSession.isRequestCurrent(this, request) || this.data.rulesVenueId !== venueId) return;
       if (res.status === 'success') {
-        const flows = res.flows || [];
+        const flows = (res.flows || []).map(flow => Object.assign({}, flow, {
+          readableSteps: Array.isArray(flow.steps),
+          completeMetadata: hasFlowMetadata(flow)
+        }));
         let selected = this.data.selectedFlowId
           ? flows.find(function(flow) { return flow.id === this.data.selectedFlowId; }.bind(this))
           : flows[0];
@@ -2314,8 +2303,7 @@ module.exports = Behavior({
     const field = String(e.currentTarget.dataset.field || '');
     const value = Boolean(e.detail.value);
     const flow = (this.data.approvalFlows || []).find(function(item) { return item.id === id; });
-    const supportedFields = ['allow_user_select', 'allow_designate_first', 'allow_designate_next'];
-    if (!flow || supportedFields.indexOf(field) < 0) return;
+    if (!flow || !FLOW_FLAGS.includes(field) || (this.data.authorizationEnforced && !hasFlowMetadata(flow))) return;
     const allowUserSelect = field === 'allow_user_select'
       ? value
       : Number(flow.allow_user_select) === 1;
@@ -2386,6 +2374,7 @@ module.exports = Behavior({
   },
 
   _openApprovalFlowEditor(flow) {
+    if (this.data.authorizationEnforced && (!hasFlowMetadata(flow) || flow.is_active == null || !Array.isArray(flow.steps))) return;
     const steps = (flow.steps || []).map(function(s) {
       return {
         name: s.name || '',
@@ -2411,7 +2400,7 @@ module.exports = Behavior({
       ruleEditId: flow.id || '',
       ruleEditorType: 'booking',
       ruleForm: {
-        name: '', cycleType: 'weekly', cycleValues: [], timeStart: '09:00', timeEnd: '18:00', bookingWindow: bookingWindowFromRow(this.data.bookingWindow),
+        name: '', cycleType: 'weekly', cycleValues: [], timeStart: '09:00', timeEnd: '18:00',
         ruleType: 'flow', isActive: Number(flow.is_active) !== 0, approverIdentityId: '', approverHrId: '',
         approverIdentityName: '', approverHrName: '', approverIdentityIndex: 0, approverHrIndex: 0,
         _flowSteps: this._decorateFlowSteps(steps),

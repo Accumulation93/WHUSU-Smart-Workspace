@@ -8,6 +8,7 @@ const candidates = require('./authorizationCandidates');
 const { describeRuleImpact, describeDelegationImpact } = require('../services/authorizationImpact');
 const grants = require('./authorizationGrantSources');
 const compatibilityRoles = require('./authorizationCompatibilityRole');
+const legacyVerification = require('./authorizationLegacyVerification');
 const parse = value => typeof value === 'string' ? JSON.parse(value) : value;
 
 function fail(code) { throw Object.assign(new Error(code), { code }); }
@@ -42,6 +43,7 @@ async function read(connection, orgId, lock = false, unified = false) {
   const [rules] = await connection.query('SELECT * FROM authorization_rules WHERE org_id = ? ORDER BY created_at, id' + suffix, [orgId]);
   const result = { mode: state[0] ? state[0].mode : 'shadow', revision: state[0] ? Number(state[0].revision) : 0,
     rules: rules.map(decode), disabledBasic: new Set() };
+  if (result.mode === 'enforced') result.rules = await legacyVerification.project(connection, orgId, rules, result.rules, lock);
   if (unified) {
     const runtime = await grants.readGrantSources(connection, orgId, await listDelegations(connection, orgId, lock), lock);
     result.rules = runtime.filterRules(result.rules);

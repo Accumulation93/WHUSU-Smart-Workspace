@@ -115,6 +115,12 @@ module.exports = async function unifiedPermissionIntegrationCases(admin, post) {
     restoreVersion: 1, expectedRevision: await revision() });
   assert.equal(restore.status, 409);
   assert.equal((await restore.json()).status, 'authorization_special_capabilities');
+  const retiredCapability = 'audit.verification.configure';
+  const management = (await (await post('getAuthorizationManagement', {})).json()).catalog;
+  assert.equal(management.find(item => item.key === retiredCapability).assignmentRetired, true);
+  const forbiddenRole = await post('saveAuthorizationScheme', { identityModel, name: 'Retired capability',
+    capabilities: ['audit.verification.verify', retiredCapability], expectedRevision: await revision() });
+  assert.equal(forbiddenRole.status, 403);
 
   for (const suffix of ['issuer', 'child', 'recipient']) {
     const person = 'delegation-' + suffix;

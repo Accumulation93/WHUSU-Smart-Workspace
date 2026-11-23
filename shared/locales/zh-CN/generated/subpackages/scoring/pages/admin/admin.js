@@ -206,6 +206,8 @@ module.exports = Object.freeze({
   copy_2a0e50c5f6: "清除",
   copy_2aad29e5cf: '指定',
   copy_2aaf72c584: '已获文件验证权限的人员',
+  legacyGrantTitle: '从旧名单保留的验签授权',
+  legacyGrantEmpty: '没有从旧名单保留的验签授权。新增验签资格请到权限中心分配。',
   copy_2b4df49497: '未设置',
   copy_2c2a412327: "评分人所属部门",
   copy_2c3fe676c4: '指定评优人选',

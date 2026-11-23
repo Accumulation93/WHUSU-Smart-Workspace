@@ -39,6 +39,9 @@ module.exports = async function directoryAuthorizationCases(db) {
     return { code: response.status, data: await response.json() };
   }
   try {
+    await db.query(`INSERT INTO persons(id,name,student_id,normalized_student_id) VALUES ('dir-unrelated','其他成员','DIR-OTHER','DIR-OTHER');
+      INSERT INTO hr_info(id,name,student_id,org_id) VALUES ('dir-unrelated-hr','其他成员','DIR-OTHER','dir-auth');
+      INSERT INTO organization_memberships(id,person_id,org_id,legacy_hr_id) VALUES ('dir-unrelated-membership','dir-unrelated','dir-auth','dir-unrelated-hr')`);
     const view = require('../../../shared/contactDirectoryView');
     const input = view.blankRule(); input.name = '前端通讯录规则'; input.audience[0].personIds = ['dir-person'];
     input.targets = [{ type: 'self' }]; input.fieldIds = [];
@@ -73,11 +76,16 @@ module.exports = async function directoryAuthorizationCases(db) {
     const list = (await call('getContactDirectoryConfiguration')).data;
     assert.deepEqual(list.rules.map(rule => rule.id), [first.id]); assert.equal(list.canCreate, false);
     assert.equal(list.rules[0].canUpdate, true); assert.equal(list.rules[0].canDelete, false);
+    assert(list.people.some(person => person.personId === 'dir-unrelated'));
     const rejected = await call('batchContactDirectoryRules', { action: 'disable', rules: [edited, second] });
     assert.equal(rejected.code, 403);
     const [unchanged] = await db.query('SELECT enabled FROM hr_contact_directory_rules WHERE id IN (?,?)', [first.id, second.id]);
     assert(unchanged.every(row => row.enabled === 1));
     assert.equal((await call('saveContactDirectoryRule', { ...second, name: '越权修改' })).code, 403);
+    await db.query("UPDATE authorization_rules SET policy_json=? WHERE id='dir-policy'",
+      [JSON.stringify({ ...narrowed, capabilities: ['hr.directoryRules.read'] })]);
+    const directoryReadOnly = (await call('getContactDirectoryConfiguration')).data;
+    assert.deepEqual(directoryReadOnly.people.map(person => [person.personId, person.assignments]), [['dir-person', []]]);
     await db.query("UPDATE authorization_rules SET policy_json=? WHERE id='dir-policy'", [JSON.stringify(policy)]);
     assert.equal((await call('batchContactDirectoryRules', { action: 'delete', rules: [edited, second] })).data.count, 2);
     assert.equal((await call('getContactDirectoryConfiguration')).data.rules.length, 0);
@@ -107,9 +115,14 @@ module.exports = async function directoryAuthorizationCases(db) {
     const calendarList = (await call('getCalendarRules')).data;
     assert.deepEqual(calendarList.rules.map(rule=>rule.id),[calendarRule.id]);
     assert.equal(calendarList.canCreate,false); assert.equal(calendarList.rules[0].canDelete,false);
+    assert(calendarList.people.some(person => person.personId === 'dir-unrelated'));
     assert(!JSON.stringify(calendarList).includes('ruleAuthorization'));
     assert.equal((await call('batchCalendarRules',{action:'disable',rules:[calendarEdited,calendarSecond]})).code,403);
     assert((await db.query('SELECT enabled FROM calendar_rules WHERE id IN (?,?)',[calendarRule.id,calendarSecond.id]))[0].every(row=>row.enabled===1));
+    await db.query("UPDATE authorization_rules SET policy_json=? WHERE id='dir-policy'", [JSON.stringify({ ...calendarPolicy,
+      capabilities:['calendar.rules.read'], scopes:[{kind:'records',ids:[calendarRule.id]}] })]);
+    const calendarReadOnly = (await call('getCalendarRules')).data;
+    assert.deepEqual(calendarReadOnly.people.map(person => [person.personId, person.assignments]), [['dir-person', []]]);
     await db.query("UPDATE authorization_rules SET policy_json=? WHERE id='dir-policy'", [JSON.stringify(calendarPolicy)]);
     assert.equal((await call('batchCalendarRules',{action:'delete',rules:[calendarEdited,calendarSecond]})).data.count,2);
     assert.equal((await call('getCalendarRules')).data.rules.length,0);

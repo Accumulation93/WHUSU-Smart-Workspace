@@ -594,6 +594,14 @@ function buildDesignatorSnapshot(req, actor, assignment) {
 }
 
 // ─── getResultPublication ───
+router.post('/listScorePublicationActivities', async (req, res) => {
+  try {
+    const orgId = await getCurrentOrgId();
+    const data = await publicationAuthorization.listActivityCandidates(orgId, req.unifiedAuthorization?.reference);
+    respondScoringResponse(res, { status: 'success', ...data });
+  } catch (error) { respondPublicationRuleError(res, error); }
+});
+
 router.post('/getResultPublication', async (req, res) => {
   try {
     const reference = req.unifiedAuthorization?.reference;
@@ -760,13 +768,14 @@ router.post('/getResultPublication', async (req, res) => {
     })).filter((assignment) => assignment.assignmentId);
 
     // 丰富目录读取期间可能撤权；返回敏感业务内容前再次检查当前会话和同一记录。
-    const currentPublication = await authorization.read(orgId, reference, activityId);
+    const currentPublication = await authorization.read(orgId, reference, activityId, { includeAccess: true });
     if (!currentPublication || currentPublication.id !== pubId) {
       return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
     }
     respondScoringResponse(res, {
       status: 'success',
       publication: { id: pubId, activityId: publication.activity_id, isPublished: !!publication.is_published, publishedAt: publication.published_at, publishedBy: publication.published_by },
+      ...(currentPublication.access ? { access: currentPublication.access } : {}),
       viewRules: enrichedViewRules, meritRules: enrichedMeritRules,
       meritListDesignations: enrichedDesignations, assignmentCandidates,
       configurationCandidates: {

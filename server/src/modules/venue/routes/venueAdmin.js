@@ -446,16 +446,16 @@ router.post('/saveVenueBookingRule', async (req, res) => {
       'venue.bookingRules', id, existing ? 'update' : 'create',
       ['ruleType', 'approverIdentityId', 'approverHrId', 'approverAssignmentId', 'scopeDepartmentId', 'scopeWorkGroupId', 'sortOrder']);
     if (!editingInactive && ruleType === 'direct') {
-      // 只替换生效配置，未启用的独立副本保留，不能随审批方式切换被删除。
+      // 切换只停用其他生效配置，原有草稿及历史审批引用继续保留。
       const activeFlows = await venueApprovalFlowModel.listByVenueId(venueId, orgId, conn);
       if (authorization) {
-        for (const rule of allRules) venueConfigurationAuthorization.requireDecision(authorization, orgId,
-          'venue.bookingRules', rule.id, 'update', ['ruleType']);
+        for (const rule of otherRules) venueConfigurationAuthorization.requireDecision(authorization, orgId,
+          'venue.bookingRules', rule.id, 'update', ['isActive']);
         for (const flow of activeFlows) venueConfigurationAuthorization.requireDecision(authorization, orgId,
-          'venue.approvals', flow.id, 'update', ['steps']);
+          'venue.approvals', flow.id, 'update', ['isActive']);
       }
-      for (const rule of allRules) await venueBookingRuleModel.remove(rule.id, conn);
-      for (const flow of activeFlows) await venueApprovalFlowModel.remove(flow.id, conn);
+      for (const rule of otherRules) await venueBookingRuleModel.update(rule.id, { isActive: false }, conn);
+      for (const flow of activeFlows) await venueApprovalFlowModel.update(flow.id, { isActive: false }, conn);
     } else if (!editingInactive && otherRules.some(r => r.rule_type === 'direct')) {
       await conn.rollback();
       transactionStarted = false;
@@ -472,7 +472,7 @@ router.post('/saveVenueBookingRule', async (req, res) => {
       scopeWorkGroupId,
       sortOrder: parseInt(req.body.sortOrder) || 1
     };
-    if (existing && (editingInactive || ruleType !== 'direct')) {
+    if (existing) {
       await venueBookingRuleModel.update(id, data, conn);
     } else {
       await venueBookingRuleModel.create(id, data, conn);
@@ -561,24 +561,6 @@ router.post('/createAdminVenueBooking', async (req, res) => {
     if (!venueId || !title || !start || !end || !absoluteStart || !absoluteEnd) return res.json({ status: 'invalid_params', message: localeCopy.copy_90c32deaa9 });
     if (fmtLocalDate(start) !== fmtLocalDate(end)) return res.json({ status: 'invalid_params', message: localeCopy.copy_f450f21538 });
     if (absoluteEnd <= absoluteStart) return res.json({ status: 'invalid_params', message: localeCopy.copy_0b091cba77 });
-    if (absoluteStart < new Date()) return res.json({ status: 'invalid_params', message: localeCopy.copy_10df33d76e });
-    const venue = await venueModel.getById(venueId);
-    if (!venue || !venue.is_active) return res.json({ status: 'not_found', message: localeCopy.copy_04ab0b03d0 });
-
-    const dateText = fmtLocalDate(start);
-    const rangeStart = start.getHours() * 60 + start.getMinutes();
-    const rangeEnd = end.getHours() * 60 + end.getMinutes();
-    const [openRules, activityRules] = await Promise.all([
-      venueOpenRuleModel.getByVenueId(venueId),
-      venueActivityRuleModel.getByVenueId(venueId)
-    ]);
-    const matchingOpen = openRules.filter((rule) => rule.is_active && venueRuleMatchesDate(rule, dateText));
-    const covered = matchingOpen.some((rule) => minutesOf(rule.time_start) <= rangeStart && minutesOf(rule.time_end) >= rangeEnd);
-    if (!covered) return res.json({ status: 'conflict', code: 'venue_booking_outside_open_hours', message: localeCopy.copy_ac59b4dfc5 });
-    const activitySlots = buildActivitySlots(dateText, activityRules, timezoneOffset);
-    const activityConflict = activitySlots.some((slot) => minutesOf(slot.timeStart) < rangeEnd && minutesOf(slot.timeEnd) > rangeStart);
-    if (activityConflict) return res.json({ status: 'conflict', code: 'venue_booking_activity_conflict', message: localeCopy.copy_f64d815664 });
-
     await conn.beginTransaction();
     const orgId = await getCurrentOrgId();
     const actorKey = reference ? reference.contextId : 'admin:' + admin.id;
@@ -608,6 +590,33 @@ router.post('/createAdminVenueBooking', async (req, res) => {
         status: 'success', id: dedupClaim.resourceId, bookingStatus: 'approved', message: localeCopy.copy_eb813c46d9, idempotent: true
       });
     }
+    // 与开放规则和活动规则的写入同序锁定组织会话及场地，随后读取当下有效的配置。
+    const venue = await venueModel.getByIdForUpdate(venueId, conn);
+    if (!venue || !venue.is_active) {
+      await conn.rollback();
+      return res.json({ status: 'not_found', message: localeCopy.copy_04ab0b03d0 });
+    }
+    if (absoluteStart < new Date()) {
+      await conn.rollback();
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_10df33d76e });
+    }
+    const dateText = fmtLocalDate(start);
+    const rangeStart = start.getHours() * 60 + start.getMinutes();
+    const rangeEnd = end.getHours() * 60 + end.getMinutes();
+    const openRules = await venueOpenRuleModel.getByVenueId(venueId, conn, true);
+    const covered = openRules.some(rule => rule.is_active && venueRuleMatchesDate(rule, dateText)
+      && minutesOf(rule.time_start) <= rangeStart && minutesOf(rule.time_end) >= rangeEnd);
+    if (!covered) {
+      await conn.rollback();
+      return res.json({ status: 'conflict', code: 'venue_booking_outside_open_hours', message: localeCopy.copy_ac59b4dfc5 });
+    }
+    const activityRules = await venueActivityRuleModel.getByVenueId(venueId, conn, true);
+    const activitySlots = buildActivitySlots(dateText, activityRules, timezoneOffset);
+    if (activitySlots.some(slot => minutesOf(slot.timeStart) < rangeEnd && minutesOf(slot.timeEnd) > rangeStart)) {
+      await conn.rollback();
+      return res.json({ status: 'conflict', code: 'venue_booking_activity_conflict', message: localeCopy.copy_f64d815664 });
+    }
+
     const dbStart = systemDateTimeToMysqlUtc(safeString(req.body.timeStart), timezoneOffset);
     const dbEnd = systemDateTimeToMysqlUtc(safeString(req.body.timeEnd), timezoneOffset);
     const conflict = await venueBookingModel.findConflict(venueId, dbStart, dbEnd, null, conn, true);

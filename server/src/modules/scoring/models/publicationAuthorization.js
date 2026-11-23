@@ -6,6 +6,12 @@ const { authorizationError } = require('../../../core/services/authorizationErro
 const { generateId } = require('../../../utils/helpers');
 const pool = require('../../../config/db');
 
+function canManage(session, organizationId, publicationId, action) {
+  return session.check({ capability: 'scoring.publications.' + action,
+    resource: { id: publicationId, type: 'scoring.publications', organizationId },
+    businessAllowed: true, legacyAllowed: false }).allowed;
+}
+
 async function guard(connection, organizationId, reference) {
   if (!reference) {
     await requireLegacyWrite(connection, organizationId);
@@ -15,9 +21,7 @@ async function guard(connection, organizationId, reference) {
   const session = await createAuthorizationSession(connection, reference, { lock: true });
   if (session.mode !== 'enforced') throw authorizationError('authorization_forbidden');
   return (action, publicationId) => {
-    if (!session.check({ capability: 'scoring.publications.' + action,
-      resource: { id: publicationId, type: 'scoring.publications', organizationId },
-      businessAllowed: true, legacyAllowed: false }).allowed) throw authorizationError('authorization_forbidden');
+    if (!canManage(session, organizationId, publicationId, action)) throw authorizationError('authorization_forbidden');
   };
 }
 
@@ -61,6 +65,32 @@ async function generate(organizationId, reference, publicationId, kind, now) {
   });
 }
 
+async function listActivityCandidates(organizationId, reference) {
+  if (!reference || reference.organizationId !== organizationId) throw authorizationError('authorization_forbidden');
+  return pool.withTransaction(async connection => {
+    const session = await createAuthorizationSession(connection, reference, { lock: true });
+    if (session.mode !== 'enforced') throw authorizationError('authorization_forbidden');
+    const [activities] = await connection.query(`
+      SELECT activity.id, activity.name, activity.is_current, publication.id AS publication_id
+        FROM score_activities activity
+        LEFT JOIN result_publications publication ON publication.activity_id = activity.id AND publication.org_id = activity.org_id
+       WHERE activity.org_id = ?
+       ORDER BY activity.is_current DESC, activity.name, activity.id`, [organizationId]);
+    const list = [];
+    let currentActivityId = '';
+    for (const activity of activities) {
+      const publicationId = activity.publication_id || '';
+      const canOpen = !!publicationId && canManage(session, organizationId, publicationId, 'read');
+      const canExport = !!publicationId && canManage(session, organizationId, publicationId, 'export');
+      const canCreate = !publicationId && canManage(session, organizationId, '', 'create');
+      if (!canOpen && !canExport && !canCreate) continue;
+      list.push({ id: activity.id, name: activity.name, canOpen, canCreate, canExport });
+      if (!currentActivityId && activity.is_current) currentActivityId = activity.id;
+    }
+    return { list, currentActivityId };
+  });
+}
+
 async function read(organizationId, reference, activityId, options = {}) {
   const action = options.action || 'read';
   if (!['read', 'export'].includes(action)) throw authorizationError('authorization_forbidden');
@@ -74,12 +104,15 @@ async function read(organizationId, reference, activityId, options = {}) {
     const [rows] = await connection.query('SELECT * FROM result_publications WHERE activity_id=? AND org_id=?', [activityId, organizationId]);
     const row = rows[0] || null;
     if (session) {
-      const input = { resource: { id: row?.id || '', type: 'scoring.publications', organizationId }, businessAllowed: true, legacyAllowed: false };
-      const canRead = session.check({ ...input, capability: 'scoring.publications.' + action }).allowed;
+      const can = permission => canManage(session, organizationId, row?.id || '', permission);
+      const canRead = can(action);
       // 无公示时，新增权限只开放空表单，不开放任何已有配置或人员名单。
       const canCreateEmpty = action === 'read' && options.allowEmptyCreate !== false && !row
-        && session.check({ ...input, capability: 'scoring.publications.create' }).allowed;
+        && can('create');
       if (!canRead && !canCreateEmpty) throw authorizationError('authorization_forbidden');
+      if (row && options.includeAccess === true) {
+        return { ...row, access: { update: can('update'), delete: can('delete'), export: can('export') } };
+      }
     }
     return row;
   });
@@ -102,8 +135,7 @@ async function save(connection, organizationId, reference, input) {
   const [rows] = await connection.query('SELECT * FROM result_publications WHERE activity_id=? AND org_id=? FOR UPDATE', [input.activityId, organizationId]);
   const existing = rows[0];
   const id = existing ? existing.id : generateId();
-  if (session && !session.check({ capability: 'scoring.publications.' + (existing ? 'update' : 'create'),
-    resource: { id, organizationId, type: 'scoring.publications' }, businessAllowed: true, legacyAllowed: false }).allowed) {
+  if (session && !canManage(session, organizationId, id, existing ? 'update' : 'create')) {
     throw authorizationError('authorization_forbidden');
   }
   const operatorId = reference ? reference.personId : input.operatorId;
@@ -118,4 +150,4 @@ async function save(connection, organizationId, reference, input) {
   return { id, name: activities[0].name, notify: input.isPublished && !(existing && existing.is_published) };
 }
 
-module.exports = { save, read, confirmRead, guard, checkRuleDeletion, generate };
+module.exports = { save, read, confirmRead, guard, checkRuleDeletion, generate, listActivityCandidates };

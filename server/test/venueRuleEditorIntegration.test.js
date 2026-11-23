@@ -106,12 +106,18 @@ async function main() {
       assert.equal(row[type === 'open' ? 'name' : 'activity_name'], type + '编辑');
       assert.equal(row.time_start, '10:15:00');
     }
+    page.data.bookingWindowForm.open.mode = 'days';
+    page.data.bookingWindowForm.open.days = 7;
+    await page.saveBookingWindowSettings();
+    const windowSave = calls.find(call => call.name === 'saveVenueBookingWindow');
+    assert.equal(windowSave.result.status, 'success', JSON.stringify(windowSave.result));
     page.addApprovalFlow();
     page.data.selectedFlowName = '新增流程';
     page.data.ruleForm._flowSteps = [{ name: '第一步', rules: [] }];
     await page.saveRule();
     const saved = calls.find(call => call.name === 'saveVenueApprovalWholeFlow');
     assert.equal(saved.result.status, 'success', JSON.stringify(saved.result));
+    assert.equal(Object.hasOwn(saved.data, 'bookingWindow'), false);
     page.openApprovalFlowStepEditor({ currentTarget: { dataset: { id: saved.result.flowId } } });
     assert.equal(page.data.ruleForm._flowSteps[0].name, '第一步');
     page.data.selectedFlowName = '编辑流程';
@@ -123,7 +129,8 @@ async function main() {
     assert.equal(page.data.ruleForm._flowSteps[0].name, '修订第一步');
     const steps = (await root.query('SELECT name FROM venue_approval_flow_steps WHERE flow_id=? ORDER BY sort_order', [saved.result.flowId]))[0];
     assert.deepEqual(steps.map(row => row.name), ['修订第一步', '第二步']);
-    assert.equal(calls.filter(call => call.name.startsWith('saveVenue')).length, 6);
+    assert.equal(calls.filter(call => call.name.startsWith('saveVenue')).length, 7);
+    assert.equal((await root.query("SELECT open_advance_days FROM venue_booking_policies WHERE venue_id='venue' AND org_id='org'"))[0][0].open_advance_days, 7);
     // 未启用副本可反复编辑，但不能覆盖正在使用的审批方式或借用窗口。
     await root.query("INSERT INTO venue_booking_rules(id,venue_id,org_id,rule_type,is_active) VALUES ('draft-direct','venue','org','direct',0),('draft-admin','venue','org','admin',0)");
     await root.query("UPDATE venue_booking_policies SET open_advance_mode='days',open_advance_days=7,open_advance_minutes=10080 WHERE venue_id='venue' AND org_id='org'");
@@ -186,6 +193,7 @@ async function main() {
       await page.saveRule();
       const lastSave = calls.filter(call => call.name === 'saveVenueBookingRule').at(-1);
       assert.equal(lastSave.result.status, 'success', JSON.stringify(lastSave.result));
+      assert.equal(Object.hasOwn(lastSave.data, 'bookingWindow'), false);
       const after = (await root.query('SELECT * FROM venue_booking_rules WHERE id=?', [id]))[0][0];
       for (const field of ['rule_type', 'is_active', 'approver_identity_id', 'approver_hr_id',
         'approver_assignment_id', 'scope_department_id', 'scope_work_group_id', 'sort_order']) {

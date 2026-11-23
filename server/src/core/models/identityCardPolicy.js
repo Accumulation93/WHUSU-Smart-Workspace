@@ -13,17 +13,20 @@ async function read(connection, organizationId, lock = '') {
     version: Number(row.version) } : DEFAULT_POLICY;
 }
 
-function can(session, organizationId, action) {
+function decision(session, organizationId, action) {
   return session.check({ capability: 'identity.cardPolicy.' + action,
-    resource: { id: organizationId, type: 'identity.cardPolicy', organizationId }, businessAllowed: true }).allowed;
+    resource: { id: organizationId, type: 'identity.cardPolicy', organizationId }, businessAllowed: true });
 }
 
 async function get(reference) {
   return pool.withTransaction(async connection => {
     const { organizationId } = reference;
     const session = await createAuthorizationSession(connection, reference);
-    if (!can(session, organizationId, 'read')) throw authorizationError('authorization_forbidden');
-    return { policy: await read(connection, organizationId), canUpdate: can(session, organizationId, 'update') };
+    const reading = decision(session, organizationId, 'read');
+    const canUpdate = decision(session, organizationId, 'update').allowed;
+    // 修改组织的两个开关需要当前值和版本。明确禁止读取时不下发这些设置。
+    if (!reading.allowed && (!canUpdate || reading.reason !== 'not_granted')) throw authorizationError('authorization_forbidden');
+    return { policy: await read(connection, organizationId), canUpdate };
   });
 }
 
@@ -35,7 +38,7 @@ async function save(reference, input) {
     const { organizationId } = reference;
     // 写会话先锁定身份及组织，再在同一事务内核对配置版本。
     const session = await createAuthorizationSession(connection, reference, { lock: true });
-    if (!can(session, organizationId, 'update')) throw authorizationError('authorization_forbidden');
+    if (!decision(session, organizationId, 'update').allowed) throw authorizationError('authorization_forbidden');
     const before = await read(connection, organizationId, ' FOR UPDATE');
     if (before.version !== expectedVersion) throw authorizationError('authorization_conflict');
     if (before.issueEnabled === issueEnabled && before.publicVerificationEnabled === publicVerificationEnabled) {

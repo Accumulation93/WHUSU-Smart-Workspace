@@ -5,6 +5,19 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const mysql = require('mysql2/promise');
+const { setTimeout: delay } = require('node:timers/promises');
+
+async function waitForVenueLock(db, database) {
+  const expires = Date.now() + 5000;
+  while (Date.now() < expires) {
+    const [waiting] = await db.query(`SELECT 1 FROM performance_schema.data_lock_waits w
+      JOIN performance_schema.data_locks l ON l.ENGINE=w.ENGINE AND l.ENGINE_LOCK_ID=w.REQUESTING_ENGINE_LOCK_ID
+      WHERE l.OBJECT_SCHEMA=? AND l.OBJECT_NAME='venues' LIMIT 1`, [database]);
+    if (waiting.length) return;
+    await delay(25);
+  }
+  assert.fail('安排请求未等待场地配置事务锁');
+}
 
 async function run() {
   const host = process.env.DEPLOY_TEST_DB_HOST || '127.0.0.1';
@@ -51,6 +64,7 @@ async function run() {
     // 仅注入认证边界；业务路由、会话复核、授权、事务与保存均使用真实实现。
     app.use((req, res, next) => {
       req.authAccount = { id: activeReference.accountId, personId: activeReference.personId };
+      req.authSession = { id: activeReference.sessionId };
       req.authContext = { ...activeReference, role: activeReference === reference ? 'user' : 'admin',
         ...(activeReference === reference ? { legacyHrId: 'hr', assignmentId: 'assignment', membershipId: 'membership' } : {}) };
       req.unifiedAuthorization = { reference: activeReference };
@@ -58,6 +72,7 @@ async function run() {
     });
     app.use('/api', require('../src/modules/venue/routes/venueAdmin'));
     app.use('/api', require('../src/modules/venue/routes/venueApprovalAdmin'));
+    app.use('/api', require('../src/modules/venue/routes/venueUser'));
     listener = await new Promise(resolve => { const server = app.listen(0, '127.0.0.1', () => resolve(server)); });
     async function call(name, body) {
       const response = await fetch('http://127.0.0.1:' + listener.address().port + '/api/' + name, {
@@ -125,6 +140,17 @@ async function run() {
     await db.query("UPDATE authorization_rules SET policy_json=? WHERE id='rule'", [JSON.stringify({ ...policy, capabilities: ['venue.bookings.create'] })]);
     assert.equal((await call('createAdminVenueBooking', approvedInput)).status, 'forbidden', '普通新增资格不能用于免审');
     await db.query("UPDATE authorization_rules SET policy_json=? WHERE id='rule'", [JSON.stringify({ ...policy, capabilities: ['venue.bookings.createApproved'] })]);
+    assert.deepEqual((await call('listVenues')).venues, []);
+    assert.deepEqual((await call('listVenuesForBooking')).venues.map(venue => venue.id), ['venue']);
+    const scheduleInput = { venueId: 'venue', dateFrom: '2099-01-05', dateTo: '2099-01-05' };
+    assert.equal((await call('getVenueSchedule', scheduleInput)).status, 'success');
+    const denyVenue = { ...policy, id: 'deny-venue-name', effect: 'deny', capabilities: ['venue.resources.read'],
+      scopes: [{ kind: 'records', ids: ['venue'] }], fields: ['name'] };
+    await db.query("INSERT INTO authorization_rules(id,org_id,name,policy_json) VALUES ('deny-venue-name','org','取消公开场地名称',?)",
+      [JSON.stringify(denyVenue)]);
+    assert.deepEqual((await call('listVenuesForBooking')).venues, []);
+    assert.equal((await call('getVenueSchedule', scheduleInput)).status, 'forbidden');
+    await db.query("DELETE FROM authorization_rules WHERE id='deny-venue-name'");
     const approved = await call('createAdminVenueBooking', approvedInput);
     assert.equal(approved.status, 'success', JSON.stringify(approved));
     const repeatedApproved = await call('createAdminVenueBooking', approvedInput);
@@ -137,6 +163,25 @@ async function run() {
     assert.equal(approvedRow.creator_assignment_id, 'assignment');
     assert.equal(approvedRow.creator_person_id, 'person');
     assert.equal(JSON.parse(approvedRow.creator_context_snapshot).departmentId, 'department');
+    const editor = await pool.getConnection();
+    const blockedInput = { ...approvedInput, title: '规则关闭后不能新增', clientRequestId: 'approved-concurrent-rule-edit',
+      timeStart: '2099-01-05 12:00:00', timeEnd: '2099-01-05 13:00:00' };
+    try {
+      await editor.beginTransaction();
+      await editor.query("SELECT id FROM venues WHERE id='venue' FOR UPDATE");
+      const pending = call('createAdminVenueBooking', blockedInput);
+      await waitForVenueLock(db, database);
+      await editor.query("UPDATE venue_open_rules SET is_active=0 WHERE id='approved-open'");
+      await editor.commit();
+      const refused = await pending;
+      assert.equal(refused.status, 'conflict');
+      assert.equal(refused.code, 'venue_booking_outside_open_hours');
+      assert.equal((await db.query("SELECT id FROM venue_bookings WHERE title='规则关闭后不能新增'"))[0].length, 0);
+    } finally {
+      await editor.rollback();
+      editor.release();
+    }
+    await db.query("UPDATE venue_open_rules SET is_active=1 WHERE id='approved-open'");
     await db.query("UPDATE authorization_rules SET policy_json=? WHERE id='rule'", [JSON.stringify(policy)]);
     assert.equal((await call('createAdminVenueBooking', { ...approvedInput, timeStart: '2099-01-05 11:00:00', timeEnd: '2099-01-05 12:00:00' })).status, 'forbidden');
     assert.equal((await db.query("SELECT id FROM venue_bookings WHERE title='获授岗位免审新增'"))[0].length, 1);
@@ -204,10 +249,18 @@ async function run() {
     assert.equal((await call('listVenueBookingRules', { venueId: 'venue' })).rules[0].id, 'direct-rule');
     assert.equal((await call('listVenueApprovalFlows', { venueId: 'venue' })).flows.length, 0);
     await db.query("UPDATE authorization_rules SET policy_json=? WHERE id='configuration'", [JSON.stringify(configurationPolicy)]);
+    const denyActive = { ...configurationPolicy, id: 'deny-rule-activation', effect: 'deny',
+      capabilities: ['venue.bookingRules.update'], scopes: [{ kind: 'records', ids: ['direct-rule'] }], fields: ['isActive'] };
+    await db.query("INSERT INTO authorization_rules(id,org_id,name,policy_json) VALUES ('deny-rule-activation','org','禁止更改审批状态',?)", [JSON.stringify(denyActive)]);
+    assert.equal((await call('saveVenueApprovalWholeFlow', flowInput)).status, 'forbidden');
+    assert.equal((await call('listVenueBookingRules', { venueId: 'venue' })).rules[0].id, 'direct-rule');
+    assert.equal((await call('listVenueApprovalFlows', { venueId: 'venue' })).flows.length, 0);
+    await db.query("DELETE FROM authorization_rules WHERE id='deny-rule-activation'");
     response = await call('saveVenueApprovalWholeFlow', flowInput);
     assert.equal(response.status, 'success', JSON.stringify(response));
     const flowId = response.flowId;
     assert.equal((await call('listVenueBookingRules', { venueId: 'venue' })).rules.length, 0);
+    assert.equal((await db.query("SELECT is_active FROM venue_booking_rules WHERE id='direct-rule'"))[0][0].is_active, 0);
     response = await call('listVenueApprovalFlows', { venueId: 'venue' });
     assert.equal(response.flows[0].steps[0].rules.length, 1);
     assert.equal(response.flows[0].allow_designate_first, 0);
@@ -225,6 +278,18 @@ async function run() {
     assert.equal((await call('saveVenueBookingRule', { id: 'next-direct', venueId: 'venue', ruleType: 'direct' })).status, 'forbidden');
     assert.equal((await call('listVenueApprovalFlows', { venueId: 'venue' })).flows.length, 1);
     await db.query("UPDATE authorization_rules SET policy_json=? WHERE id='configuration'", [JSON.stringify(configurationPolicy)]);
+    await db.query("CREATE TRIGGER fixture_failed_venue_rule BEFORE INSERT ON venue_booking_rules FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='fixture save failure'");
+    assert.equal((await call('saveVenueBookingRule', { id: 'next-direct', venueId: 'venue', ruleType: 'direct' })).status, 'error');
+    assert.equal((await call('listVenueApprovalFlows', { venueId: 'venue' })).flows.length, 1);
+    assert.equal((await call('listVenueBookingRules', { venueId: 'venue' })).rules.length, 0);
+    await db.query('DROP TRIGGER fixture_failed_venue_rule');
+    assert.equal((await call('saveVenueBookingRule', { id: 'next-direct', venueId: 'venue', ruleType: 'direct' })).status, 'success');
+    assert.equal((await call('listVenueApprovalFlows', { venueId: 'venue' })).flows.length, 0);
+    assert.equal((await db.query('SELECT is_active FROM venue_approval_flows WHERE id=?', [flowId]))[0][0].is_active, 0);
+    assert.equal((await db.query('SELECT COUNT(*) AS total FROM venue_approval_flow_steps WHERE flow_id=?', [flowId]))[0][0].total, 1);
+    assert.deepEqual((await call('listVenueBookingRules', { venueId: 'venue' })).rules.map(rule => rule.id), ['next-direct']);
+    assert.equal((await db.query("SELECT is_active FROM venue_booking_rules WHERE id='direct-rule'"))[0][0].is_active, 0);
+    assert.equal((await call('deleteVenueBookingRule', { id: 'next-direct' })).status, 'success');
     assert.equal((await call('deleteVenueApprovalFlow', { venueId: 'venue', flowId })).status, 'success');
     assert.equal((await call('listVenueApprovalFlows', { venueId: 'venue' })).flows.length, 0);
     assert.equal((await call('saveVenueBookingRule', { id: 'person-rule', venueId: 'venue', ruleType: 'person',

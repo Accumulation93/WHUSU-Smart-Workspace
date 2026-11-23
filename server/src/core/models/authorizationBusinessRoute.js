@@ -46,7 +46,7 @@ const ADAPTED = new Set(['/saveVenueBookingPurpose', '/deleteVenueBookingPurpose
   '/listScoreActivities', '/saveScoreActivity', '/deleteScoreActivity', '/toggleActivityPause', '/setCurrentScoreActivity',
   '/getCurrentScoreActivity', '/getLatestPublishedScoreActivity',
   '/getScoreResults', '/exportScoreResults', '/getScorerTaskStatus', '/exportScorerTaskStatus',
-  '/saveResultPublication', '/getResultPublication',
+  '/listScorePublicationActivities', '/saveResultPublication', '/getResultPublication',
   '/getMeritListSummary', '/exportMeritListSummary',
   '/saveMeritListDesignations',
   '/generatePubViewRules', '/generatePubMeritRules',

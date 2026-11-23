@@ -150,6 +150,7 @@ function permissionGroups({ catalog, capabilities, query, selectedOnly, copy, un
   const modules = new Map();
   for (const definition of catalog) {
     if (roleBound && !selected.has(definition.key)) continue;
+    if (unified && definition.assignmentRetired && !selected.has(definition.key)) continue;
     if (!roleBound && (definition.systemControlled || (unified ? definition.classification === 'special'
       : definition.governance && restrictedLegacySubject) || kind === 'delegation' && definition.delegation)) continue;
     const moduleKey = definition.resourceType === 'contacts.entries' ? 'hr' : definition.resourceType.split('.')[0];

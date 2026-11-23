@@ -3,15 +3,15 @@
   <template v-if="loadNotice"><p role="alert" class="notice-line">{{ loadNotice }}</p><button type="button" class="btn-quiet" :disabled="loading || busy" @click="load">{{ copy.common.retry }}</button></template>
   <p v-if="notice && !editor" role="alert" class="notice-line">{{ notice }}</p>
   <button type="button" class="btn btn-secondary" :disabled="blocked" v-if="canCreateFlow" @click="editFlow()">+ {{ ui.copy_1aba371667 }}</button>
-  <p v-if="!loading && !loadNotice && !flows.length" class="muted">{{ ui.copy_76c76a4d37 }}</p>
+  <p v-if="canReadFlow && !loading && !loadNotice && !flows.length" class="muted">{{ ui.copy_76c76a4d37 }}</p>
   <div v-for="flow in flows" :key="flow.id" class="list-row approval-row">
-    <strong class="break-all">{{ flow.name }}</strong><span class="muted">{{ flow.steps.length }} {{ ui.copy_310413445b }}</span>
-    <span class="chip">{{ Number(flow.is_active) === 0 ? flowCopy.disabled : flowCopy.enabled }}</span>
-    <label v-for="flag in flags" :key="flag.key" class="row row-between"><span>{{ flag.label }}</span><UiSwitch :label="flag.label" :checked="Number(flow[flag.key]) === 1" :disabled="blocked || !canWriteRecord" @change="toggleFlag(flow, flag.key, $event.target.checked)" /></label>
-    <div class="row row-wrap"><button type="button" class="btn-quiet" :disabled="blocked" v-if="canWriteRecord" @click="editFlow(flow)">{{ ui.copy_e040ae3016 }}</button><button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" v-if="canDeleteRecord" @click="removeFlow(flow)">{{ ui.copy_acc985cabc }}</button></div>
+    <strong class="break-all">{{ flow.name || ui.copy_890d7f4874 }}</strong><span v-if="Array.isArray(flow.steps)" class="muted">{{ flow.steps.length }} {{ ui.copy_310413445b }}</span>
+    <span v-if="flow.is_active != null" class="chip">{{ Number(flow.is_active) === 0 ? flowCopy.disabled : flowCopy.enabled }}</span>
+    <label v-for="flag in visibleFlags(flow)" :key="flag.key" class="row row-between"><span>{{ flag.label }}</span><UiSwitch :label="flag.label" :checked="Number(flow[flag.key]) === 1" :disabled="blocked || !canWriteRecord || !hasFlowMetadata(flow)" @change="toggleFlag(flow, flag.key, $event.target.checked)" /></label>
+    <div class="row row-wrap"><button type="button" class="btn-quiet" :disabled="blocked" v-if="canEditFlow(flow)" @click="editFlow(flow)">{{ ui.copy_e040ae3016 }}</button><button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" v-if="canDeleteRecord" @click="removeFlow(flow)">{{ ui.copy_acc985cabc }}</button></div>
   </div>
   <button type="button" class="btn btn-primary" :disabled="blocked" v-if="canCreateRule" @click="editRule()">{{ ui.copy_c013e80e7c }}</button>
-  <p v-if="!loading && !loadNotice && !rules.length" class="muted">{{ ui.copy_62a9684fcb }}</p>
+  <p v-if="canReadRule && !loading && !loadNotice && !rules.length" class="muted">{{ ui.copy_62a9684fcb }}</p>
   <div v-for="rule in rules" :key="rule.id" class="list-row approval-row"><strong>{{ ruleLabels[rule.rule_type] }}</strong><span class="chip">{{ Number(rule.is_active) === 0 ? flowCopy.disabled : flowCopy.enabled }}</span><div class="row row-wrap"><button type="button" class="btn-quiet" :disabled="blocked" v-if="canUpdateRule" @click="editRule(rule)">{{ ui.copy_e040ae3016 }}</button><button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" v-if="canDeleteRule" @click="removeRule(rule)">{{ ui.copy_acc985cabc }}</button></div></div>
   <VenueFlowEditor v-if="editor?.type === 'flow'" :value="editor" :busy="busy || awaitingRead" :disabled="blocked" @close="closeEditor" @save="saveFlow"><p v-if="notice" role="alert" class="notice-line">{{ notice }}</p><template v-if="loadNotice"><p role="alert" class="notice-line">{{ loadNotice }}</p><button type="button" class="btn-quiet" :disabled="loading || busy" @click="load">{{ copy.common.retry }}</button></template></VenueFlowEditor>
   <GlassDialog v-if="editor?.type === 'rule'" :title="(editor.id ? ui.copy_20f94d2c18 : ui.copy_766176221d) + ui.copy_a9a18dd6e8" :busy="busy || awaitingRead" @close="closeEditor">
@@ -28,7 +28,8 @@
   <PersonnelPicker v-if="approverPicker && editor?.type === 'rule'" :title="flowCopy.chooseApprover" :multiple="false" :options="ruleReferences.assignments" :value="selectedApprover ? [selectedApprover] : []" @cancel="approverPicker = false" @confirm="chooseRuleApprover" />
 </template>
 <script setup>
-import { useAdminCapability } from '@/runtime/adminCapabilities.js';
+import { useAdminCapability, useAdminAuthorizationAccess } from '@/runtime/adminCapabilities.js';
+const authorizationAccess = useAdminAuthorizationAccess();
 const canDeleteRecord = useAdminCapability('venue.approvals.delete', 'venue.approvals.delete');
 const canWriteRecord = useAdminCapability('venue.approvals', 'venue.approvals.update');
 const canCreateFlow = useAdminCapability('venue.approvals', 'venue.approvals.create');
@@ -37,7 +38,6 @@ const canCreateRule = useAdminCapability('venue.approvals', 'venue.bookingRules.
 const canUpdateRule = useAdminCapability('venue.approvals', 'venue.bookingRules.update');
 const canDeleteRule = useAdminCapability('venue.approvals.delete', 'venue.bookingRules.delete');
 const canReadRule = useAdminCapability('venue.approvals', 'venue.bookingRules.read');
-const canWriteWindow = useAdminCapability('venue.approvals', 'venue.bookingWindows.create');
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import GlassDialog from '@/components/GlassDialog.vue';
 import UiSwitch from '@/components/UiSwitch.vue';
@@ -48,10 +48,10 @@ import ui from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueMa
 import flowCopy from '@/locales/zh-CN/shared/venueFlowManagement.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { confirmAction, showToast } from '@/runtime/notify.js';
-import { bookingWindowForm, clone } from '@/runtime/venueRules.js';
+import { clone } from '@/runtime/venueRules.js';
 import { session } from '@/runtime/session.js';
 import { useCopiedConfigurationEditor } from '@/runtime/copiedConfigurationEditor.js';
-const props = defineProps({ venue: Object, windowValue: Object });
+const props = defineProps({ venue: Object });
 const emit = defineEmits(['busy', 'editing']);
 const flows = ref([]), rules = ref([]), editor = ref(null), loading = ref(false), busy = ref(false), loadNotice = ref(''), notice = ref(''), awaitingRead = ref(false);
 const ruleReferences = ref({ assignments: [], identities: [], departments: [], workGroups: [] });
@@ -71,11 +71,15 @@ async function load() {
       canReadRule.value ? callApi('listVenueBookingRules', { venueId: props.venue.id, includeInactive: true }).then(requireSuccess) : { rules: [] }
     ]);
     if (!current() || request !== generation) return;
-    if (!Array.isArray(flowResult.flows) || !Array.isArray(ruleResult.rules) || ruleResult.rules.some(rule => !ruleLabels[rule.rule_type]) || flowResult.flows.some(flow => !Array.isArray(flow.steps)
+    const enforced = authorizationAccess.value?.mode === 'enforced';
+    if (!Array.isArray(flowResult.flows) || !Array.isArray(ruleResult.rules) || ruleResult.rules.some(rule => !ruleLabels[rule.rule_type]) || flowResult.flows.some(flow => {
+      if (enforced && !Object.hasOwn(flow, 'steps')) return false;
+      return !Array.isArray(flow.steps)
       || flow.steps.some(step => !Array.isArray(step.rules) || !['admin_any', 'hr_rule'].includes(step.approval_mode)
         || step.approval_mode === 'admin_any' && step.rules.length || step.approval_mode === 'hr_rule' && !step.rules.length
-        || step.rules.some(rule => ['department_scope', 'work_group_scope', 'identity_scope'].some(key => !['all', 'same', 'specific'].includes(rule[key])))))) throw new Error();
-    flows.value = flowResult.flows; rules.value = ruleResult.rules; Object.assign(props.windowValue, bookingWindowForm(ruleResult.bookingWindow)); loadNotice.value = '';
+        || step.rules.some(rule => ['department_scope', 'work_group_scope', 'identity_scope'].some(key => !['all', 'same', 'specific'].includes(rule[key]))));
+    })) throw new Error();
+    flows.value = flowResult.flows; rules.value = ruleResult.rules; loadNotice.value = '';
     if (awaitingRead.value) { awaitingRead.value = false; editor.value = null; }
   } catch (error) { if (current() && request === generation) loadNotice.value = errorText(error, ui.copy_e52119b17e); }
   finally { if (current() && request === generation) loading.value = false; }
@@ -110,8 +114,18 @@ function editRule(rule = {}) {
   loadRuleReferences();
 }
 function readNatureIds(rule){const value=rule.natureIds==null?rule.nature_ids:rule.natureIds;if(value==null)return null;if(Array.isArray(value))return value;try{const parsed=JSON.parse(value);return Array.isArray(parsed)?parsed:[];}catch{return [];}}
+function visibleFlags(flow) {
+  return authorizationAccess.value?.mode === 'enforced' ? flags.filter(flag => Object.hasOwn(flow, flag.key)) : flags;
+}
+function hasFlowMetadata(flow) {
+  return authorizationAccess.value?.mode !== 'enforced' || (Object.hasOwn(flow, 'name') && visibleFlags(flow).length === flags.length);
+}
+function canEditFlow(flow) {
+  return canWriteRecord.value && hasFlowMetadata(flow)
+    && (authorizationAccess.value?.mode !== 'enforced' || (flow.is_active != null && Array.isArray(flow.steps)));
+}
 function editFlow(flow = {}) {
-  if (blocked.value || !(flow.id ? canWriteRecord.value : canCreateFlow.value)) return;
+  if (blocked.value || !(flow.id ? canEditFlow(flow) : canCreateFlow.value)) return;
   editor.value = { type: 'flow', id: flow.id || '', name: flow.name || ui.copy_9835b165c7, isActive: Number(flow.is_active) !== 0,
     allowUserSelect: Number(flow.allow_user_select) === 1, allowDesignateFirst: Number(flow.allow_designate_first) === 1, allowDesignateNext: Number(flow.allow_designate_next) === 1,
     steps: (flow.steps || []).map(step => ({ name: step.name || '', approvalMode: step.approval_mode, rules: (step.rules || []).map(rule => ({ natureIds:readNatureIds(rule),departmentScope: rule.department_scope || 'all', specificDepartmentId: rule.specific_department_id || '', workGroupScope: rule.work_group_scope || 'all', specificWorkGroupId: rule.specific_work_group_id || '', identityScope: rule.identity_scope || 'all', specificIdentityId: rule.specific_identity_id || '' })) })) };
@@ -139,22 +153,25 @@ function saveFlow() {
   if (!value.steps.length) { notice.value = ui.copy_7ae01e1929; return; }
   return write('saveVenueApprovalWholeFlow', { venueId: props.venue.id, flowId: value.id, flowName: value.name,
     allowUserSelect: value.allowUserSelect, allowDesignateFirst: value.allowDesignateFirst, allowDesignateNext: value.allowDesignateNext,
-    steps: value.steps.map((step, index) => ({ name: step.name, sortOrder: index + 1, approvalMode: step.rules.length ? 'hr_rule' : 'admin_any', rules: step.rules })), ...(canWriteWindow.value ? { bookingWindow: clone(props.windowValue) } : {}) },
+    steps: value.steps.map((step, index) => ({ name: step.name, sortOrder: index + 1, approvalMode: step.rules.length ? 'hr_rule' : 'admin_any', rules: step.rules })) },
     value.isActive && rules.value.some(rule => rule.rule_type === 'direct' && Number(rule.is_active) !== 0) ? { title: flowCopy.switchTitle, body: flowCopy.directToFlow } : null);
 }
 function saveRule() {
   if (referencesLoading.value || referencesError.value) return;
   const value = clone(editor.value);
+  const disablesOtherConfiguration = value.isActive && value.ruleType === 'direct'
+    && (flows.value.some(flow => Number(flow.is_active) === 1)
+      || rules.value.some(rule => rule.id !== value.id && Number(rule.is_active) === 1));
   return write('saveVenueBookingRule', { id: value.id, venueId: props.venue.id, ruleType: value.ruleType,
     approverIdentityId: value.approverIdentityId, approverHrId: value.approverHrId,
     approverAssignmentId: value.approverAssignmentId, scopeDepartmentId: value.scopeDepartmentId,
-    scopeWorkGroupId: value.scopeWorkGroupId, sortOrder: value.sortOrder, ...(canWriteWindow.value ? { bookingWindow: clone(props.windowValue) } : {}) },
-  value.isActive && value.ruleType === 'direct' && flows.value.some(flow => Number(flow.is_active) !== 0)
-    ? { title: flowCopy.switchTitle, body: flowCopy.flowToDirect } : null);
+    scopeWorkGroupId: value.scopeWorkGroupId, sortOrder: value.sortOrder },
+  disablesOtherConfiguration ? { title: flowCopy.switchTitle, body: flowCopy.flowToDirect } : null);
 }
 function removeFlow(flow) { return write('deleteVenueApprovalFlow', { flowId: flow.id, venueId: props.venue.id }, { body: flow.name + '\n' + ui.copy_19aa0fdb46 }); }
 function removeRule(rule) { return write('deleteVenueBookingRule', { id: rule.id }, { body: props.venue.name + ' · ' + ruleLabels[rule.rule_type] }); }
 function toggleFlag(flow, key, checked) {
+  if (!hasFlowMetadata(flow)) return;
   const payload = { venueId: props.venue.id, flowId: flow.id, name: flow.name, allowUserSelect: Number(flow.allow_user_select) === 1, allowDesignateFirst: Number(flow.allow_designate_first) === 1, allowDesignateNext: Number(flow.allow_designate_next) === 1 };
   payload[{ allow_user_select: 'allowUserSelect', allow_designate_first: 'allowDesignateFirst', allow_designate_next: 'allowDesignateNext' }[key]] = checked;
   return write('saveVenueApprovalFlowMeta', payload);

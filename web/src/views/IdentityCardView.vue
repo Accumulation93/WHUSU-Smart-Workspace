@@ -125,7 +125,8 @@ async function loadPolicy() {
   try {
     const access = await readCurrentAuthorizationAccess();
     if (!current()) return;
-    policyAllowed.value = Boolean(access?.grantedCapabilities.includes('identity.cardPolicy.read'));
+    policyAllowed.value = Boolean(access && ['identity.cardPolicy.read', 'identity.cardPolicy.update']
+      .some(capability => access.grantedCapabilities.includes(capability)));
     if (!policyAllowed.value) return;
     const result = requireSuccess(await callApi('getIdentityCardPolicy', {}));
     if (current()) applyPolicy(result);

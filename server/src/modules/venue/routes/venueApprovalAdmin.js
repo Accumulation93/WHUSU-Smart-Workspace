@@ -278,8 +278,8 @@ router.post('/saveVenueApprovalWholeFlow', async (req, res) => {
       const bookingRules = await venueBookingRuleModel.getByVenueId(venueId, conn, true);
       for (const rule of bookingRules) {
         if (rule.rule_type === 'direct') {
-          if (authorization) venueConfigurationAuthorization.requireDecision(authorization, orgId, 'venue.bookingRules', rule.id, 'update', ['ruleType']);
-          await venueBookingRuleModel.remove(rule.id, conn);
+          if (authorization) venueConfigurationAuthorization.requireDecision(authorization, orgId, 'venue.bookingRules', rule.id, 'update', ['isActive']);
+          await venueBookingRuleModel.update(rule.id, { isActive: false }, conn);
         }
       }
     }

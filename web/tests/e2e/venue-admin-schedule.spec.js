@@ -7,10 +7,20 @@ import copy from '../../src/locales/zh-CN/index.js';
 import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
 import messages from '../../src/locales/zh-CN/shared/responseMessages.js';
 
-async function setup(page, canBook = true) {
-  await mockApi(page, { activeContextId: 'ctx-admin' });
+async function setup(page, canBook = true, approvedOnly = false) {
+  await mockApi(page, { activeContextId: approvedOnly ? 'ctx-assignment' : 'ctx-admin' });
   await page.route('**/api/getMyAdminPermissions', route => route.fulfill({ json: { status: 'success', organizationId: 'org-1', adminLevel: 'admin', permissions: { 'venue.resources': true, 'venue.bookings': canBook } } }));
-  await page.route('**/api/listVenues', route => route.fulfill({ json: { status: 'success', venues: [{ id: 'v1', name: 'Admin room' }] } }));
+  await page.route('**/api/listVenues', route => route.fulfill({ json: { status: 'success', venues: approvedOnly ? [] : [{ id: 'v1', name: 'Admin room' }] } }));
+  if (approvedOnly) {
+    const capability = 'venue.bookings.createApproved';
+    await page.route('**/api/getCurrentAuthorizationAccess', route => route.fulfill({ json: {
+      status: 'success', mode: 'enforced', role: 'user', contextId: 'ctx-assignment', organizationId: 'org-1',
+      capabilities: [capability], grantedCapabilities: [capability]
+    } }));
+    await page.route('**/api/listVenuesForBooking', route => route.fulfill({ json: {
+      status: 'success', venues: [{ id: 'v1', name: 'Admin room', description: 'Public catalog description' }]
+    } }));
+  }
   await page.route('**/api/listVenueBookingPurposes', route => route.fulfill({ json: { status: 'success', purposes: [{ id: 'p1', text: 'Meeting' }] } }));
   const state = { date: '', saved: false, failDaily: false, failWeekly: false, weeklyReads: 0 };
   await page.route('**/api/getVenueSchedule', route => {
@@ -23,7 +33,8 @@ async function setup(page, canBook = true) {
         ? [{ id: 'saved', title: 'Meeting', status: 'approved', timeStart: '09:00', timeEnd: '10:00', fullTimeStart: state.date + ' 09:00', fullTimeEnd: state.date + ' 10:00', visibility: 'details', description: 'Saved description' }]
         : [{ id: 'blocked', title: 'Occupied', status: 'approved', timeStart: '10:00', timeEnd: '11:00', visibility: 'occupancy_only' }] }] } });
   });
-  await page.goto('/web/portal'); await page.getByRole('button', { name: copy.portal.venueManage, exact: true }).click();
+  await page.goto(approvedOnly ? '/web/venue/manage' : '/web/portal');
+  if (!approvedOnly) await page.getByRole('button', { name: copy.portal.venueManage, exact: true }).click();
   await expect(page).toHaveURL(/\/web\/venue\/manage(?:\?|$)/);
   await page.getByRole('button', { name: ui.copy_391b522838, exact: true }).click();
   await expect(page.locator('.schedule-grid')).toBeVisible();
@@ -38,6 +49,15 @@ test('admin schedule without booking permission has no create targets but shows 
   await page.getByRole('button', { name: userUi.copy_a1f843d887, exact: true }).click();
   await expect(page.getByRole('dialog', { name: userUi.copy_a1f843d887, exact: true })).toContainText('10:00');
   await expect(page.getByText('Saved description', { exact: true })).toHaveCount(0);
+});
+
+test('approved-booking-only role can open scheduling without venue management details', async ({ page }) => {
+  const state = await setup(page, true, true);
+  await expect(page.locator('.venue-admin-tabs button')).toHaveText([ui.copy_ceffdfcdd7]);
+  await expect(page.getByText('Public catalog description', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: ui.copy_f10a13b6e1, exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: ui.copy_4fd7b5de41, exact: true })).toHaveCount(0);
+  await openBooking(page, state);
 });
 
 test('admin booking uses locked date, native hour and minute selection, rejects conflicts and rereads a saved booking', async ({ page }) => {

@@ -48,18 +48,21 @@ async function feed(header,now=Date.now()) {
   });
 }
 async function subscriptionReadPermissions(connection,tokenHash,context) {
-  const state=await require('./authorization').read(connection,context.organizationId,true);
-  if (state.mode==='shadow') return {};
-  if (state.mode!=='enforced') throw new CalendarError('forbidden');
   const actor=await require('./authorizationIdentity').loadCalendarSubscriptionActor(connection,tokenHash,context.contextId);
-  if (!actor) throw new CalendarError('forbidden');
+  const state=await require('./authorization').read(connection,context.organizationId,true,actor?.unifiedAuthorization===true);
+  if (state.mode==='shadow') return {};
+  if (state.mode!=='enforced' || !actor) throw new CalendarError('forbidden');
   const {CATALOG}=require('../services/authorizationCatalog');
   const {preparePolicies,evaluate}=require('../services/authorizationPolicy');
   const prepared=preparePolicies(state.rules.map(rule=>rule.policy),CATALOG);
   const now=Date.now();
   const session={check(input){
     if(!['calendar.events.read','venue.bookingParticipants.read','venue.activityParticipants.read'].includes(input.capability))return {allowed:false};
-    return evaluate({...input,actor,catalog:CATALOG,prepared,now});
+    const basicDisabled=state.disabledBasic.has(input.capability);
+    const decision=evaluate({...input,actor,catalog:CATALOG,prepared,now,
+      businessGranted:input.businessGranted===true&&!basicDisabled});
+    // 场地来源的“未获单独授权”原可按参会关系读取，基础权限已关闭时不再使用这项关系。
+    return basicDisabled && decision.reason==='not_granted' ? {...decision,reason:'basic_disabled'} : decision;
   }};
   const authorization=require('../services/calendarEventAuthorization');
   return {eventAuthorization:authorization.eventAuthorization(session,context),sourceAuthorization:authorization.sourceAuthorization(session,context)};

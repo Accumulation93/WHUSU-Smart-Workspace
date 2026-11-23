@@ -62,13 +62,17 @@ async function configuration(actor,authorize,editingRules=false) {
     const stored=await rules(connection,actor.organizationId,editingRules && authorization ? authorization.scope : null);
     if (editingRules && authorization && !stored.length && !authorization.can('read','') && !authorization.can('create','')) throw new CalendarError('forbidden');
     const canArrange=permissions.eventAuthorization ? permissions.eventAuthorization.can('create',null) : permissions.manage;
-    const allowed=canArrange || editingRules ? new Set(data.people.map(person=>person.personId)) : policy.allowedPeople(stored,'assign',actor,data);
-    const people=data.people.filter(person=>allowed.has(person.personId)).map(person=>({personId:person.personId,name:person.name,
-      assignments:person.assignments.map(a=>({id:a.id,nature:a.nature,departmentId:a.departmentId,identityCategoryId:a.identityCategoryId,workGroupId:a.workGroupId,
+    const visibleRules=editingRules ? stored.map(rule=>authorization ? {...rule,canUpdate:authorization.can('update',rule.id),canDelete:authorization.can('delete',rule.id)} : rule) : [];
+    const canCreate=editingRules && (!authorization || authorization.can('create',''));
+    const ruleCandidates=canCreate || visibleRules.some(rule=>rule.canUpdate);
+    let allowed;
+    if (editingRules && !ruleCandidates) allowed=new Set(visibleRules.flatMap(directoryPolicy.referenceIds));
+    if (!editingRules && !canArrange) allowed=policy.allowedPeople(stored,'assign',actor,data);
+    const people=data.people.filter(person=>!allowed || allowed.has(person.personId)).map(person=>({personId:person.personId,name:person.name,
+      assignments:editingRules && !ruleCandidates ? [] : person.assignments.map(a=>({id:a.id,nature:a.nature,departmentId:a.departmentId,identityCategoryId:a.identityCategoryId,workGroupId:a.workGroupId,
         departmentName:a.departmentName,identityCategoryName:a.identityCategoryName,workGroupName:a.workGroupName}))}));
     return {people,natures:data.natures,departments:data.departments,identities:data.identities,workGroups:data.workGroups,
-      rules:editingRules ? stored.map(rule=>authorization ? {...rule,canUpdate:authorization.can('update',rule.id),canDelete:authorization.can('delete',rule.id)} : rule) : [],
-      canCreate:editingRules && (!authorization || authorization.can('create','')),
+      rules:visibleRules,canCreate,
       permissions:{manage:permissions.showManaged===true || permissions.manage,rules:permissions.showRules===true || permissions.rules,
         venueBookings:permissions.venueBookings,venueResources:permissions.venueResources},timezoneOffset:await timezone(connection)};
   });

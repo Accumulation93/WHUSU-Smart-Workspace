@@ -4,8 +4,35 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const express = require('express');
 const mysql = require('mysql2/promise');
 const { isDeepStrictEqual } = require('node:util');
+
+async function postVerification(reference, body = {}) {
+  const app = express();
+  const { orgStorage } = require('../src/utils/orgContext');
+  app.use(express.json());
+  app.use((req, _res, next) => {
+    req.authAccount = { id: reference.accountId, personId: reference.personId };
+    req.authSession = { id: reference.sessionId };
+    req.authContext = { role: 'user', personId: reference.personId, organizationId: reference.organizationId,
+      contextId: reference.contextId };
+    req.logger = { error() {} };
+    orgStorage.run(reference.organizationId, next);
+  });
+  app.use(require('../src/middleware/adminPermission').adminPermissionMiddleware);
+  app.use(require('../src/modules/audit/routes/auditSignature'));
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise((resolve, reject) => server.once('listening', resolve).once('error', reject));
+  try {
+    const name = body.submissionNumber ? 'verifySignatureChain' : 'getAuditVerificationAccess';
+    const response = await fetch('http://127.0.0.1:' + server.address().port + '/' + name,
+      { method: 'POST', headers: { 'Content-Type': 'application/json', Connection: 'close' }, body: JSON.stringify(body) });
+    return response.json();
+  } finally {
+    await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+}
 
 async function run() {
   const host = process.env.DEPLOY_TEST_DB_HOST || '127.0.0.1';
@@ -97,6 +124,10 @@ async function run() {
     await assert.rejects(cutover.activate(release, async () => false), error => error.code === 'authorization_deployment_not_ready');
     await assert.rejects(cutover.activate(release, async () => true), error => error.code === 'authorization_migration_unreviewed');
     await connection.query("DELETE FROM authorization_rules WHERE id='manual-keep'");
+    await connection.query(`INSERT INTO hr_info(id,name,student_id,org_id) VALUES ('hr-a','验签成员甲','TEST-MIGRATION-A','migration-org');
+      INSERT INTO audit_verification_permissions(id,grantee_hr_id,granted_by,org_id)
+        VALUES ('historical-verify-a','hr-a','admin-a','migration-org')`);
+    await connection.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261111100000_identity_nature_links.sql'), 'utf8'));
     await connection.query("UPDATE admin_permission_overrides SET granted=0 WHERE admin_id='admin-a' AND permission_key='venue.purposes.delete'");
     await assert.rejects(cutover.activate(release, async () => true), error => error.code === 'authorization_migration_stale');
     await cutover.stageAll();
@@ -104,6 +135,7 @@ async function run() {
     await assert.rejects(cutover.activate(release, async () => ++checks === 1), error => error.code === 'authorization_deployment_not_ready');
     assert.equal((await connection.query('SELECT phase FROM authorization_runtime_transition WHERE id=1'))[0][0].phase, 'shadow');
     assert.equal((await connection.query('SELECT phase FROM venue_purpose_storage_transition WHERE id=1'))[0][0].phase, 'legacy');
+    assert.equal((await connection.query("SELECT id FROM authorization_rules WHERE source_ref='historical-verify-a'"))[0].length, 0);
     assert((await connection.query('SELECT mode FROM authorization_organizations'))[0].every(row => row.mode === 'shadow'));
     await connection.query("CREATE TRIGGER fixture_cutover_failure BEFORE UPDATE ON authorization_organizations FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='isolated cutover rollback'");
     await assert.rejects(cutover.activate(release, async () => true), /isolated cutover rollback/);
@@ -124,6 +156,8 @@ async function run() {
     assert.equal(activated.comparison.length, 2);
     assert((await connection.query('SELECT mode FROM authorization_organizations'))[0].every(row => row.mode === 'enforced'));
     assert.equal((await connection.query('SELECT phase FROM venue_purpose_storage_transition WHERE id=1'))[0][0].phase, 'organization');
+    const [[verifyRule]] = await connection.query("SELECT scheme_id FROM authorization_rules WHERE source_ref='historical-verify-a'");
+    assert.match(verifyRule.scheme_id, /^compat-rule-/);
     assert.equal((await cutover.activate(release, async () => true)).changed, false);
     await pool.withTransaction(async transaction => {
       await cutover.inheritOrganization(transaction, 'future-org');
@@ -143,12 +177,14 @@ async function run() {
 }
 
 async function verifyUnifiedIdentityTransition(connection, pool) {
-  for (const filename of ['20261111100000_identity_nature_links.sql', '20261122153000_unified_identity_assignment_links.sql']) {
+  for (const filename of ['20261111100000_identity_nature_links.sql', '20261122153000_unified_identity_assignment_links.sql',
+    '20261122170000_authorization_grant_sources.sql']) {
     const sql = fs.readFileSync(path.join(__dirname, '../db/deploy', filename), 'utf8');
     await connection.query(sql);
     await connection.query(sql);
   }
   process.env.AUTH_IDENTITY_SECRET ||= crypto.randomBytes(32).toString('hex');
+  process.env.JWT_SECRET ||= crypto.randomBytes(32).toString('hex');
   const transition = require('../src/core/models/authorizationIdentityTransition');
   const { loadActor, loadEffectiveAssignmentsForAuthorization } = require('../src/core/models/authorizationIdentity');
   const identity = require('../src/core/models/unifiedIdentity');
@@ -225,10 +261,44 @@ async function verifyUnifiedIdentityTransition(connection, pool) {
   assert.equal(ordinary.role, 'user');
   assert.equal(ordinary.assignment.id, 'a-post-2');
   assert.deepEqual(ordinary.legacyAdminGrantIds, ['grant-a']);
+  const { createAuthorizationSession } = require('../src/core/services/authorizationSession');
+  async function canVerify(contextId) {
+    const session = await createAuthorizationSession(connection, { ...ref, contextId });
+    return session.check({ capability: 'audit.verification.verify',
+      resource: { type: 'audit.verification', organizationId: 'migration-org', id: 'migration-org' }, businessAllowed: true }).allowed;
+  }
+  assert.equal(await canVerify(assigned.contextId), true);
   await connection.query(`INSERT INTO membership_assignments(id,membership_id,org_id,assignment_kind,department_id,identity_id)
     VALUES ('a-future-post','membership-a','migration-org','staff','d-migration','i-migration')`);
   const effective = await loadEffectiveAssignmentsForAuthorization(connection, 'migration-org', ['a-post-1', 'a-future-post']);
   assert.deepEqual(effective.map(item => [item.assignment.id, item.legacyAdminGrantIds]), [['a-future-post', []], ['a-post-1', ['grant-a']]]);
+  const added = (await identity.listContexts('account-a')).find(context => context.assignmentId === 'a-future-post');
+  await identity.activateSelection('session-legacy', 'account-a', { contextId: added.contextId, identityModel: 'unified' });
+  assert.equal(await canVerify(added.contextId), true);
+  const addedRef = { ...ref, contextId: added.contextId };
+  assert.deepEqual(await postVerification(addedRef), { status: 'success', canVerify: true });
+  const request = { submissionNumber: 'AUTH-MIGRATED-VERIFY' };
+  await connection.query(`INSERT INTO audit_submissions(id,submission_number,submitted_by,title,org_id)
+    VALUES ('audit-migrated-verify',?,'hr-a','验签迁移隔离测试','migration-org')`, [request.submissionNumber]);
+  assert.equal((await postVerification(addedRef, request)).status, 'success');
+  const authorization = require('../src/core/models/authorization');
+  const state = await authorization.read(connection, 'migration-org');
+  const historical = state.rules.find(rule => rule.sourceKind === 'legacy_verification');
+  const superGuard = { authorize: async () => ({ contextId: 'fixture-super', organizationId: 'migration-org' }),
+    validateChange: async () => {}, validateReferences: async () => {} };
+  const denyVerification = await authorization.saveRule({ expectedRevision: state.revision, name: '拒绝验签测试',
+    policy: { ...historical.policy, effect: 'deny', subjects: [{ kind: 'assignments', ids: ['a-future-post'] }] } },
+    'migration-org', superGuard);
+  assert.deepEqual(await postVerification(addedRef), { status: 'success', canVerify: false });
+  assert.equal((await postVerification(addedRef, request)).status, 'forbidden');
+  assert.deepEqual(await postVerification({ ...addedRef, organizationId: 'other-org' }), { status: 'success', canVerify: false });
+  await authorization.deleteRules({ expectedRevision: (await authorization.read(connection, 'migration-org')).revision,
+    rules: [{ id: historical.id, version: historical.version }, { id: denyVerification.id, version: denyVerification.version }] },
+  'migration-org', superGuard);
+  assert.equal(await canVerify(added.contextId), false);
+  assert.equal((await connection.query("SELECT id FROM audit_verification_permissions WHERE id='historical-verify-a'"))[0].length, 0);
+  await connection.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261124123000_complete_legacy_audit_verification_roles.sql'), 'utf8'));
+  assert.equal(await canVerify(added.contextId), false);
   await connection.query("UPDATE membership_assignments SET status='inactive' WHERE id='a-post-1'");
   assert.deepEqual(await loadEffectiveAssignmentsForAuthorization(connection, 'migration-org', ['a-post-1']), []);
   await connection.query(`INSERT INTO persons(id,name,student_id,normalized_student_id)

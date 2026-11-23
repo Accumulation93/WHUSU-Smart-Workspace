@@ -21,24 +21,24 @@
       <view wx:if="{{tagsSelected}}" class="ui-list-filter-chip ui-list-filter-clear ui-motion-chip" role="button" bindtap="clearTags" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.clearTagFilters}}</view>
     </view>
     <block wx:if="{{admin}}">
-      <button class="primary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{loading || busy || loadFailed}}" bindtap="edit">{{copy.add}}</button>
-      <button wx:if="{{rules.length}}" class="secondary-btn directory-small-action ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" disabled="{{busy}}" bindtap="toggleBatch">{{batchMode ? copy.finishSelection : copy.manageSelection}}</button>
-      <view wx:if="{{batchMode}}" class="directory-note">{{selectedText}}</view>
-      <view wx:if="{{rules.length && batchMode}}" class="card-actions directory-actions directory-small-actions">
+      <button wx:if="{{canCreateRule}}" class="primary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{loading || busy || loadFailed}}" bindtap="edit">{{copy.add}}</button>
+      <button wx:if="{{hasDeletableRules}}" class="secondary-btn directory-small-action ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" disabled="{{loading || busy || loadFailed}}" bindtap="toggleBatch">{{batchMode ? copy.finishSelection : copy.manageSelection}}</button>
+      <view wx:if="{{hasDeletableRules && batchMode}}" class="directory-note">{{selectedText}}</view>
+      <view wx:if="{{hasDeletableRules && batchMode}}" class="card-actions directory-actions directory-small-actions">
         <button class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{loading || busy || loadFailed}}" bindtap="selectAll">{{copy.selectAll}}</button>
         <button class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{loading || busy || loadFailed}}" bindtap="clearSelection">{{copy.clearSelection}}</button>
         <button class="danger-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{loading || busy || loadFailed || !selected.length}}" bindtap="deleteSelected">{{copy.deleteSelected}}</button>
       </view>
       <view wx:for="{{rules}}" wx:key="id" class="directory-rule">
-        <view class="{{batchMode ? 'selection-option-card' : 'directory-rule-summary'}} {{item.selected && batchMode ? 'selection-option-card-selected' : ''}}" data-id="{{item.id}}" aria-checked="{{item.selected && batchMode}}" catchtap="toggleRule" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
+        <view class="{{batchMode && item.canDelete ? 'selection-option-card' : 'directory-rule-summary'}} {{item.selected && batchMode && item.canDelete ? 'selection-option-card-selected' : ''}}" data-id="{{item.id}}" aria-checked="{{item.selected && batchMode && item.canDelete}}" catchtap="toggleRule" hover-class="{{batchMode && item.canDelete ? 'ui-press-card' : 'none'}}" hover-start-time="0" hover-stay-time="160">
           <view class="directory-value">{{item.name}}</view><view class="directory-note">{{item.enabled ? copy.enabled : copy.disabled}}</view>
           <view wx:for="{{item.summary}}" wx:for-item="section" wx:key="key" class="directory-summary-section"><view class="directory-label">{{section.title}}</view><view wx:for="{{section.groups}}" wx:for-item="group" wx:key="key"><view wx:for="{{group.lines}}" wx:for-item="line" wx:key="*this" class="directory-note">{{line}}</view><view wx:if="{{item.expanded && group.hint}}" class="directory-note">{{group.hint}}</view></view></view>
         </view>
         <view class="card-actions directory-actions directory-small-actions">
           <button class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" data-id="{{item.id}}" bindtap="toggleRuleDetails">{{item.expanded ? copy.collapse : copy.expand}}</button>
-          <button class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{loading || busy || loadFailed}}" data-id="{{item.id}}" bindtap="edit">{{copy.edit}}</button>
-          <button class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{loading || busy || loadFailed}}" data-id="{{item.id}}" data-copy="{{true}}" bindtap="edit">{{copy.copy}}</button>
-          <button class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{loading || busy || loadFailed}}" data-id="{{item.id}}" bindtap="toggleEnabled">{{item.enabled ? copy.disable : copy.enable}}</button>
+          <button wx:if="{{item.canUpdate}}" class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{loading || busy || loadFailed}}" data-id="{{item.id}}" bindtap="edit">{{copy.edit}}</button>
+          <button wx:if="{{canCreateRule}}" class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{loading || busy || loadFailed}}" data-id="{{item.id}}" data-copy="{{true}}" bindtap="edit">{{copy.copy}}</button>
+          <button wx:if="{{item.canUpdate}}" class="secondary-btn ui-motion-button" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" disabled="{{loading || busy || loadFailed}}" data-id="{{item.id}}" bindtap="toggleEnabled">{{item.enabled ? copy.disable : copy.enable}}</button>
         </view>
       </view>
       <view wx:if="{{!loading && !loadFailed && !rules.length}}" class="directory-note">{{copy.noRules}}</view>

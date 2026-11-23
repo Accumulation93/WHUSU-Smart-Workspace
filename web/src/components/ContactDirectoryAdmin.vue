@@ -1,26 +1,26 @@
 <template>
   <section class="stack">
     <div v-if="!draft" class="card stack">
-      <div class="panel-head directory-head"><h2 class="section-title">{{ copy.rules }}</h2><button class="btn btn-primary" :disabled="blocked" @click="edit()">{{ copy.add }}</button></div>
+      <div class="panel-head directory-head"><h2 class="section-title">{{ copy.rules }}</h2><button v-if="canCreateRule" class="btn btn-primary" :disabled="blocked" @click="edit()">{{ copy.add }}</button></div>
       <AppLoading v-if="loading || busy" :text="busy ? copy.saving : copy.loadingRules" />
       <p v-if="notice" class="notice-line" role="alert">{{ notice }}</p>
       <button v-if="loadFailed" class="btn btn-secondary" :disabled="busy" @click="load">{{ copy.retry }}</button>
-      <button v-if="rules.length" class="btn btn-secondary directory-small-action" :disabled="blocked" @click="batchMode = !batchMode">{{ batchMode ? copy.finishSelection : copy.manageSelection }}</button>
-      <div v-if="rules.length && batchMode" class="card-actions directory-small-actions">
-        <button class="btn btn-secondary" :disabled="blocked" @click="selected = rules.map(rule => rule.id)">{{ copy.selectAll }}</button>
+      <button v-if="deletableRules.length" class="btn btn-secondary directory-small-action" :disabled="blocked" @click="batchMode = !batchMode">{{ batchMode ? copy.finishSelection : copy.manageSelection }}</button>
+      <div v-if="deletableRules.length && batchMode" class="card-actions directory-small-actions">
+        <button class="btn btn-secondary" :disabled="blocked" @click="selected = deletableRules.map(rule => rule.id)">{{ copy.selectAll }}</button>
         <button class="btn btn-secondary" :disabled="blocked" @click="selected = []">{{ copy.clearSelection }}</button>
         <button class="btn btn-danger" :disabled="blocked || !selected.length" @click="askDelete">{{ copy.deleteSelected }}</button>
       </div>
-      <span v-if="batchMode">{{ format(copy.selectedRules, selected.length) }}</span>
+      <span v-if="deletableRules.length && batchMode">{{ format(copy.selectedRules, selected.length) }}</span>
       <p v-if="!loading && !rules.length && !loadFailed" class="empty-state">{{ copy.noRules }}</p>
       <article v-for="rule in rules" :key="rule.id" class="list-row stack">
-        <label class="row"><input v-if="batchMode" v-model="selected" type="checkbox" :value="rule.id" :disabled="blocked" /><strong>{{ rule.name }}</strong><span class="chip chip-sky">{{ rule.enabled ? copy.enabled : copy.disabled }}</span></label>
+        <label class="row"><input v-if="batchMode && rule.canDelete !== false" v-model="selected" type="checkbox" :value="rule.id" :disabled="blocked" /><strong>{{ rule.name }}</strong><span class="chip chip-sky">{{ rule.enabled ? copy.enabled : copy.disabled }}</span></label>
         <section v-for="section in view.ruleSections(rule, metadata, copy, relations)" :key="section.key" class="stack-tight"><h3 class="field-label">{{ section.title }}</h3><div v-for="group in section.groups" :key="group.key" class="stack-tight"><span v-for="line in group.lines" :key="line" class="muted">{{ line }}</span><span v-if="expandedRules.includes(rule.id) && group.hint" class="muted">{{ group.hint }}</span></div></section>
         <div class="card-actions directory-small-actions">
           <button class="btn btn-secondary" @click="toggleRuleDetails(rule.id)">{{ expandedRules.includes(rule.id) ? copy.collapse : copy.expand }}</button>
-          <button class="btn btn-secondary" :disabled="blocked" @click="edit(rule)">{{ copy.edit }}</button>
-          <button class="btn btn-secondary" :disabled="blocked" @click="edit(rule, true)">{{ copy.copy }}</button>
-          <button class="btn btn-secondary" :disabled="blocked" @click="act(rule.enabled ? 'disable' : 'enable', [rule])">{{ rule.enabled ? copy.disable : copy.enable }}</button>
+          <button v-if="rule.canUpdate !== false" class="btn btn-secondary" :disabled="blocked" @click="edit(rule)">{{ copy.edit }}</button>
+          <button v-if="canCreateRule" class="btn btn-secondary" :disabled="blocked" @click="edit(rule, true)">{{ copy.copy }}</button>
+          <button v-if="rule.canUpdate !== false" class="btn btn-secondary" :disabled="blocked" @click="act(rule.enabled ? 'disable' : 'enable', [rule])">{{ rule.enabled ? copy.disable : copy.enable }}</button>
         </div>
       </article>
     </div>
@@ -99,8 +99,11 @@ import { useCopiedConfigurationEditor } from '@/runtime/copiedConfigurationEdito
 import { confirmAction, showToast } from '@/runtime/notify.js';
 const emit = defineEmits(['busy']);
 const props = defineProps({ disabled: Boolean });
-const metadata = ref({ fields: [], people: [], departments: [], identities: [], workGroups: [] });
+const emptyMetadata = () => ({ fields: [], people: [], departments: [], identities: [], workGroups: [], canCreate: false });
+const metadata = ref(emptyMetadata());
 const rules = ref([]), selected = ref([]), draft = ref(null), picker = ref(null), deletion = ref(null), editor = ref(null);
+const canCreateRule = computed(() => metadata.value.canCreate !== false);
+const deletableRules = computed(() => rules.value.filter(rule => rule.canDelete !== false));
 const activeSection = ref(''), activeClause = ref(''), batchMode = ref(false), expandedRules = ref([]);
 const loading = ref(false), busy = ref(false), notice = ref(''), loadFailed = ref(false), validationAnchor = ref('');
 const blocked = computed(() => props.disabled || loading.value || busy.value || loadFailed.value);
@@ -145,6 +148,7 @@ async function load() {
   finally { if (current(request, expected)) loading.value = false; }
 }
 async function edit(rule, duplicate) {
+  if (blocked.value || (rule && !duplicate ? !canUpdateRule(rule.id) : !canCreateRule.value)) return;
   draft.value = view.editableRule(rule);
   notice.value = '';
   validationAnchor.value = '';
@@ -154,7 +158,15 @@ async function edit(rule, duplicate) {
 }
 function cancelEdit() { draft.value = null; notice.value = ''; validationAnchor.value = ''; }
 function confirmPeople(items) { draft.value[picker.value.section][picker.value.index].personIds = items.map(item => item.id); picker.value = null; activeClause.value = ''; }
-function askDelete() { deletion.value = rules.value.filter(rule => selected.value.includes(rule.id)).map(rule => ({ id: rule.id, version: rule.version, name: rule.name })); }
+function canUpdateRule(id) {
+  const rule = rules.value.find(item => item.id === id);
+  return !!rule && rule.canUpdate !== false;
+}
+function askDelete() {
+  if (blocked.value) return;
+  const targets = deletableRules.value.filter(rule => selected.value.includes(rule.id));
+  if (targets.length) deletion.value = targets;
+}
 async function write(api, body) {
   const request = generation, expected = scope(); busy.value = true; notice.value = ''; validationAnchor.value = '';
   try {
@@ -168,7 +180,7 @@ async function write(api, body) {
 }
 async function save() {
   const source = draft.value;
-  if (!source || blocked.value || confirmingSave) return;
+  if (!source || blocked.value || confirmingSave || !(source.id ? canUpdateRule(source.id) : canCreateRule.value)) return;
   const issue = view.ruleIssue(source, copy);
   if (issue) {
     notice.value = issue.message;
@@ -189,10 +201,18 @@ async function save() {
       if (!confirmed || draft.value !== source) return;
     } finally { confirmingSave = false; }
   }
-  await write('saveContactDirectoryRule', view.payload(source));
+  if (!blocked.value && (source.id ? canUpdateRule(source.id) : canCreateRule.value)) {
+    await write('saveContactDirectoryRule', view.payload(source));
+  }
 }
-function act(action, rows) { if (!blocked.value) write('batchContactDirectoryRules', { action, rules: rows.map(row => ({ id: row.id, version: row.version })) }); }
-function clear() { generation++; metadata.value = { fields: [], people: [], departments: [], identities: [], workGroups: [] }; rules.value = []; selected.value = []; draft.value = null; picker.value = null; deletion.value = null; busy.value = false; activeSection.value=''; activeClause.value=''; batchMode.value=false; expandedRules.value=[]; }
+function act(action, rows) {
+  if (blocked.value || !rows.length) return;
+  const allowed = action === 'delete'
+    ? rows.every(row => deletableRules.value.some(item => item.id === row.id))
+    : rows.every(row => canUpdateRule(row.id));
+  if (allowed) write('batchContactDirectoryRules', { action, rules: rows.map(row => ({ id: row.id, version: row.version })) });
+}
+function clear() { generation++; metadata.value = emptyMetadata(); rules.value = []; selected.value = []; draft.value = null; picker.value = null; deletion.value = null; busy.value = false; activeSection.value=''; activeClause.value=''; batchMode.value=false; expandedRules.value=[]; }
 function visibility() { clear(); if (!document.hidden) load(); }
 useCopiedConfigurationEditor({ kind: () => 'hr.directoryRules', rows: rules, blocked: () => blocked.value,
   ready: () => !loading.value && !loadFailed.value, edit, notice });

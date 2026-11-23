@@ -49,7 +49,8 @@ const RESOURCES = [
   { key: 'audit.submissions', legacy: null, actions: ['approve'], scopes: ['organization', 'records'], businessActionRoles: { approve: ['user'] } },
   { key: 'audit.submissions', legacy: null, actions: ['create'], scopes: ['organization'], businessActionRoles: { create: ['user'] } },
   { key: 'audit.submissions', legacy: null, actions: ['update', 'cancel'], scopes: ['organization', 'records'], businessActionRoles: { update: ['user'], cancel: ['user'] } },
-  { key: 'audit.verification', legacy: 'audit.verification', actions: ['read', 'verify', 'configure'], scopes: ['organization'] },
+  { key: 'audit.verification', legacy: 'audit.verification', actions: ['read', 'verify'], scopes: ['organization'] },
+  { key: 'audit.verification', legacy: 'audit.verification', actions: ['configure'], scopes: ['organization'], assignmentRetired: true },
   { key: 'venue.resources', legacy: 'venue.resources', actions: ['read', 'create', 'update'], remove: 'venue.resources.delete', scopes: ['organization', 'records'],
     fields: ['name', 'location', 'description', 'imageUrl', 'isActive'], businessReadRoles: ['user', 'admin'] },
   { key: 'venue.schedule', legacy: null, actions: ['read'], scopes: ['organization', 'records'], businessReadRoles: ['user'] },
@@ -191,6 +192,7 @@ for (const resource of RESOURCES) {
     CATALOG.set(key, Object.freeze({ key, resourceType: resource.key, action,
       legacy, legacyKeys: Object.freeze(LEGACY_ACTIONS[key] || (legacy ? [legacy] : [])),
       governance: Boolean(resource.governance), delegation: Boolean(resource.delegation),
+      assignmentRetired: resource.assignmentRetired === true,
       classification: specialCategory ? 'special' : 'general', specialCategory,
       // 统一授权下，人事成员查看权包含获准范围内的基础学号；其他操作仍按各自字段授权判断。
       requiresExplicitFields: Object.freeze(key === 'hr.people.read' ? [] : resource.adminOnlyFields || []),

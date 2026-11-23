@@ -93,6 +93,49 @@ async function main() {
   assert.equal(editor.data.rules[0].id, 'unrestricted');
   editor.clearPrivate();
 
+  const writes = [];
+  const assignedRule = { enabled: true, version: 1, audience: [{ type: 'people', personIds: ['p'] }],
+    targets: [{ type: 'self' }], fieldIds: [] };
+  const limited = fixture(async input => {
+    if (input.name === 'getContactDirectoryConfiguration') return {
+      ...config, canCreate: false, rules: [
+        { ...assignedRule, id: 'readable', name: 'Read only', canUpdate: false, canDelete: false },
+        { ...assignedRule, id: 'editable', name: 'Editable', canUpdate: true, canDelete: false },
+        { ...assignedRule, id: 'deletable', name: 'Deletable', canUpdate: false, canDelete: true }
+      ]
+    };
+    writes.push(input.data);
+    return { status: 'success' };
+  }).component;
+  limited.activate(); await new Promise(resolve => setImmediate(resolve));
+  assert.equal(limited.data.canCreateRule, false);
+  const selectRule = (id, copy = false) => ({ currentTarget: { dataset: { id, copy } } });
+  limited.edit(selectRule());
+  limited.edit(selectRule('readable'));
+  limited.edit(selectRule('editable', true));
+  limited.toggleEnabled(selectRule('readable'));
+  assert.equal(limited.data.draft, null);
+  assert.equal(writes.length, 0);
+  limited.edit(selectRule('editable'));
+  assert.equal(limited.data.draft.id, 'editable');
+  limited.cancel();
+  limited.toggleBatch();
+  limited.toggleRule(selectRule('readable'));
+  assert.equal(limited.data.selected.length, 0);
+  limited.selectAll();
+  assert.deepEqual(Array.from(limited.data.selected), ['deletable']);
+  limited.deleteSelected();
+  limited.data.rules[2].canDelete = false;
+  limited.confirmDelete();
+  assert.equal(writes.length, 0);
+  limited.cancelDelete();
+  limited.data.rules[2].canDelete = true;
+  limited.deleteSelected();
+  limited.confirmDelete();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(JSON.parse(JSON.stringify(writes)), [{ action: 'delete', rules: [{ id: 'deletable', version: 1 }] }]);
+  limited.clearPrivate();
+
   let resolveRead;const late=fixture(()=>new Promise(resolve=>{resolveRead=resolve;}));late.component.activate();late.component.clearPrivate();resolveRead(config);await new Promise(resolve=>setImmediate(resolve));
   assert.equal(late.component.data.people.length,0);
   let finishDetail;

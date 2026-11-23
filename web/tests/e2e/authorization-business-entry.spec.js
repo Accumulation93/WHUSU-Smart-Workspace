@@ -73,13 +73,23 @@ test('personnel template create edit and reopening use saved field definitions',
 });
 
 test('publication creates a view rule and reopens the persisted clauses without dictionary management', async ({ page }) => {
-  await grant(page,['scoring.publications.read','scoring.publications.create','scoring.publications.update','scoring.activities.read']);
-  let rules=[],reads=0;
-  await page.route('**/api/listScoreActivities',route=>route.fulfill({json:{status:'success',currentActivityId:'activity',list:[{id:'activity',name:'Activity'}]}}));
-  await page.route('**/api/getResultPublication',route=>{reads++;return route.fulfill({json:{status:'success',publication:{id:'publication',activityId:'activity',isPublished:false},viewRules:rules,meritRules:[],assignmentCandidates:[],meritListDesignations:[],configurationCandidates:{departments:[{id:'dept',name:'Department'}],natures:[{id:'staff',name:'Staff'}],identities:[{id:'identity',name:'Identity',natureIds:['staff']}]}}});});
+  await grant(page,['scoring.publications.read','scoring.publications.update','scoring.activities.read']);
+  let rules=[],reads=0,generations=0;
+  await page.route('**/api/listScorePublicationActivities',route=>route.fulfill({json:{status:'success',currentActivityId:'activity',list:[{id:'activity',name:'Activity',canOpen:true},{id:'read-only',name:'Read only',canOpen:true}]}}));
+  await page.route('**/api/getResultPublication',route=>{
+    reads++;
+    const { activityId } = route.request().postDataJSON();
+    const writable = activityId === 'activity';
+    return route.fulfill({json:{status:'success',publication:{id:writable?'publication':'publication-read',activityId,isPublished:false},
+      access:{update:writable,delete:false,export:false},viewRules:writable?rules:[],meritRules:[],assignmentCandidates:[],meritListDesignations:[],
+      configurationCandidates:{departments:[{id:'dept',name:'Department'}],natures:[{id:'staff',name:'Staff'}],identities:[{id:'identity',name:'Identity',natureIds:['staff']}]}}});
+  });
   await page.route('**/api/getMeritListSummary',route=>route.fulfill({json:{status:'success',groups:[]}}));
+  await page.route('**/api/generatePubViewRules',route=>{expect(route.request().postDataJSON()).toEqual({publicationId:'publication'});generations++;return route.fulfill({json:{status:'success'}});});
   await page.route('**/api/savePubViewRule',route=>{const value=route.request().postDataJSON();expect(value.publicationId).toBe('publication');expect(value.natureIds).toEqual(['staff']);expect(value.clauses).toEqual([{natureIds:['staff'],scopeType:'own_results',targetIdentityId:'',displayMode:'score',gradeBands:[]}]);rules=[{...value,id:'rule',granteeDepartment:'Department',granteeIdentity:'Identity',clauses:value.clauses.map((clause,index)=>({...clause,id:'clause-'+index}))}];return route.fulfill({json:{status:'success'}});});
   await page.goto('/web/admin?subApp=scoring&tab=publications');
+  await page.getByRole('button',{name:adminUi.generateViewRules,exact:true}).click();
+  await expect.poll(()=>generations).toBe(1);
   await page.locator('section').filter({has:page.getByText(adminUi.copy_17903d1b98,{exact:true})}).getByRole('button',{name:adminUi.newResultViewRule,exact:true}).click();
   await page.getByRole('combobox',{name:adminUi.resultViewerDepartments,exact:true}).selectOption('dept');
   await expect(page.getByRole('combobox',{name:adminUi.resultViewerIdentity,exact:true})).toBeDisabled();
@@ -92,14 +102,18 @@ test('publication creates a view rule and reopens the persisted clauses without 
   await page.locator('article').filter({hasText:'Department · Identity'}).getByRole('button',{name:adminUi.copy_e040ae3016,exact:true}).click();
   await expect(page.getByRole('combobox',{name:adminUi.resultViewerDepartments,exact:true})).toHaveValue('dept');
   expect(reads).toBeGreaterThanOrEqual(2);
+  await page.getByRole('combobox',{name:adminUi.copy_5aa4cb13ec,exact:true}).selectOption('read-only');
+  await expect(page.getByRole('checkbox',{name:adminUi.copy_e5c0e22c49,exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:adminUi.newResultViewRule,exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:adminUi.generateViewRules,exact:true})).toHaveCount(0);
 });
 
 test('publication read failure preserves rows and prevents writes until successful retry', async ({ page }) => {
   await grant(page,['scoring.publications.read','scoring.publications.create','scoring.publications.update','scoring.activities.read']);
   let fails = false;
   let writes = 0;
-  await page.route('**/api/listScoreActivities', route => route.fulfill({json:{status:'success',currentActivityId:'activity',list:[{id:'activity',name:'Activity'}]}}));
-  await page.route('**/api/getResultPublication', route => route.fulfill({json: fails ? {status:'error'} : {status:'success',publication:{id:'publication',isPublished:false},viewRules:[{id:'rule',granteeDepartment:'Retained department',granteeIdentity:'Role',clauses:[]}],meritRules:[],configurationCandidates:{departments:[],identities:[]}}}));
+  await page.route('**/api/listScorePublicationActivities', route => route.fulfill({json:{status:'success',currentActivityId:'activity',list:[{id:'activity',name:'Activity',canOpen:true}]}}));
+  await page.route('**/api/getResultPublication', route => route.fulfill({json: fails ? {status:'error'} : {status:'success',publication:{id:'publication',isPublished:false},access:{update:true,delete:false,export:false},viewRules:[{id:'rule',granteeDepartment:'Retained department',granteeIdentity:'Role',clauses:[]}],meritRules:[],configurationCandidates:{departments:[],identities:[]}}}));
   await page.route('**/api/getMeritListSummary', route => route.fulfill({json:{status:'success',groups:[]}}));
   await page.route('**/api/saveResultPublication', route => { writes++; return route.fulfill({json:{status:'success'}}); });
   await page.goto('/web/admin?subApp=scoring&tab=publications');
@@ -109,13 +123,60 @@ test('publication read failure preserves rows and prevents writes until successf
   await page.getByRole('combobox',{name:adminUi.copy_5aa4cb13ec,exact:true}).selectOption('activity');
   await expect(page.getByText(publicationCopy.publicationLoadFailed,{exact:true})).toBeVisible();
   await expect(row).toBeVisible();
-  await expect(page.getByRole('button',{name:adminUi.copy_a7cce01d43,exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:adminUi.copy_a7cce01d43,exact:true})).toHaveCount(0);
   await expect(row.getByRole('button',{name:adminUi.copy_e040ae3016,exact:true})).toHaveCount(0);
   expect(writes).toBe(0);
   fails = false;
   await page.getByRole('button',{name:publicationCopy.publicationRetry,exact:true}).click();
   await expect(page.getByText(publicationCopy.publicationLoadFailed,{exact:true})).toHaveCount(0);
   await expect(row.getByRole('button',{name:adminUi.copy_e040ae3016,exact:true})).toBeVisible();
+});
+
+test('publication create-only and export-only roles use their action without reading publication details', async ({ page }) => {
+  let mode = 'create';
+  await mockApi(page);
+  await page.route('**/api/getCurrentAuthorizationAccess', route => route.fulfill({ json: {
+    status: 'success', mode: 'enforced', revision: 1, organizationId: 'org-1',
+    contextId: 'ctx-assignment', role: 'user',
+    capabilities: ['scoring.publications.' + mode], grantedCapabilities: ['scoring.publications.' + mode]
+  } }));
+  let created = false;
+  let publishedExported = 0;
+  let configReads = 0;
+  for (const routeName of ['getResultPublication', 'getMeritListSummary', 'listScoreActivities']) {
+    await page.route('**/api/' + routeName, route => { configReads++; return route.fulfill({ json: { status: 'forbidden' } }); });
+  }
+  await page.route('**/api/listScorePublicationActivities', route => route.fulfill({ json: {
+    status: 'success', list: mode === 'create'
+      ? (created ? [] : [{ id: 'new-activity', name: 'Activity to create', canOpen: false, canCreate: true, canExport: false }])
+      : [{ id: 'export-activity', name: 'Activity to export', canOpen: false, canCreate: false, canExport: true }]
+  } }));
+  await page.route('**/api/saveResultPublication', route => {
+    expect(route.request().postDataJSON()).toEqual({ activityId: 'new-activity', isPublished: false });
+    created = true;
+    return route.fulfill({ json: { status: 'success', publication: { id: 'publication' } } });
+  });
+  await page.route('**/api/exportMeritListSummary', route => {
+    expect(route.request().postDataJSON()).toEqual({ activityId: 'export-activity', filterDepartment: '', filterIdentity: '', filterWorkGroup: '' });
+    publishedExported++;
+    return route.fulfill({ json: { status: 'success', fileContent: 'Member', fileName: 'Merit list', extension: 'csv' } });
+  });
+  await page.goto('/web/admin?subApp=scoring&tab=publications');
+  const activity = page.getByRole('combobox', { name: adminUi.copy_5aa4cb13ec, exact: true });
+  await expect(activity).toHaveValue('new-activity');
+  await page.getByRole('button', { name: adminUi.copy_a7cce01d43, exact: true }).click();
+  await expect(activity).toHaveValue('');
+  expect(created).toBe(true);
+  await expect(page.getByText(publicationCopy.publicationLoadFailed, { exact: true })).toHaveCount(0);
+
+  mode = 'export';
+  await page.reload();
+  await expect(activity).toHaveValue('export-activity');
+  await expect(page.getByRole('checkbox', { name: adminUi.copy_e5c0e22c49, exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: adminUi.copy_37b2d47dd4, exact: true }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  expect(publishedExported).toBe(1);
+  expect(configReads).toBe(0);
 });
 
 test('migration-only role selects minimal members and submits then rereads its request', async ({ page }) => {

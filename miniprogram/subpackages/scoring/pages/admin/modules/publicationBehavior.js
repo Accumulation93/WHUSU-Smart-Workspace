@@ -35,8 +35,17 @@ function scopeLabel(value, merit) {
   const option = merit ? meritScopes.find(item => item.aliases.indexOf(value) >= 0) : utils.VIEW_SCOPE_OPTIONS.find(item => item.value === value);
   return option ? option.label : (merit ? adminCopy.meritScopeUnknown : homeCopy.publicationGroupUnknown);
 }
-function presentRules(rows, merit) {
-  return (rows || []).map(row => Object.assign({}, row, { clauses: (row.clauses || []).map(clause => Object.assign({}, clause, { scopeLabel: scopeLabel(clause.scopeType, merit), targetIdentity: merit || ['same_department_identity', 'same_work_group_identity'].indexOf(clause.scopeType) >= 0 ? clause.targetIdentity : '' })) }));
+function presentRules(rows, merit, natures) {
+  const natureLabel = ids => ids ? natures.filter(nature => ids.indexOf(nature.id) >= 0).map(nature => nature.name).join(' · ')
+    || natureCopy.mappingInvalid : natureCopy.legacyScope;
+  return (rows || []).map(row => Object.assign({}, row, {
+    natureLabel: natureLabel(row.natureIds),
+    clauses: (row.clauses || []).map(clause => Object.assign({}, clause, {
+      natureLabel: natureLabel(clause.natureIds),
+      scopeLabel: scopeLabel(clause.scopeType, merit),
+      targetIdentity: merit || ['same_department_identity', 'same_work_group_identity'].indexOf(clause.scopeType) >= 0 ? clause.targetIdentity : ''
+    }))
+  }));
 }
 function confirmReplaceRules(rows, merit) {
   return new Promise(resolve => wx.showModal({
@@ -47,8 +56,11 @@ function confirmReplaceRules(rows, merit) {
 }
 
 function canPublish(page, action) {
-  if (['create','update','delete'].indexOf(action) >= 0 && (page.data.publicationLoadFailed || page.data.loadingMap && page.data.loadingMap.publications || !orgSession.isCurrent(page._publicationLoadedSession) || page._publicationLoadedActivity !== String((page.data.publicationForm || {}).activityId || ''))) return false;
-  if (page.data.authorizationEnforced) return (page.data.actionCapabilities || {})['scoring.publications.' + action] === true;
+  if (page.data.publicationLoadFailed || page.data.loadingMap && page.data.loadingMap.publications || !orgSession.isCurrent(page._publicationLoadedSession) || page._publicationLoadedActivity !== String((page.data.publicationForm || {}).activityId || '')) return false;
+  if (page.data.authorizationEnforced) {
+    return (page.data.actionCapabilities || {})['scoring.publications.' + action] === true
+      && (action === 'create' ? page.data.publicationCanCreate === true : (page.data.publicationAccess || {})[action] === true);
+  }
   return page.data.isSuperAdmin || (page.data.user && page.data.user.permissions || {})[action === 'delete' ? 'scoring.publications.delete' : 'scoring.publications'] === true;
 }
 
@@ -109,14 +121,63 @@ module.exports = Behavior({
       }
       return true;
     },
-    retryPublicationData() { return this.loadPublicationData(this.data.publicationForm.activityId); },
+    retryPublicationData() {
+      if (this.data.publicationCandidatesLoadFailed) return this.loadPublicationActivityOptions();
+      return this.loadPublicationData(this.data.publicationForm.activityId);
+    },
+    async loadPublicationActivityOptions() {
+      const request = orgSession.beginRequest(this, 'publicationActivityOptions');
+      this.setData({ publicationsLoading: true, publicationCanCreate: false, publicationAccess: {},
+        publicationCandidatesLoadFailed: false, publicationLoadFailed: false });
+      try {
+        let options;
+        let currentActivityId;
+        if (this.data.authorizationEnforced) {
+          const result = await this.callCloud('listScorePublicationActivities', {});
+          if (result.status !== 'success') throw createResultError(result);
+          options = result.list || [];
+          currentActivityId = result.currentActivityId;
+        } else {
+          await this.loadActivityList();
+          options = this.data.activityList;
+          currentActivityId = this.data.currentActivityId;
+        }
+        if (!orgSession.isRequestCurrent(this, request)) return;
+        const previous = String(this.data.publicationForm.activityId || '');
+        const selected = options.find(activity => activity.id === previous)
+          || options.find(activity => activity.id === currentActivityId) || options[0];
+        const activityId = selected ? selected.id : '';
+        this.setData({
+          publicationActivityOptions: options,
+          publicationForm: { id: '', activityId, activityName: selected ? selected.name : '', isPublished: false }
+        });
+        await this.loadPublicationData(activityId);
+      } catch (e) {
+        if (orgSession.isRequestCurrent(this, request)) {
+          this.setData({ publicationCandidatesLoadFailed: true, publicationLoadFailed: true,
+            publicationActivityOptions: [], publicationExportOnly: false });
+        }
+      } finally {
+        if (orgSession.isRequestCurrent(this, request)) this.setData({ publicationsLoading: false });
+      }
+    },
     async loadPublicationData(activityId) {
       const request = orgSession.beginRequest(this, 'publicationData');
       const selectedActivityId = String(activityId || '');
-      if (!activityId) {
+      this.setData({ publicationAccess: {}, publicationCanCreate: false, publicationExportOnly: false, expandedPublicationRuleId: '' });
+      const candidate = this.data.authorizationEnforced
+        ? (this.data.publicationActivityOptions || []).find(activity => activity.id === selectedActivityId) : null;
+      if (!activityId || this.data.authorizationEnforced && (!candidate || !candidate.canOpen)) {
+        const canCreate = !!candidate && candidate.canCreate === true;
+        const canExport = !!candidate && candidate.canExport === true;
+        this._publicationLoadedActivity = selectedActivityId;
+        this._publicationLoadedSession = orgSession.getSnapshot();
         this.setData({
           publicationLoadFailed: false,
-          publicationForm: { id: '', activityId: '', activityName: '', isPublished: false },
+          publicationCanCreate: canCreate,
+          publicationExportOnly: canExport,
+          publicationAccess: { export: canExport },
+          publicationForm: { id: '', activityId: selectedActivityId, activityName: candidate ? candidate.name : '', isPublished: false },
           pubViewRuleList: [],
           pubViewRuleListView: [],
           pubMeritRuleList: [],
@@ -138,10 +199,15 @@ module.exports = Behavior({
           this._publicationLoadedSession = orgSession.getSnapshot();
           const pub = result.publication;
           if (result.configurationCandidates) this.setData({ departmentList: result.configurationCandidates.departments || [], identityList: result.configurationCandidates.identities || [], publicationNatures: result.configurationCandidates.natures || [] });
-          const viewRules = presentRules(result.viewRules, false);
-          const meritRules = presentRules(result.meritRules, true);
+          const natures = this.data.publicationNatures || [];
+          const viewRules = presentRules(result.viewRules, false, natures);
+          const meritRules = presentRules(result.meritRules, true, natures);
           this.setData({
             publicationLoadFailed: false,
+            publicationAccess: this.data.authorizationEnforced ? result.access || {} : {
+              update: this.data.canUpdatePublications === true, delete: this.data.canDeletePublications === true,
+              export: this.data.canExportPublications === true
+            },
             publicationForm: pub ? { id: pub.id, activityId: pub.activityId, activityName: this.data.publicationForm.activityName, isPublished: !!pub.isPublished } : { id: '', activityId, activityName: this.data.publicationForm.activityName, isPublished: false },
             pubViewRuleList: viewRules, pubViewRuleListView: viewRules,
             pubMeritRuleList: meritRules, pubMeritRuleListView: meritRules,
@@ -162,7 +228,12 @@ module.exports = Behavior({
           this.setData({ publicationLoadFailed: true });
         }
       }
-      if (orgSession.isRequestCurrent(this, request)) this.setLoading('publications', false);
+      if (orgSession.isRequestCurrent(this, request)) {
+        this.setLoading('publications', false);
+        const publicationId = this.data.publicationForm.id;
+        if (publicationId && this.data.pubViewRuleForm.publicationId !== publicationId) this.startNewPubViewRule();
+        if (publicationId && this.data.pubMeritRuleForm.publicationId !== publicationId) this.startNewPubMeritRule();
+      }
     },
 
     // ─── Merit list summary (Feature 5) ───,
@@ -245,10 +316,16 @@ module.exports = Behavior({
       this.setData({ expandedMeritSummaryClauseId: this.data.expandedMeritSummaryClauseId === clauseId ? '' : clauseId });
     },
 
+    togglePublicationRuleDetails(e) {
+      const id = e.currentTarget.dataset.id;
+      this.setData({ expandedPublicationRuleId: this.data.expandedPublicationRuleId === id ? '' : id });
+    },
+
     async exportMeritListSummary() {
       if (!canPublish(this, 'export')) return;
       const activityId = this.data.publicationForm.activityId;
       if (!activityId) { wx.showToast({ title: localeCopy.copy_c5ed87fa11, icon: 'none' }); return; }
+      const expected = orgSession.getSnapshot();
       this.setLoading('exportMeritSummary', true);
       try {
         const result = await this.callCloud('exportMeritListSummary', {
@@ -257,14 +334,18 @@ module.exports = Behavior({
           filterIdentity: this.data.meritSummaryFilterIdent === localeCopy.copy_31d4595959 ? '' : this.data.meritSummaryFilterIdent,
           filterWorkGroup: this.data.meritSummaryFilterWg === localeCopy.copy_31d4595959 ? '' : this.data.meritSummaryFilterWg
         });
-        if (result.status === 'success' && result.fileContent) {
+        if (!orgSession.isCurrent(expected) || this.data.publicationForm.activityId !== activityId) return;
+        if (result.status === 'success' && result.rowCount === 0 && !result.fileContent) {
+          wx.showToast({ title: adminCopy.copy_79b5b44e28, icon: 'none' });
+        } else if (result.status === 'success' && result.fileContent) {
           saveAndShareFile(result.fileContent, result.fileName || localeCopy.copy_08f97574f4, result.extension || 'xlsx');
           wx.showToast({ title: localeFormat(localeCopy.copy_6b2200af27, [result.rowCount || 0]), icon: 'success' });
         } else {
           wx.showToast({ title: getErrorText(createResultError(result), localeCopy.copy_2b61466286), icon: 'none' });
         }
-      } catch (e) { wx.showToast({ title: getErrorText(e, localeCopy.copy_2b61466286), icon: 'none' }); }
-      this.setLoading('exportMeritSummary', false);
+      } catch (e) {
+        if (orgSession.isCurrent(expected)) wx.showToast({ title: getErrorText(e, localeCopy.copy_2b61466286), icon: 'none' });
+      } finally { this.setLoading('exportMeritSummary', false); }
     },
 
     // ─── Grade band expand/collapse (Feature 4) ───,
@@ -288,7 +369,7 @@ module.exports = Behavior({
 
     async onPublicationActivityChange(e) {
       const idx = parseInt(e.detail.value, 10);
-      const activity = this.data.activityList[idx];
+      const activity = this.data.publicationActivityOptions[idx];
       if (activity) {
         const activityId = activity.id || '';
         // 重置整个 publicationForm（含 id），避免残留上一个活动的旧数据
@@ -313,12 +394,16 @@ module.exports = Behavior({
       if (!canPublish(this, this.data.publicationForm.id ? 'update' : 'create')) return;
       const form = this.data.publicationForm;
       if (!form.activityId) { wx.showToast({ title: localeCopy.copy_21368b3e76, icon: 'none' }); return; }
+      const expected = orgSession.getSnapshot();
       this.setLoading('savePublication', true);
       try {
         const result = await this.callCloud('saveResultPublication', { activityId: form.activityId, isPublished: form.isPublished });
         if (result.status === 'success') {
           wx.showToast({ title: localeCopy.copy_0aacec2714, icon: 'success' });
-          this.setData({ 'publicationForm.id': result.publication.id, 'publicationForm.isPublished': !!result.publication.isPublished });
+          if (orgSession.isCurrent(expected) && this.data.publicationForm.activityId === form.activityId) {
+            if (this.data.authorizationEnforced && !form.id) await this.loadPublicationActivityOptions();
+            else await this.loadPublicationData(form.activityId);
+          }
         } else { wx.showToast({ title: getErrorText(createResultError(result), localeCopy.copy_215e3c57da), icon: 'none' }); }
       } catch (e) { wx.showToast({ title: getErrorText(e, localeCopy.copy_215e3c57da), icon: 'none' }); }
       this.setLoading('savePublication', false);
@@ -373,6 +458,7 @@ module.exports = Behavior({
     // ─── View Rule Category CRUD ───,
 
     startNewPubViewRule() {
+      if (!canPublish(this, 'update') || !this.data.publicationForm.id) return;
       this.setData({ pubViewRuleForm: natureFields(this, { id: '', publicationId: this.data.publicationForm.id || '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: localeCopy.copy_9a4a6e8793, clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseDisplayMode: 'score', clauseGradeBands: [], clauses: [] }) });
     },
 
@@ -385,11 +471,11 @@ module.exports = Behavior({
     },
 
     async savePubViewRule() {
-      if (!canPublish(this, this.data.pubViewRuleForm.id ? 'update' : 'create')) return;
+      if (!canPublish(this, 'update')) return;
       const f = this.data.pubViewRuleForm;
-      if (!await this.confirmPublicationNatures(f) || this.data.pubViewRuleForm !== f || !canPublish(this, f.id ? 'update' : 'create')) return;
+      if (!await this.confirmPublicationNatures(f) || this.data.pubViewRuleForm !== f || !canPublish(this, 'update')) return;
       if (!f.granteeDepartmentId || !f.granteeIdentityId) { wx.showToast({ title: localeCopy.viewerScopeRequired, icon: 'none' }); return; }
-      if (!f.publicationId) { wx.showToast({ title: localeCopy.copy_0dff72de43, icon: 'none' }); return; }
+      if (!f.publicationId || f.publicationId !== this.data.publicationForm.id) { wx.showToast({ title: localeCopy.copy_0dff72de43, icon: 'none' }); return; }
       this.setLoading('savePubViewRule', true);
       try {
         const result = await this.callCloud('savePubViewRule', { id: f.id, natureIds: f.natureIds, publicationId: f.publicationId, granteeDepartmentId: f.granteeDepartmentId, granteeIdentityId: f.granteeIdentityId, clauses: f.clauses.map(c => ({ natureIds: c.natureIds, scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, displayMode: c.displayMode || 'score', gradeBands: c.displayMode === 'grade' ? (c.gradeBands || []) : [] })) });
@@ -482,7 +568,7 @@ module.exports = Behavior({
     onPubViewRuleIdentChange(e) { const ident = this.data.pubViewRuleForm.applicableIdentities[parseInt(e.detail.value, 10)]; if (ident) this.setData({ 'pubViewRuleForm.granteeIdentityId': ident.id, 'pubViewRuleForm.granteeIdentity': ident.name }); },
 
     // ─── View Rule Category List batch ops ───
-    togglePubViewRuleSelection(e) { const id = e.currentTarget.dataset.id; const map = { ...this.data.pubViewRuleSelectedIds }; map[id] = !map[id]; const allSel = this.data.pubViewRuleListView.every(r => map[r.id]); this.setData({ pubViewRuleSelectedIds: map, pubViewRuleAllSelected: allSel }); },
+    togglePubViewRuleSelection(e) { if (!canPublish(this, 'update') && !canPublish(this, 'delete')) return; const id = e.currentTarget.dataset.id; const map = { ...this.data.pubViewRuleSelectedIds }; map[id] = !map[id]; const allSel = this.data.pubViewRuleListView.every(r => map[r.id]); this.setData({ pubViewRuleSelectedIds: map, pubViewRuleAllSelected: allSel }); },
     toggleSelectAllPubViewRules() { const allSel = !this.data.pubViewRuleAllSelected; const map = {}; if (allSel) this.data.pubViewRuleListView.forEach(r => { map[r.id] = true; }); this.setData({ pubViewRuleSelectedIds: map, pubViewRuleAllSelected: allSel }); },
     reverseSelectPubViewRules() { const map = {}; this.data.pubViewRuleListView.forEach(r => { map[r.id] = !this.data.pubViewRuleSelectedIds[r.id]; }); this.setData({ pubViewRuleSelectedIds: map, pubViewRuleAllSelected: this.data.pubViewRuleListView.every(r => map[r.id]) }); },
 
@@ -510,6 +596,7 @@ module.exports = Behavior({
     // ─── Merit Rule Category CRUD ───,
 
     startNewPubMeritRule() {
+      if (!canPublish(this, 'update') || !this.data.publicationForm.id) return;
       this.setData({ pubMeritRuleForm: natureFields(this, { id: '', publicationId: this.data.publicationForm.id || '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'all_people', clauseScopeLabel: localeCopy.copy_9a2854d17d, clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseQuotaLimit: 0, clauseRequireExactQuota: false, clauses: [] }) });
     },
 
@@ -522,11 +609,11 @@ module.exports = Behavior({
     },
 
     async savePubMeritRule() {
-      if (!canPublish(this, this.data.pubMeritRuleForm.id ? 'update' : 'create')) return;
+      if (!canPublish(this, 'update')) return;
       const f = this.data.pubMeritRuleForm;
-      if (!await this.confirmPublicationNatures(f) || this.data.pubMeritRuleForm !== f || !canPublish(this, f.id ? 'update' : 'create')) return;
+      if (!await this.confirmPublicationNatures(f) || this.data.pubMeritRuleForm !== f || !canPublish(this, 'update')) return;
       if (!f.granteeDepartmentId || !f.granteeIdentityId) { wx.showToast({ title: localeCopy.meritDesignatorScopeRequired, icon: 'none' }); return; }
-      if (!f.publicationId) { wx.showToast({ title: localeCopy.copy_0dff72de43, icon: 'none' }); return; }
+      if (!f.publicationId || f.publicationId !== this.data.publicationForm.id) { wx.showToast({ title: localeCopy.copy_0dff72de43, icon: 'none' }); return; }
       this.setLoading('savePubMeritRule', true);
       try {
         const result = await this.callCloud('savePubMeritRule', { id: f.id, natureIds: f.natureIds, publicationId: f.publicationId, granteeDepartmentId: f.granteeDepartmentId, granteeIdentityId: f.granteeIdentityId, clauses: f.clauses.map(c => ({ natureIds: c.natureIds, scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, quotaLimit: c.quotaLimit, requireExactQuota: c.requireExactQuota })) });
@@ -577,7 +664,7 @@ module.exports = Behavior({
     onPubMeritRuleIdentChange(e) { const ident = this.data.pubMeritRuleForm.applicableIdentities[parseInt(e.detail.value, 10)]; if (ident) this.setData({ 'pubMeritRuleForm.granteeIdentityId': ident.id, 'pubMeritRuleForm.granteeIdentity': ident.name }); },
 
     // ─── Merit Rule Category List batch ops ───
-    togglePubMeritRuleSelection(e) { const id = e.currentTarget.dataset.id; const map = { ...this.data.pubMeritRuleSelectedIds }; map[id] = !map[id]; const allSel = this.data.pubMeritRuleListView.every(r => map[r.id]); this.setData({ pubMeritRuleSelectedIds: map, pubMeritRuleAllSelected: allSel }); },
+    togglePubMeritRuleSelection(e) { if (!canPublish(this, 'update') && !canPublish(this, 'delete')) return; const id = e.currentTarget.dataset.id; const map = { ...this.data.pubMeritRuleSelectedIds }; map[id] = !map[id]; const allSel = this.data.pubMeritRuleListView.every(r => map[r.id]); this.setData({ pubMeritRuleSelectedIds: map, pubMeritRuleAllSelected: allSel }); },
     toggleSelectAllPubMeritRules() { const allSel = !this.data.pubMeritRuleAllSelected; const map = {}; if (allSel) this.data.pubMeritRuleListView.forEach(r => { map[r.id] = true; }); this.setData({ pubMeritRuleSelectedIds: map, pubMeritRuleAllSelected: allSel }); },
     reverseSelectPubMeritRules() { const map = {}; this.data.pubMeritRuleListView.forEach(r => { map[r.id] = !this.data.pubMeritRuleSelectedIds[r.id]; }); this.setData({ pubMeritRuleSelectedIds: map, pubMeritRuleAllSelected: this.data.pubMeritRuleListView.every(r => map[r.id]) }); },
 
@@ -605,7 +692,7 @@ module.exports = Behavior({
     // ─── Generate default categories ───,
 
     async generatePubViewRules() {
-      if (!canPublish(this, 'create')) return;
+      if (!canPublish(this, 'update')) return;
       const pubId = this.data.publicationForm.id;
       if (!pubId) { wx.showToast({ title: localeCopy.copy_477934f658, icon: 'none' }); return; }
       this.setLoading('generatePubViewRules', true);
@@ -626,7 +713,7 @@ module.exports = Behavior({
     },
 
     async generatePubMeritRules() {
-      if (!canPublish(this, 'create')) return;
+      if (!canPublish(this, 'update')) return;
       const pubId = this.data.publicationForm.id;
       if (!pubId) { wx.showToast({ title: localeCopy.copy_477934f658, icon: 'none' }); return; }
       this.setLoading('generatePubMeritRules', true);

@@ -1,14 +1,14 @@
 <template>
   <section class="stack">
     <div class="card stack">
-      <div class="panel-head"><h2 class="section-title">{{ copy.ruleManage }}</h2><button class="btn btn-primary" :disabled="busy || loading || !!notice" @click="edit()">{{ copy.createRule }}</button></div>
+      <div class="panel-head"><h2 class="section-title">{{ copy.ruleManage }}</h2><button v-if="canCreate" class="btn btn-primary" :disabled="busy || loading || !!notice" @click="edit()">{{ copy.createRule }}</button></div>
       <AppLoading v-if="loading || busy" :text="busy ? copy.saving : copy.loading" /><p v-if="notice" class="notice-line" role="alert">{{ notice }}</p>
       <button v-if="notice" class="btn btn-secondary" :disabled="busy" @click="load">{{ copy.retry }}</button>
       <article v-for="rule in metadata.rules" :key="rule.id" class="list-row stack">
-        <label class="row"><input v-model="selected" type="checkbox" :value="rule.id" :disabled="busy" /><strong>{{ rule.name }}</strong><span class="chip chip-sky">{{ rule.enabled ? copy.enabled : copy.disabled }}</span></label>
-        <div class="card-actions"><button class="btn btn-secondary" :disabled="busy" @click="edit(rule)">{{ copy.edit }}</button><button class="btn btn-secondary" :disabled="busy" @click="edit(rule,true)">{{ copy.duplicate }}</button><button class="btn btn-secondary" :disabled="busy" @click="batch(rule.enabled ? 'disable' : 'enable',[rule])">{{ rule.enabled ? copy.disabled : copy.enabled }}</button></div>
+        <label class="row"><input v-if="rule.canDelete !== false" v-model="selected" type="checkbox" :value="rule.id" :disabled="busy" /><strong>{{ rule.name }}</strong><span class="chip chip-sky">{{ rule.enabled ? copy.enabled : copy.disabled }}</span></label>
+        <div v-if="canCreate || rule.canUpdate !== false" class="card-actions"><button v-if="rule.canUpdate !== false" class="btn btn-secondary" :disabled="busy" @click="edit(rule)">{{ copy.edit }}</button><button v-if="canCreate" class="btn btn-secondary" :disabled="busy" @click="edit(rule,true)">{{ copy.duplicate }}</button><button v-if="rule.canUpdate !== false" class="btn btn-secondary" :disabled="busy" @click="batch(rule.enabled ? 'disable' : 'enable',[rule])">{{ rule.enabled ? copy.disabled : copy.enabled }}</button></div>
       </article>
-      <p v-if="!loading && !metadata.rules?.length" class="empty-state">{{ copy.rulesEmpty }}</p>
+      <p v-if="!loading && !notice && !metadata.rules?.length" class="empty-state">{{ copy.rulesEmpty }}</p>
       <div v-if="selected.length" class="row row-wrap">
         <span class="muted">{{ controls.selected }} {{ selected.length }} {{ controls.items }}</span>
         <button type="button" class="btn btn-danger" :disabled="busy" @click="deletion=metadata.rules.filter(rule=>selected.includes(rule.id))">{{ copy.delete }}</button>
@@ -38,17 +38,28 @@ import {useCopiedConfigurationEditor} from '@/runtime/copiedConfigurationEditor.
 import {confirmAction} from '@/runtime/notify.js';
 const metadata=ref({rules:[],people:[],departments:[],identities:[],workGroups:[]}),selected=ref([]),draft=ref(null),deletion=ref(null),busy=ref(false),loading=ref(false),notice=ref(''),saved=ref(false);
 const editor=ref(null);
+const canCreate = computed(() => metadata.value.status === 'success' && metadata.value.canCreate !== false);
+const ruleAllows = (id, action) => metadata.value.rules.some(rule => rule.id === id && rule[action] !== false);
+const canSaveDraft = value => value.id ? ruleAllows(value.id, 'canUpdate') : canCreate.value;
 let generation=0,disposed=false,legacyNatureEdit=false;
 async function load() { const own=++generation;loading.value=true;notice.value='';try { const result=requireSuccess(await callApi('getCalendarRules',{}));if(own!==generation||disposed)return;metadata.value=result;selected.value=[];if(saved.value){draft.value=null;saved.value=false;} }catch(error){if(own===generation)notice.value=errorText(error,copy.operationFailed);}finally{if(own===generation)loading.value=false;} }
-async function edit(rule,duplicate) { draft.value=rule ? JSON.parse(JSON.stringify(rule)) : {name:'',enabled:true,audience:[{type:'people',personIds:[]}],targets:[{type:'self'}],actions:['assign']};legacyNatureEdit=['audience','targets'].some(key=>draft.value[key].some(clause=>clause.type==='scope'&&clause.natureIds==null&&!clause.sameNature));if(duplicate){delete draft.value.id;delete draft.value.version;}saved.value=false;await nextTick();editor.value?.scrollIntoView({block:'start'}); }
+async function edit(rule,duplicate) {
+  if (busy.value || loading.value || (rule && !duplicate ? !ruleAllows(rule.id, 'canUpdate') : !canCreate.value)) return;
+  draft.value=rule ? JSON.parse(JSON.stringify(rule)) : {name:'',enabled:true,audience:[{type:'people',personIds:[]}],targets:[{type:'self'}],actions:['assign']};legacyNatureEdit=['audience','targets'].some(key=>draft.value[key].some(clause=>clause.type==='scope'&&clause.natureIds==null&&!clause.sameNature));if(duplicate){delete draft.value.id;delete draft.value.version;}saved.value=false;await nextTick();editor.value?.scrollIntoView({block:'start'});
+}
 async function save() {
-  if(busy.value||loading.value||saved.value||!draft.value)return;
+  if (busy.value || loading.value || saved.value || !draft.value || !canSaveDraft(draft.value)) return;
   if(['audience','targets'].some(key=>draft.value[key].some(clause=>clause.type==='scope'&&!(clause.natureIds||[]).length&&!clause.sameNature))){notice.value=relations.selectNatureRequired;return;}
   const source=draft.value;
   if(legacyNatureEdit){const clauses=source.audience.concat(source.targets).filter(clause=>clause.type==='scope');const labels=(metadata.value.natures||[]).filter(item=>clauses.some(clause=>(clause.natureIds||[]).includes(item.id))).map(item=>item.name);if(clauses.some(clause=>clause.sameNature))labels.push(relations.calendarSameNatureSummary);if(!await confirmAction({title:relations.legacyScopeChangeTitle,body:relations.legacyScopeChangeHelp(labels),confirmText:relations.confirmScopeChange,cancelText:copy.cancel})||draft.value!==source)return;}
+  if (!canSaveDraft(source)) return;
   busy.value=true;notice.value='';const own=generation;try{requireSuccess(await callApi('saveCalendarRule',source));if(own!==generation)return;saved.value=true;await load();}catch(error){if(own===generation)notice.value=errorText(error,copy.operationFailed);}finally{busy.value=false;}
 }
-async function batch(action,rules) { if(busy.value||loading.value)return;busy.value=true;notice.value='';const own=generation;try{requireSuccess(await callApi('batchCalendarRules',{action,rules:rules.map(rule=>({id:rule.id,version:rule.version}))}));if(own!==generation)return;deletion.value=null;await load();}catch(error){if(own===generation)notice.value=errorText(error,copy.operationFailed);}finally{busy.value=false;} }
+async function batch(action,rules) {
+  const capability = action === 'delete' ? 'canDelete' : 'canUpdate';
+  if (busy.value || loading.value || !rules.length || !rules.every(rule => ruleAllows(rule.id, capability))) return;
+  busy.value=true;notice.value='';const own=generation;try{requireSuccess(await callApi('batchCalendarRules',{action,rules:rules.map(rule=>({id:rule.id,version:rule.version}))}));if(own!==generation)return;deletion.value=null;await load();}catch(error){if(own===generation)notice.value=errorText(error,copy.operationFailed);}finally{busy.value=false;}
+}
 function visibility(){generation++;metadata.value={rules:[],people:[],departments:[],identities:[],workGroups:[]};draft.value=null;deletion.value=null;if(!document.hidden)load();}
 document.addEventListener('visibilitychange',visibility);
 useCopiedConfigurationEditor({kind:()=> 'calendar.rules',rows:computed(()=>metadata.value.rules),blocked:()=>busy.value||loading.value,

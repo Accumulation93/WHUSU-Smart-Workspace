@@ -2,7 +2,7 @@
   <GlassDialog :title="ui.copy_ea512602ff + ' · ' + venue.name" :busy="busy || approvalBusy || awaitingRead" @close="close">
     <template #toolbar><nav class="tabs workspace-secondary-tabs"><button v-for="tab in tabs" :key="tab.key" type="button" class="tab" :class="{ 'tab-active': active === tab.key }" :aria-pressed="active === tab.key" :disabled="busy || approvalBusy || awaitingRead" @click="active = tab.key; load()">{{ tab.label }}</button></nav></template>
     <h2 class="section-title">{{ tabs.find(tab => tab.key === active)?.title }}</h2>
-    <VenueApprovalRules v-if="active === 'booking'" :venue="venue" :window-value="windowForm" @busy="approvalBusy = $event" @editing="approvalEditing = $event" />
+    <VenueApprovalRules v-if="active === 'booking'" :venue="venue" @busy="approvalBusy = $event" @editing="approvalEditing = $event" />
     <template v-else>
       <p v-if="loading" class="muted"><AppLoading :text="copy.common.loading" /></p>
       <template v-if="loadNotice"><p role="alert" class="notice-line">{{ loadNotice }}</p><button type="button" class="btn-quiet" :disabled="loading || busy" @click="load">{{ copy.common.retry }}</button></template>

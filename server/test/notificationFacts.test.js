@@ -61,6 +61,7 @@ test('已授权预备事实按类型读取，不解析旧描述或伪造安全�
 test('资料仅本人、迁移需当前权限、公示需同岗查看规则，未知历史不猜事件', async () => {
   let queries = 0;
   let hasPublicationClause = true;
+  let viewerNature = 'staff';
   const connection = { async query(sql, params) {
     queries += 1;
     if (sql.includes('FROM hr_profile_records')) return [[{ id: 'profile', hr_id: 'hr', person_id: 'p', name: '姓名', audit_status: 'rejected', rejection_reason: '资料不全', reviewed_at: '2026-11-10 00:00:00' }]];
@@ -72,7 +73,8 @@ test('资料仅本人、迁移需当前权限、公示需同岗查看规则，�
     if (sql.includes('FROM result_publications')) return [[{ id: 'pub', name: '活动' }]];
     if (sql.includes('FROM pub_view_rules')) {
       assert.match(sql, /EXISTS \(SELECT 1 FROM pub_view_rule_clauses c WHERE c.rule_id=v.id AND c.org_id=v.org_id\)/);
-      return [hasPublicationClause ? [{ publication_id: 'pub' }] : []];
+      return [hasPublicationClause ? [{ publication_id: 'pub', department_id: 'dep', identity_id: 'role',
+        assignment_kind: viewerNature, grantee_department_id: 'dep', grantee_identity_id: 'role', nature_ids: '["staff"]' }] : []];
     }
     throw new Error(sql);
   } };
@@ -86,6 +88,10 @@ test('资料仅本人、迁移需当前权限、公示需同岗查看规则，�
   assert.equal(values[2].displayFacts.businessTitle, '活动');
   const denied = await project(connection, rows, { personId: 'other' }, 'org', { detailAllowed: () => false }, {});
   assert.ok(denied.every(row => Object.keys(row.displayFacts).length === 0));
+  viewerNature = 'other';
+  const wrongNature = await project(connection, [rows[2]], { personId: 'p', assignmentId: 'job' }, 'org', { detailAllowed: () => true }, {});
+  assert.deepEqual(wrongNature[0].displayFacts, {});
+  viewerNature = 'staff';
   hasPublicationClause = false;
   const emptyRule = await project(connection, [rows[2]], { personId: 'p', assignmentId: 'job' }, 'org', { detailAllowed: () => true }, {});
   assert.deepEqual(emptyRule[0].displayFacts, {});

@@ -159,7 +159,7 @@ mapRoutes('scoring.results', ['/getScoreResults', '/getScorerTaskStatus']);
 mapRoutes('scoring.results_export', ['/exportScoreResults', '/exportScorerTaskStatus']);
 mapRoutes('scoring.results_revoke', ['/revokeScoreRecord']);
 mapRoutes('scoring.publications', [
-  '/getResultPublication', '/saveResultPublication', '/saveResultViewPermission', '/deleteResultViewPermission',
+  '/listScorePublicationActivities', '/getResultPublication', '/saveResultPublication', '/saveResultViewPermission', '/deleteResultViewPermission',
   '/saveMeritListPermission', '/deleteMeritListPermission', '/saveMeritListDesignations', '/removeMeritListDesignation',
   '/generatePubViewRules', '/generatePubMeritRules', '/savePubViewRule', '/listPubViewRules', '/deletePubViewRule',
   '/batchSavePubViewRules', '/batchDeletePubViewRules',

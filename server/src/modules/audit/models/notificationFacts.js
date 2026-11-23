@@ -139,12 +139,16 @@ async function project(connection, rows, actor, organizationId, access, prepared
   if (publicationIds.length) {
     const [publications] = await connection.query(`SELECT p.id,a.name FROM result_publications p JOIN score_activities a ON a.id=p.activity_id AND a.org_id=p.org_id
       WHERE p.org_id=? AND p.id IN (?) AND p.is_published=1`, [organizationId, publicationIds]);
-    const [rules] = await connection.query(`SELECT v.publication_id FROM pub_view_rules v JOIN membership_assignments a
+    const [rules] = await connection.query(`SELECT v.publication_id,v.grantee_department_id,v.grantee_identity_id,v.nature_ids,
+      a.department_id,a.identity_id,a.assignment_kind FROM pub_view_rules v JOIN membership_assignments a
       ON a.org_id=v.org_id AND a.department_id=v.grantee_department_id AND a.identity_id=v.grantee_identity_id AND a.status='active'
       JOIN organization_memberships m ON m.id=a.membership_id AND m.org_id=a.org_id AND m.status='active'
       WHERE v.org_id=? AND v.publication_id IN (?) AND a.id=? AND m.person_id=?
         AND EXISTS (SELECT 1 FROM pub_view_rule_clauses c WHERE c.rule_id=v.id AND c.org_id=v.org_id)`, [organizationId, publicationIds, actor.assignmentId || '', actor.personId]);
-    const related = new Set(rules.map(value => value.publication_id));
+    const { matchesRuleGrantee } = require('../../scoring/services/publicationAssignments');
+    const related = new Set(rules.filter(rule => matchesRuleGrantee({
+      department_id: rule.department_id, identity_id: rule.identity_id, assignment_kind: rule.assignment_kind
+    }, rule)).map(rule => rule.publication_id));
     const records = new Map(publications.map(value => [value.id, value]));
     for (const row of rows.filter(value => publicationIds.includes(value.target_id))) {
       const record = records.get(row.target_id);

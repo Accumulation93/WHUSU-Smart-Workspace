@@ -11,12 +11,11 @@ module.exports = Behavior({
   },
   methods: {
     openStampGrants: function(event) {
-      if (this.data.authorizationEnforced && !this.data.actionCapabilities['audit.stamps.update']) return;
       if (this.data.stampGrantSaving || this.data.stampLoadError) return;
       const id = event.currentTarget.dataset.id;
       const stamp = (this.data.stamps || []).find(item => item.id === id);
-      if (!stamp) return;
-      const people = stamp.assignedPeople || [];
+      if (!this.canEditStampGrants(stamp)) return;
+      const people = stamp.assignedPeople;
       this.setData({
         stampGrantVisible: true, stampGrantId: id,
         stampGrantContext: stampCopy.editorContext(stamp.name) + '\n' + stampCopy.scope
@@ -25,6 +24,11 @@ module.exports = Behavior({
         stampGrantOptions: [], stampGrantError: ''
       });
       this.loadStampGrantCandidates();
+    },
+    canEditStampGrants: function(stamp) {
+      const capabilities = this.data.actionCapabilities || {};
+      return !!stamp && Array.isArray(stamp.assignedPeople) && (!this.data.authorizationEnforced
+        || (capabilities['audit.stamps.update'] === true && capabilities['audit.stampCandidates.read'] === true));
     },
     loadStampGrantCandidates: async function() {
       if (!this.data.stampGrantVisible) return;
@@ -49,6 +53,7 @@ module.exports = Behavior({
     confirmStampGrants: async function(event) {
       if (!this.data.stampGrantVisible || this.data.stampGrantLoading || this.data.stampGrantSaving || this.data.stampGrantError) return;
       const stampId = this.data.stampGrantId;
+      if (!this.canEditStampGrants((this.data.stamps || []).find(item => item.id === stampId))) return;
       const assignmentIds = event.detail.keys;
       if (!Array.isArray(assignmentIds)) return;
       const request = orgSession.beginRequest(this, 'stampGrantSave');

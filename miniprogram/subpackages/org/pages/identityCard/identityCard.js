@@ -66,7 +66,8 @@ Page({
     try {
       const access = await readCurrentAuthorizationAccess();
       if (!current()) return;
-      const allowed = !!access && access.grantedCapabilities.includes('identity.cardPolicy.read');
+      const allowed = !!access && ['identity.cardPolicy.read', 'identity.cardPolicy.update']
+        .some(capability => access.grantedCapabilities.includes(capability));
       this.setData({ policyAllowed: allowed });
       if (!allowed) return;
       const result = await callFunction({ name: 'getIdentityCardPolicy', data: {} });

@@ -2,8 +2,8 @@
 
 module.exports = Object.freeze({
   switchTitle: '确认切换审批方式',
-  directToFlow: '保存审批流程会移除当前“直接通过”规则，是否继续？',
-  flowToDirect: '保存“直接通过”会移除当前组织在该场地生效中的审批流程，是否继续？',
+  directToFlow: '保存审批流程后，当前生效的「直接通过」规则会停用，原配置会保留。',
+  flowToDirect: '保存『直接通过』后，本组织在该场地其他已启用的预约规则和审批流程会停用，原配置会保留。',
   enabled: '已启用',
   disabled: '未启用',
   approver: '审批工作角色',

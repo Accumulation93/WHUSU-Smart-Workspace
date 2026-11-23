@@ -29,6 +29,27 @@ async function setup(page, canApprove = true) {
 const ruleTab = (page, label) => page.getByRole('dialog').getByRole('navigation').getByRole('button', { name: label, exact: true });
 const save = page => page.getByRole('dialog').last().getByRole('button', { name: ui.copy_f7597cecf5, exact: true }).last();
 
+test('a field-limited approval-flow response renders the name without inventing missing settings', async ({ page }) => {
+  await mockApi(page, { activeContextId: 'ctx-assignment' });
+  const capabilities = ['venue.approvals.read', 'venue.approvals.update'];
+  await page.route('**/api/getCurrentAuthorizationAccess', route => route.fulfill({ json: {
+    status: 'success', mode: 'enforced', role: 'user', contextId: 'ctx-assignment', organizationId: 'org-1',
+    capabilities, grantedCapabilities: capabilities
+  } }));
+  await page.route('**/api/listVenues', route => route.fulfill({ json: {
+    status: 'success', venues: [], configurationVenues: [{ id: 'v1', name: 'Room' }]
+  } }));
+  await page.route('**/api/listVenueApprovalFlows', route => route.fulfill({ json: {
+    status: 'success', flows: [{ id: 'flow-with-limited-fields', name: 'Visible flow' }]
+  } }));
+  await page.goto('/web/venue/manage');
+  await page.getByRole('button', { name: ui.copy_f10a13b6e1, exact: true }).click();
+  const row = page.locator('.approval-row').filter({ hasText: 'Visible flow' });
+  await expect(row).toHaveText('Visible flow');
+  await expect(row.getByRole('switch')).toHaveCount(0);
+  await expect(row.getByRole('button', { name: ui.copy_e040ae3016, exact: true })).toHaveCount(0);
+});
+
 for (const type of ['datetime_range', 'repeat']) {
   test('legacy ' + type + ' retains cross-day dates and interval after editing and reopening', async ({ page }) => {
     const state = await setup(page); let writes = 0;
@@ -97,6 +118,7 @@ test('inactive copied flow stays editable without confirming a change to the liv
   await page.route('**/api/saveVenueApprovalWholeFlow', route => {
     const body = route.request().postDataJSON(); writes++;
     expect(body.flowId).toBe('draft');
+    expect(body).not.toHaveProperty('bookingWindow');
     expect(body.steps[0].approvalMode).toBe('admin_any');
     expect(body).not.toHaveProperty('isActive');
     return route.fulfill({ json: { status: 'success' } });
@@ -121,6 +143,7 @@ test('specified approver picker saves the chosen assignment and reopens the save
   await page.route('**/api/saveVenueBookingRule', route => {
     const body = route.request().postDataJSON(); writes++;
     expect(body.approverAssignmentId).toBe('second-assignment');
+    expect(body).not.toHaveProperty('bookingWindow');
     expect(body.approverHrId).toBe('second-member');
     state.rules[0].approver_assignment_id = body.approverAssignmentId;
     state.rules[0].approver_hr_id = body.approverHrId;

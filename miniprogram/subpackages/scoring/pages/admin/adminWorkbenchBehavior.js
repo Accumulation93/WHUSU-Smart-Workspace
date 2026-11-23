@@ -467,6 +467,12 @@ module.exports = Behavior({
     pubBatchRunning: false,
     publicationList: [],
     publicationForm: { id: '', activityId: '', activityName: '', isPublished: false },
+    publicationAccess: {},
+    publicationActivityOptions: [],
+    publicationCanCreate: false,
+    publicationExportOnly: false,
+    publicationCandidatesLoadFailed: false,
+    expandedPublicationRuleId: '',
 
     // View rule category form (mirrors ruleForm pattern)
     pubViewRuleForm: { id: '', publicationId: '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: localeCopy.copy_9a4a6e8793, clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseDisplayMode: 'score', clauseGradeBands: [], clauses: [] },
@@ -572,6 +578,12 @@ module.exports = Behavior({
         ruleForm: emptyRuleForm(),
         publicationList: [],
         publicationForm: { id: '', activityId: '', activityName: '', isPublished: false },
+        publicationAccess: {},
+        publicationActivityOptions: [],
+        publicationCanCreate: false,
+        publicationExportOnly: false,
+        publicationCandidatesLoadFailed: false,
+        expandedPublicationRuleId: '',
         pubViewRuleList: [],
         pubViewRuleListView: [],
         pubMeritRuleList: [],
@@ -674,7 +686,8 @@ module.exports = Behavior({
         stampGrantSaving: false,
         stampGrantError: '',
         stampLoadError: '',
-        auditFlowTemplates: [],
+        auditFlowTemplates: [], auditTemplateLoadError: '',
+        auditTemplateDirectoryReady: false, auditTemplateDirectoryError: '',
         stamps: [],
         auditSubmissions: [],
         verificationPermissions: [],
@@ -728,6 +741,7 @@ module.exports = Behavior({
     this.setData({ user: null, hasPermission: false, actionCapabilities: {}, isSuperAdmin: false,
       identityPreview: null, identityVisibleList: [], identityNatureOptions: [], identityActionNotice: '',
       authBatchOutcome: null, authActionLoadingKey: '',
+      auditTemplateDirectoryReady: false, auditTemplateDirectoryError: '', 'loadingMap.auditTemplateDirectory': false,
       auditPersonnelPickerVisible: false, auditPersonnelPickerOptions: [], auditPersonnelFilteredList: [],
       verificationPermissions: [], verificationGrantHrId: '', verificationGrantHrName: '', verificationResult: null,
       verificationFilePath: '', verificationFileName: '', verificationFileBase64: '', verificationFileSize: 0,
@@ -769,7 +783,7 @@ module.exports = Behavior({
   },
 
   async _refreshActiveOrganizationTab(tab) {
-    if (['activities', 'rules', 'results', 'publications'].indexOf(tab) >= 0) {
+    if (['activities', 'rules', 'results'].indexOf(tab) >= 0) {
       await this.loadActivityList();
     }
     const loaders = {
@@ -789,36 +803,7 @@ module.exports = Behavior({
       templates: () => this.loadTemplateList(),
       admins: () => this.loadAdminList(),
       settings: () => Promise.all([this.loadSystemConfig(), this.loadOrganizations()]),
-      publications: () => {
-        const selectedActivityId = String((this.data.publicationForm && this.data.publicationForm.activityId) || '');
-        const selectedActivity = (this.data.activityList || []).find((item) => String(item.id || '') === selectedActivityId);
-        const activityId = selectedActivity ? selectedActivityId : String(this.data.currentActivityId || '');
-        const activityName = selectedActivity ? selectedActivity.name : this.data.currentActivityName;
-        if (activityId) {
-          this.setData({
-            publicationForm: {
-              id: '',
-              activityId,
-              activityName: activityName || '',
-              isPublished: false
-            }
-          });
-          return this.loadPublicationData(activityId);
-        }
-        return this.setData({
-          publicationForm: { id: '', activityId: '', activityName: '', isPublished: false },
-          publicationList: [],
-          pubViewRuleList: [],
-          pubViewRuleListView: [],
-          pubMeritRuleList: [],
-          pubMeritRuleListView: [],
-          designationList: [],
-          publicationAssignmentCandidates: [],
-          meritSummaryGroups: [],
-          meritSummaryFilteredGroups: [],
-          publicationsLoading: false
-        });
-      }
+      publications: () => this.loadPublicationActivityOptions()
     };
     if (loaders[tab]) return Promise.resolve(loaders[tab]());
     return Promise.resolve();
@@ -1133,14 +1118,14 @@ module.exports = Behavior({
       const visibleTabs = this._visibleTabs || [];
       if (!visibleTabs.length) return;
       if (this._subApp === 'audit') {
-        if (access.mode === 'enforced') {
-          if (actionCapabilities['audit.templateCandidates.read']) await this.loadAuditEditorData();
-        } else {
+        if (access.mode !== 'enforced') {
           await Promise.all([this.loadDepartmentList(), this.loadIdentityList(), this.loadHrList()]);
           await this.loadWorkGroupList();
         }
         const auditLoads = [];
-        if (visibleTabs.indexOf('auditTemplates') >= 0) auditLoads.push(this.loadAuditFlowTemplates());
+        if (visibleTabs.indexOf('auditTemplates') >= 0) {
+          auditLoads.push(this.loadAuditFlowTemplates(), this.loadAuditEditorData());
+        }
         if (visibleTabs.indexOf('auditStamps') >= 0) auditLoads.push(this.loadStamps());
         if (visibleTabs.indexOf('auditSubmissions') >= 0) auditLoads.push(this.loadAuditSubmissions());
         if (visibleTabs.indexOf('auditVerification') >= 0) auditLoads.push(this.loadVerificationPermissions());
@@ -1194,12 +1179,13 @@ module.exports = Behavior({
         return;
       }
 
-      const needsActivity = ['activities', 'rules', 'results', 'publications'].some((tab) => visibleTabs.indexOf(tab) >= 0);
-      const scoringLoads = [this.loadDepartmentList(), this.loadIdentityList()];
+      const needsActivity = ['activities', 'rules', 'results'].some((tab) => visibleTabs.indexOf(tab) >= 0);
+      const publicationOnly = this.data.authorizationEnforced && visibleTabs.length === 1 && visibleTabs[0] === 'publications';
+      const scoringLoads = publicationOnly ? [] : [this.loadDepartmentList(), this.loadIdentityList()];
       if (needsActivity) scoringLoads.push(this.loadActivityList());
       if (visibleTabs.indexOf('templates') >= 0 || (!this.data.authorizationEnforced && visibleTabs.indexOf('rules') >= 0)) scoringLoads.push(this.loadTemplateList());
       await Promise.all(scoringLoads);
-      await this.loadWorkGroupList();
+      if (!publicationOnly) await this.loadWorkGroupList();
       if (visibleTabs.indexOf('rules') >= 0) await this.loadRuleList();
     };
 
@@ -1345,43 +1331,12 @@ module.exports = Behavior({
       this.loadSystemConfig();
     }
     if (tab === 'publications') {
-      if (!this.data.departmentList.length) this.loadDepartmentList();
-      if (!this.data.identityList.length) this.loadIdentityList();
-      this.setData({ publicationsLoading: true });
-      this.loadActivityList().then(async () => {
-        const selectedActivityId = String((this.data.publicationForm && this.data.publicationForm.activityId) || '');
-        const selectedActivity = (this.data.activityList || []).find((item) => String(item.id || '') === selectedActivityId);
-        const activityId = selectedActivity ? selectedActivityId : String(this.data.currentActivityId || '');
-        const activityName = selectedActivity ? selectedActivity.name : this.data.currentActivityName;
-        if (activityId) {
-          if (String(this.data.publicationForm.activityId || '') !== activityId) {
-            this.setData({
-              publicationForm: {
-                id: '',
-                activityId,
-                activityName: activityName || '',
-                isPublished: false
-              },
-              pubViewRuleList: [],
-              pubViewRuleListView: [],
-              pubMeritRuleList: [],
-              pubMeritRuleListView: [],
-              designationList: [],
-              publicationAssignmentCandidates: [],
-              meritSummaryGroups: [],
-              meritSummaryFilteredGroups: [],
-              meritSummaryLoaded: false,
-              meritSummaryLoadFailed: false
-            });
-          }
-          await this.loadPublicationData(activityId);
-        }
-        this.setData({ publicationsLoading: false });
-      }).catch(() => { this.setData({ publicationsLoading: false }); });
+      this.loadPublicationActivityOptions();
     }
     // ── Audit tabs ──
     if (tab === 'auditTemplates') {
       this.loadAuditFlowTemplates();
+      if (!this.data.auditTemplateDirectoryReady) this.loadAuditEditorData();
     }
     if (tab === 'auditStamps') {
       this.loadStamps();

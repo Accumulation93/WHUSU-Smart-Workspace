@@ -279,6 +279,50 @@ async function main() {
     const ordinaryItems=await (await post('getCalendar',window)).json();
     assert.equal(ordinaryItems.status,'success',JSON.stringify(ordinaryItems));
     assert(!ordinaryItems.items.some(event=>event.id===superSaved.id));
+    await root.query("UPDATE venue_bookings SET status='approved' WHERE id='booking'");
+    const subscriptionResponse=await post('manageCalendarSubscription',{action:'create'});
+    assert.equal(subscriptionResponse.status,200);
+    const subscriptionCredentials=await subscriptionResponse.json();
+    assert.equal(subscriptionCredentials.status,'success');
+    const accessHeader='Basic '+Buffer.from('calendar:'+subscriptionCredentials.password).toString('base64');
+    async function readCalendarFeed(){
+      const response=await fetch('http://127.0.0.1:'+server.address().port+'/api/calendarFeed',{headers:{Authorization:accessHeader}});
+      assert.equal(response.status,200);
+      return response.text();
+    }
+    let feedBody=await readCalendarFeed();
+    assert(feedBody.includes('SUMMARY:整体改名'));
+    assert(feedBody.includes('SUMMARY:场地会议'));
+    await root.query("INSERT INTO authorization_basic_role_exclusions VALUES ('org','calendar.events.read')");
+    feedBody=await readCalendarFeed();
+    assert(!feedBody.includes('SUMMARY:整体改名'));
+    assert(!feedBody.includes('SUMMARY:场地会议'));
+    await root.query("DELETE FROM authorization_basic_role_exclusions WHERE org_id='org' AND capability_key='calendar.events.read'");
+    await root.query("INSERT INTO authorization_basic_role_exclusions VALUES ('org','venue.bookingParticipants.read')");
+    feedBody=await readCalendarFeed();
+    assert(feedBody.includes('SUMMARY:整体改名'));
+    assert(!feedBody.includes('SUMMARY:场地会议'));
+
+    const sourceGrant={id:'calendar-delegated-booking',organizationId:'org',effect:'allow',enabled:true,
+      capabilities:['venue.bookingParticipants.read'],subjects:[{kind:'assignments',ids:['joba']}],
+      scopes:[{kind:'records',ids:['booking']}],fields:null,startsAt:null,endsAt:null};
+    await root.query("INSERT INTO accounts(id,person_id,status) VALUES ('account-calendar-delegator','b','verified')");
+    await root.query(`INSERT INTO authorization_delegations (id,org_id,name,enabled,subjects_json,envelope_json)
+      VALUES ('calendar-delegation','org','Calendar feed test',1,?,?)`,
+    [JSON.stringify([{kind:'assignments',ids:['jobb']}]),JSON.stringify({...sourceGrant,id:'calendar-delegation'})]);
+    await root.query(`INSERT INTO authorization_rules(id,org_id,name,policy_json)
+      VALUES ('calendar-delegated-booking','org','Calendar source grant',?)`,[JSON.stringify(sourceGrant)]);
+    await root.query(`INSERT INTO authorization_grant_sources(org_id,object_kind,object_id,parent_delegation_id,issuer_assignment_id)
+      VALUES ('org','rule','calendar-delegated-booking','calendar-delegation','jobb')`);
+    assert((await readCalendarFeed()).includes('SUMMARY:场地会议'));
+    await root.query("UPDATE authorization_delegations SET enabled=0 WHERE org_id='org' AND id='calendar-delegation'");
+    feedBody=await readCalendarFeed();
+    assert(feedBody.includes('SUMMARY:整体改名'));
+    assert(!feedBody.includes('SUMMARY:场地会议'));
+    const settingsRevoked=await post('manageCalendarSubscription',{action:'revoke'});
+    assert.equal((await settingsRevoked.json()).revoked,true);
+    const revokedFeed=await fetch('http://127.0.0.1:'+server.address().port+'/api/calendarFeed',{headers:{Authorization:accessHeader}});
+    assert.equal(revokedFeed.status,401);
     console.log('PASS 日程及场地动作隔离数据库：创建岗位保存回读、管理员无岗位、取消保留审批人、提前结束及审计同事务回滚');
   } finally {
     Date.now=realNow;

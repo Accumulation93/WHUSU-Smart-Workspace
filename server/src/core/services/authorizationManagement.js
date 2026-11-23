@@ -16,6 +16,10 @@ function specialCapabilities(keys, unified) {
   return unified === true ? keys.filter(key => CATALOG.get(key)?.classification === 'special') : [];
 }
 
+function addsRetiredCapabilities(keys, previous) {
+  return keys.some(key => CATALOG.get(key)?.assignmentRetired && !previous.includes(key));
+}
+
 async function activeDelegations(connection, actor, now = Date.now(), lock = false) {
   let rows = await model.listDelegations(connection, actor.organizationId, lock);
   if (actor.unifiedAuthorization === true) {
@@ -81,6 +85,8 @@ function createGuard(reference, delegationId) {
       const oldKeys = before && (before.capabilities || (typeof before.draft_capabilities_json === 'string'
         ? JSON.parse(before.draft_capabilities_json) : before.draft_capabilities_json)) || [];
       if (after && after.capabilities.some(key => CATALOG.get(key)?.systemControlled && !oldKeys.includes(key))) forbidden();
+      if (actor.unifiedAuthorization === true && after?.kind === 'scheme'
+        && addsRetiredCapabilities(after.capabilities, oldKeys)) forbidden();
       const blocked = after ? specialCapabilities(after.capabilities, actor.unifiedAuthorization) : [];
       if (blocked.length) {
         if (!actor.isSuper) forbidden();
@@ -126,6 +132,7 @@ function createGuard(reference, delegationId) {
     async validateDelegationChange(connection, before, after) {
       if (!actor || actor.unifiedAuthorization !== true) forbidden();
       if (after && after.envelope.capabilities.some(key => CATALOG.get(key)?.classification === 'special')) forbidden();
+      if (after && addsRetiredCapabilities(after.envelope.capabilities, before?.envelope?.capabilities || [])) forbidden();
       if (actor.isSuper) return after ? { parentDelegationId: before?.parentDelegationId,
         issuerAssignmentId: before?.issuerAssignmentId, allowRedelegation: after.allowRedelegation } : null;
       if (!actor.assignment || (before && before.issuerAssignmentId !== actor.assignment.id)) forbidden();
@@ -209,7 +216,8 @@ async function readManagement(connection, reference) {
         scopes: definition.scopes, fields: definition.fields, fieldLabels: definition.fieldLabels || {}, governance: definition.governance,
         adminOnlyFields: definition.adminOnlyFields,
         classification: definition.classification, specialCategory: definition.specialCategory,
-        delegation: definition.delegation, systemControlled: definition.systemControlled };
+        delegation: definition.delegation, systemControlled: definition.systemControlled,
+        assignmentRetired: actor.unifiedAuthorization === true && definition.assignmentRetired };
     }) };
 }
 

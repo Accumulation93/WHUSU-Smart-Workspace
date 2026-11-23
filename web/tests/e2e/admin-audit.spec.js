@@ -36,6 +36,53 @@ async function setup(page){
 }
 async function open(page,tab){await page.goto('/web/admin?subApp=audit&tab='+tab);await expect(page.getByRole('tab',{name:ui.copy_7312ee863e,exact:true})).toBeVisible();}
 
+test('read-only audit templates do not request editing candidates', async ({page}) => {
+  const state = await setup(page);
+  state.templates = [{ id: 'readable', name: 'Readable workflow' }];
+  await page.route('**/api/getCurrentAuthorizationAccess', route => route.fulfill({ json: {
+    status: 'success', mode: 'enforced', revision: 1, organizationId: 'org-1', contextId: 'ctx-admin', role: 'admin',
+    capabilities: ['audit.templates.read'], grantedCapabilities: ['audit.templates.read']
+  } }));
+  await open(page, 'auditTemplates');
+  await expect(page.getByText('Readable workflow', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: ui.copy_e040ae3016, exact: true })).toHaveCount(0);
+  expect(state.calls.filter(row => row.name === 'getAuditTemplateEditorData')).toHaveLength(0);
+});
+
+test('audit candidate errors keep templates viewable and can be retried', async ({page}) => {
+  const state = await setup(page);
+  state.templates = [{ id: 'readable', name: 'Readable workflow' }];
+  await page.route('**/api/getAuditTemplateEditorData', route => route.fulfill({ json: { status: 'error' } }), { times: 1 });
+  await open(page, 'auditTemplates');
+  await expect(page.getByText('Readable workflow', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: ui.copy_e040ae3016, exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: text.retry, exact: true }).click();
+  await expect(page.getByRole('button', { name: ui.copy_e040ae3016, exact: true })).toBeVisible();
+  expect(state.calls.filter(row => row.name === 'listAuditFlowTemplates')).toHaveLength(1);
+});
+
+test('stamp grant editor requires the readable list and candidate permission', async ({page}) => {
+  const state = await setup(page);
+  state.stamps = [{ id: 'restricted', name: 'Restricted stamp' }, { id: 'readable', name: 'Readable stamp', assignedPeople: [] }];
+  const capabilities = ['audit.stamps.read', 'audit.stamps.update', 'audit.stampCandidates.read'];
+  await page.route('**/api/getCurrentAuthorizationAccess', route => route.fulfill({ json: {
+    status: 'success', mode: 'enforced', revision: 1, organizationId: 'org-1', contextId: 'ctx-admin', role: 'admin',
+    capabilities, grantedCapabilities: capabilities
+  } }));
+  await page.goto('/web/admin?subApp=audit&tab=auditStamps');
+  const restricted = page.locator('.stamp-row').filter({ hasText: 'Restricted stamp' });
+  await expect(restricted).toBeVisible();
+  await expect(restricted.getByRole('button', { name: stampCopy.configure })).toHaveCount(0);
+  const readable = page.locator('.stamp-row').filter({ hasText: 'Readable stamp' });
+  await readable.getByRole('button', { name: stampCopy.configure }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  expect(state.calls.filter(row => row.name === 'listStampCandidates')).toHaveLength(1);
+  capabilities.pop();
+  await page.reload();
+  await expect(readable).toBeVisible();
+  await expect(readable.getByRole('button', { name: stampCopy.configure })).toHaveCount(0);
+});
+
 test('enforced verification preserves read and verify but hides legacy assignment', async ({page}) => {
   const state = await setup(page);
   state.permissions = [{id:'existing',granteeHrId:'hr-2',granteeName:'Person B'}];

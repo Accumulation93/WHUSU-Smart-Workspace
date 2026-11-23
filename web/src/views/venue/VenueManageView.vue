@@ -18,8 +18,16 @@
       <button v-if="loadNotice" type="button" class="btn-quiet" :disabled="loading || busy" @click="load">{{ copy.common.retry }}</button>
       <p v-if="actionNotice && !editing" role="alert" class="notice-line">{{ actionNotice }}</p>
       <div v-if="loading && !venues.length" class="empty-state"><AppLoading :text="copy.common.loading" /></div>
-      <div v-else-if="!loading && !loadNotice && !venues.length && !configurationVenues.length" class="empty-state">{{ ui.copy_5e9f82c1cf }}</div>
-      <div v-if="canConfigureRules && configurationOnly.length" class="list"><article v-for="venue in configurationOnly" :key="venue.id" class="list-row"><strong class="list-row-main">{{ venue.name }}</strong><button class="btn-quiet" :disabled="blocked" @click="rulesVenue=venue">{{ ui.copy_f10a13b6e1 }}</button></article></div>
+      <div v-else-if="!loading && !loadNotice && !venues.length && !additionalVenues.length" class="empty-state">{{ ui.copy_5e9f82c1cf }}</div>
+      <div v-if="additionalVenues.length" class="list">
+        <article v-for="venue in additionalVenues" :key="venue.id" class="list-row">
+          <strong class="list-row-main">{{ venue.name }}</strong>
+          <div class="row row-wrap">
+            <button v-if="venue.configuration && canConfigureRules" class="btn-quiet" :disabled="blocked" @click="rulesVenue = venue">{{ ui.copy_f10a13b6e1 }}</button>
+            <button v-if="venue.schedule" class="btn-quiet" :disabled="blocked" @click="scheduleVenue = venue">{{ ui.copy_391b522838 }}</button>
+          </div>
+        </article>
+      </div>
       <div class="list">
         <div v-for="venue in venues" :key="venue.id" class="list-row venue-resource">
           <div class="list-row-main stack-tight">
@@ -79,7 +87,18 @@ defineProps({ embedded: Boolean });
 const emit = defineEmits(['busy']);
 const venues = ref([]), loading = ref(false), loadNotice = ref(''), actionNotice = ref('');
 const configurationVenues = ref([]);
-const configurationOnly = computed(() => configurationVenues.value.filter(item => !venues.value.some(venue => venue.id === item.id)));
+const scheduleVenues = ref([]);
+const additionalVenues = computed(() => {
+  const known = new Set(venues.value.map(venue => venue.id));
+  const extra = new Map();
+  for (const { id, name } of configurationVenues.value) {
+    if (!known.has(id)) extra.set(id, { id, name, configuration: true });
+  }
+  for (const { id, name } of scheduleVenues.value) {
+    if (!known.has(id)) extra.set(id, { ...extra.get(id), id, name, schedule: true });
+  }
+  return [...extra.values()];
+});
 const permissionLoading = ref(true), permissionNotice = ref(''), profile = ref(null);
 provideAdminCapabilities(profile);
 const editing = ref(false), busy = ref(false), switchGuard = ref(false), savedAwaitingRead = ref(false);
@@ -132,10 +151,18 @@ async function load() {
   const current = () => !disposed && request === generation && expected === scope();
   loading.value = true;
   try {
-    const result = requireSuccess(await callApi('listVenues', {}));
+    const includeSchedule = profile.value.authorizationAccess?.mode === 'enforced'
+      && can('venue.bookings', 'venue.bookings.createApproved');
+    const [result, schedule] = await Promise.all([
+      callApi('listVenues', {}).then(requireSuccess),
+      includeSchedule ? callApi('listVenuesForBooking', {}).then(requireSuccess) : { venues: [] }
+    ]);
     if (!current()) return false;
-    if (!Array.isArray(result.venues)) throw new Error();
-    venues.value = result.venues; configurationVenues.value = result.configurationVenues || []; loadNotice.value = '';
+    if (!Array.isArray(result.venues) || !Array.isArray(schedule.venues)) throw new Error();
+    venues.value = result.venues;
+    configurationVenues.value = result.configurationVenues || [];
+    scheduleVenues.value = schedule.venues.map(({ id, name }) => ({ id, name }));
+    loadNotice.value = '';
     if (savedAwaitingRead.value) { savedAwaitingRead.value = false; editing.value = false; }
     return true;
   } catch (error) { if (current()) loadNotice.value = errorText(error, ui.copy_e52119b17e); return false; }
@@ -196,7 +223,7 @@ async function remove(row) {
   finally { if (current()) busy.value = false; }
 }
 function resetAccess() {
-  generation++; permissionGeneration++; venues.value = []; configurationVenues.value = []; profile.value = null; editing.value = false; loadNotice.value = ''; actionNotice.value = ''; savedAwaitingRead.value = false;
+  generation++; permissionGeneration++; venues.value = []; configurationVenues.value = []; scheduleVenues.value = []; profile.value = null; editing.value = false; loadNotice.value = ''; actionNotice.value = ''; savedAwaitingRead.value = false;
   activeTab.value = 'venue'; childBusy.value = false; bookingEditing.value = false; busy.value = false; switchGuard.value = false;
   scheduleVenue.value = null;
   rulesVenue.value = null;

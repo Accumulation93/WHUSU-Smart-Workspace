@@ -5,14 +5,17 @@
       <label class="field"><span class="field-label">{{ ui.copy_5aa4cb13ec }}</span><select v-model="activityId" class="field-input" :disabled="busy || loading" @change="loadPublication"><option value="">{{ ui.copy_6d3911624a }}</option><option v-for="activity in activities" :key="activity.id" :value="activity.id">{{ activity.name }}</option></select></label>
       <AppLoading v-if="loading || busy" /><p v-if="notice" role="alert">{{ notice }}</p><button v-if="notice" class="btn-quiet" :disabled="busy || loading" @click="load">{{ copy.common.retry }}</button>
       <p v-if="publicationLoadFailed" role="alert">{{ messages.publicationLoadFailed }}</p><button v-if="publicationLoadFailed" class="btn-quiet" :disabled="busy || loading" @click="loadPublication">{{ messages.publicationRetry }}</button>
-      <label v-if="activityId" class="row"><input v-model="published" type="checkbox" :disabled="busy || loading || publicationLoadFailed || !(publication?.id ? canUpdate : canCreate)" />{{ ui.copy_e5c0e22c49 }}</label>
-      <p v-if="activityId" class="muted">{{ ui.publicationOpenHelp }}</p>
+      <label v-if="activityId && !exportOnly" class="row"><input v-model="published" type="checkbox" :disabled="busy || loading || publicationLoadFailed || !(publication?.id ? canUpdate : canCreate)" />{{ ui.copy_e5c0e22c49 }}</label>
+      <p v-if="activityId && !exportOnly" class="muted">{{ ui.publicationOpenHelp }}</p>
       <button v-if="activityId && (publication?.id ? canUpdate : canCreate)" class="btn btn-primary" :disabled="busy || loading || publicationLoadFailed" @click="savePublication">{{ ui.copy_a7cce01d43 }}</button>
+    </section>
+    <section v-if="exportOnly && canExport" class="card stack">
+      <div class="panel-head"><strong class="section-title">{{ ui.copy_17a784c758 }}</strong><button class="btn-quiet" :disabled="busy || loading" @click="exportSummary">{{ ui.copy_37b2d47dd4 }}</button></div>
     </section>
     <template v-if="publication?.id">
       <section v-for="kind in kinds" :key="kind.key" class="card stack">
-        <div class="panel-head"><strong class="section-title">{{ kind.label }}</strong><div v-if="!publicationLoadFailed && !loading" class="card-actions"><button v-if="canCreate" class="btn-quiet" :disabled="busy" @click="edit(kind.key)">{{ kind.key === 'view' ? ui.newResultViewRule : ui.newMeritDesignationRule }}</button><button v-if="canCreate" class="btn-quiet" :disabled="busy" @click="generate(kind.key)">{{ kind.key === 'view' ? ui.generateViewRules : ui.generateMeritRules }}</button></div></div>
-        <p v-if="canCreate && !publicationLoadFailed && !loading" class="muted">{{ kind.key === 'view' ? ui.generateViewRulesHelp : ui.generateMeritRulesHelp }}</p>
+        <div class="panel-head"><strong class="section-title">{{ kind.label }}</strong><div v-if="canUpdate && !publicationLoadFailed && !loading" class="card-actions"><button class="btn-quiet" :disabled="busy" @click="edit(kind.key)">{{ kind.key === 'view' ? ui.newResultViewRule : ui.newMeritDesignationRule }}</button><button class="btn-quiet" :disabled="busy" @click="generate(kind.key)">{{ kind.key === 'view' ? ui.generateViewRules : ui.generateMeritRules }}</button></div></div>
+        <p v-if="canUpdate && !publicationLoadFailed && !loading" class="muted">{{ kind.key === 'view' ? ui.generateViewRulesHelp : ui.generateMeritRulesHelp }}</p>
         <div v-if="!publicationLoadFailed && !loading && (canDelete || canUpdate) && rules[kind.key].length" class="card-actions"><button class="btn-quiet" :disabled="busy" @click="toggleAll(kind.key)">{{ selected[kind.key].length === rules[kind.key].length ? ui.copy_961862242a : ui.copy_00c8a8f256 }}</button><button v-if="canDelete" class="btn-quiet btn-quiet-danger" :disabled="busy || !selected[kind.key].length" @click="remove(kind.key,selected[kind.key])">{{ ui.copy_acc985cabc }} · {{ selected[kind.key].length }}</button><button v-if="canUpdate && form?.kind===kind.key" class="btn-quiet" :disabled="busy || !selected[kind.key].length || !form.clauses.length" @click="batchApply">{{ kind.key === 'view' ? ui.applySelectedViewRules : ui.applySelectedMeritRules }}</button></div>
         <article v-for="rule in rules[kind.key]" :key="rule.id" class="list-row stack">
           <span class="muted">{{ natureLabel(rule.natureIds) }}</span>
@@ -33,7 +36,7 @@
           <div v-if="!publicationLoadFailed && !loading" class="card-actions"><button v-if="canUpdate" class="btn-quiet" :disabled="busy" @click="edit(kind.key,rule)">{{ ui.copy_e040ae3016 }}</button><button v-if="canDelete" class="btn-quiet btn-quiet-danger" :disabled="busy" @click="remove(kind.key,[rule.id])">{{ ui.copy_acc985cabc }}</button></div>
         </article>
       </section>
-      <section class="card stack"><div class="panel-head"><strong class="section-title">{{ ui.copy_17a784c758 }}</strong><button v-if="canExport" class="btn-quiet" :disabled="busy" @click="exportSummary">{{ ui.copy_49a7fb10d7 }}</button></div><article v-for="(group,index) in summary" :key="group.clauseId || index" class="list-row stack"><strong>{{ group.granteeDepartment }} · {{ group.granteeIdentity }} · {{ group.targetIdentity }}</strong><span v-for="person in group.members" :key="person.assignmentId || person.id">{{ person.name }} · {{ [person.identity,person.department,person.workGroup].filter(Boolean).join(' · ') }}</span></article></section>
+      <section class="card stack"><div class="panel-head"><strong class="section-title">{{ ui.copy_17a784c758 }}</strong><button v-if="canExport" class="btn-quiet" :disabled="busy || loading" @click="exportSummary">{{ ui.copy_37b2d47dd4 }}</button></div><article v-for="(group,index) in summary" :key="group.clauseId || index" class="list-row stack"><strong>{{ group.granteeDepartment }} · {{ group.granteeIdentity }} · {{ group.targetIdentity }}</strong><span v-for="person in group.members" :key="person.assignmentId || person.id">{{ person.name }} · {{ [person.identity,person.department,person.workGroup].filter(Boolean).join(' · ') }}</span></article></section>
     </template>
     <form v-if="form" ref="editor" class="card stack" @submit.prevent="saveRule">
       <strong>{{ kinds.find(kind=>kind.key===form.kind).label }}</strong>
@@ -59,11 +62,11 @@
   </div>
 </template>
 <script setup>
-import { ref, reactive, nextTick, watch, onBeforeUnmount } from 'vue';
+import { computed, ref, reactive, nextTick, watch, onBeforeUnmount } from 'vue';
 import PersonnelPicker from './PersonnelPicker.vue';
 import { useAdminCapability, useAdminAuthorizationAccess } from '@/runtime/adminCapabilities.js';
 import { callApi, requireSuccess, errorText } from '@/runtime/api.js';
-import { confirmAction } from '@/runtime/notify.js';
+import { confirmAction, showToast } from '@/runtime/notify.js';
 import { downloadTable } from '@/runtime/tableFiles.js';
 import { session } from '@/runtime/session.js';
 import copy from '@/locales/zh-CN/index.js';
@@ -73,8 +76,23 @@ import utilityCopy from '@/locales/zh-CN/shared/generated/subpackages/scoring/pa
 import homeCopy from '@/locales/zh-CN/shared/home.js';
 import natureCopy from '@/locales/zh-CN/shared/identityNatureRelations.js';
 const emit=defineEmits(['busy']),access=useAdminAuthorizationAccess();
-const canCreate=useAdminCapability('scoring.publications','scoring.publications.create'),canUpdate=useAdminCapability('scoring.publications','scoring.publications.update'),canDelete=useAdminCapability('scoring.publications.delete','scoring.publications.delete'),canExport=useAdminCapability('scoring.publications','scoring.publications.export');
+const createCapability = useAdminCapability('scoring.publications', 'scoring.publications.create');
+const exportCapability = useAdminCapability('scoring.publications', 'scoring.publications.export');
+const enforced = computed(() => access.value?.mode === 'enforced');
+const recordAccess = ref(null);
+function usePublicationAction(action, legacyPermission) {
+  const permission = useAdminCapability(legacyPermission, 'scoring.publications.' + action);
+  return computed(() => permission.value && (!enforced.value || recordAccess.value?.[action] === true));
+}
+const canUpdate = usePublicationAction('update', 'scoring.publications');
+const canDelete = usePublicationAction('delete', 'scoring.publications.delete');
+const canCreate = computed(() => createCapability.value && (!enforced.value || selectedActivity.value?.canCreate === true));
+const canExport = computed(() => exportCapability.value && (!enforced.value
+  || (exportOnly.value ? selectedActivity.value?.canExport === true : recordAccess.value?.export === true)));
 const activities=ref([]),activityId=ref(''),publication=ref(null),published=ref(false),loading=ref(false),busy=ref(false),notice=ref(''),departments=ref([]),identities=ref([]),summary=ref([]),designations=ref([]),candidates=ref([]),form=ref(null),editor=ref(null),picker=ref(null);
+const selectedActivity = computed(() => activities.value.find(activity => activity.id === activityId.value));
+const exportOnly = computed(() => enforced.value && selectedActivity.value?.canOpen !== true
+  && selectedActivity.value?.canExport === true);
 const rules=reactive({view:[],merit:[]}),selected=reactive({view:[],merit:[]});
 const publicationLoadFailed=ref(false);
 const natures=ref([]);
@@ -111,18 +129,26 @@ const scopeLabel=(value,kind)=>kind==='merit'?(meritScopes.find(item=>item.alias
 const clauseScopes=(kind,current)=>kind==='view'?scopes:meritScopes.map(item=>({value:item.aliases.includes(current)?current:item.value,label:item.label}));
 let generation=0,disposed=false;
 const scope=()=>[session.context?.organizationId,session.context?.contextId].join('|');
-async function load(){const request=++generation,expected=scope();loading.value=true;try{const result=requireSuccess(await callApi('listScoreActivities',{}));if(disposed||request!==generation||expected!==scope())return;activities.value=result.list||[];if(!activities.value.some(row=>row.id===activityId.value))activityId.value=result.currentActivityId||activities.value[0]?.id||'';if(access.value?.mode!=='enforced'){const [deps,ids]=await Promise.all([callApi('listDepartments',{}).then(requireSuccess),callApi('listIdentities',{}).then(requireSuccess)]);if(disposed||request!==generation||expected!==scope())return;departments.value=deps.departments||[];identities.value=ids.identities||[];}await loadPublication();}catch(error){if(!disposed&&request===generation)notice.value=errorText(error,messages.copy_e52119b17e);}finally{loading.value=false;}}
+async function load(){const request=++generation,expected=scope();loading.value=true;try{const result=requireSuccess(await callApi(enforced.value?'listScorePublicationActivities':'listScoreActivities',{}));if(disposed||request!==generation||expected!==scope())return;activities.value=result.list||[];if(!selectedActivity.value)activityId.value=result.currentActivityId||activities.value[0]?.id||'';if(!enforced.value){const [deps,ids]=await Promise.all([callApi('listDepartments',{}).then(requireSuccess),callApi('listIdentities',{}).then(requireSuccess)]);if(disposed||request!==generation||expected!==scope())return;departments.value=deps.departments||[];identities.value=ids.identities||[];}await loadPublication();}catch(error){if(!disposed&&request===generation)notice.value=errorText(error,messages.copy_e52119b17e);}finally{loading.value=false;}}
 async function loadPublication(){
   const request=++generation,expected=scope(),id=activityId.value;
-  form.value=null;picker.value=null;
-  if(loadedActivityId!==id){publication.value=null;rules.view=[];rules.merit=[];summary.value=[];candidates.value=[];designations.value=[];natures.value=[];}
-  if(!id){publicationLoadFailed.value=false;return;}
+  form.value=null;picker.value=null;recordAccess.value=null;
+  const shouldOpen = !!id && (!enforced.value || selectedActivity.value?.canOpen === true);
+  if(loadedActivityId!==id || !shouldOpen){publication.value=null;rules.view=[];rules.merit=[];summary.value=[];candidates.value=[];designations.value=[];natures.value=[];}
+  if (!shouldOpen) {
+    publicationLoadFailed.value = false;
+    published.value = false;
+    loadedActivityId = id;
+    notice.value = '';
+    return;
+  }
   loading.value=true;let configurationLoaded=false;
   try{
     const result=requireSuccess(await callApi('getResultPublication',{activityId:id}));
     if(disposed||request!==generation||expected!==scope())return;
     configurationLoaded=true;loadedActivityId=id;publicationLoadFailed.value=false;
     publication.value=result.publication;published.value=!!result.publication?.isPublished;
+    recordAccess.value=result.access||null;
     rules.view=result.viewRules||[];rules.merit=result.meritRules||[];selected.view=[];selected.merit=[];
     candidates.value=result.assignmentCandidates||[];designations.value=result.meritListDesignations||[];
     natures.value=result.configurationCandidates?.natures||[];
@@ -132,17 +158,31 @@ async function loadPublication(){
   }catch(error){if(!disposed&&request===generation){publicationLoadFailed.value=!configurationLoaded;notice.value=configurationLoaded?errorText(error,messages.copy_e52119b17e):'';}}
   finally{if(!disposed&&request===generation)loading.value=false;}
 }
-async function write(name,data,allowed){if(busy.value||loading.value||publicationLoadFailed.value||loadedActivityId!==activityId.value||!allowed)return;const expected=scope(),id=activityId.value;busy.value=true;notice.value='';try{requireSuccess(await callApi(name,data));if(disposed||scope()!==expected||activityId.value!==id)return;await loadPublication();}catch(error){if(!disposed&&scope()===expected)notice.value=errorText(error,messages.copy_215e3c57da);}finally{busy.value=false;}}
+async function write(name,data,allowed){
+  if(busy.value||loading.value||publicationLoadFailed.value||loadedActivityId!==activityId.value||!allowed)return;
+  const expected=scope(),id=activityId.value;
+  const creating = enforced.value && name === 'saveResultPublication' && !publication.value?.id;
+  busy.value=true;notice.value='';
+  try {
+    requireSuccess(await callApi(name,data));
+    if(disposed||scope()!==expected||activityId.value!==id)return;
+    if (creating) {
+      showToast(messages.copy_0aacec2714);
+      await load();
+    } else await loadPublication();
+  } catch(error){if(!disposed&&scope()===expected)notice.value=errorText(error,messages.copy_215e3c57da);}
+  finally{busy.value=false;}
+}
 function savePublication(){return write('saveResultPublication',{activityId:activityId.value,isPublished:published.value},publication.value?.id?canUpdate.value:canCreate.value);}
 function newClause(kind){return {natureIds:[],scopeType:kind==='view'?'own_results':'all_people',targetIdentityId:'',displayMode:'score',gradeBands:[],quotaLimit:0,requireExactQuota:false};}
 async function edit(kind,row){
-  if(busy.value||!(row?canUpdate.value:canCreate.value))return;
+  if(busy.value||!canUpdate.value||!publication.value?.id)return;
   form.value={kind,id:row?.id||'',publicationId:publication.value.id,granteeDepartmentId:row?.granteeDepartmentId||'',granteeIdentityId:row?.granteeIdentityId||'',natureIds:[...(row?.natureIds||[])],legacyNatureScope:!!row&&!row.natureIds,
     clauses:row?JSON.parse(JSON.stringify(row.clauses)).map(clause=>({...clause,natureIds:clause.natureIds||[],legacyNatureScope:!clause.natureIds})):[newClause(kind)]};
   await nextTick();editor.value?.scrollIntoView({block:'start'});
 }
 function ruleClauses(value){return value.clauses.map(clause=>({...(value.kind==='view'?{scopeType:clause.scopeType,targetIdentityId:identityScopes.includes(clause.scopeType)?clause.targetIdentityId:'',displayMode:clause.displayMode,gradeBands:clause.displayMode==='grade'?clause.gradeBands:[]}:{scopeType:clause.scopeType,targetIdentityId:clause.targetIdentityId,quotaLimit:Number(clause.quotaLimit),requireExactQuota:clause.requireExactQuota}),natureIds:clause.natureIds}));}
-async function saveRule(){const value=form.value;if(!value||!await confirmNatureScopes(value))return;return write(value.kind==='view'?'savePubViewRule':'savePubMeritRule',{id:value.id,publicationId:value.publicationId,natureIds:value.natureIds,granteeDepartmentId:value.granteeDepartmentId,granteeIdentityId:value.granteeIdentityId,clauses:ruleClauses(value)},value.id?canUpdate.value:canCreate.value);}
+async function saveRule(){const value=form.value;if(!value||!canUpdate.value||!await confirmNatureScopes(value)||form.value!==value)return;return write(value.kind==='view'?'savePubViewRule':'savePubMeritRule',{id:value.id,publicationId:value.publicationId,natureIds:value.natureIds,granteeDepartmentId:value.granteeDepartmentId,granteeIdentityId:value.granteeIdentityId,clauses:ruleClauses(value)},canUpdate.value);}
 function toggleAll(kind){selected[kind]=selected[kind].length===rules[kind].length?[]:rules[kind].map(row=>row.id);}
 async function batchApply(){
   const value=form.value;if(!value||!canUpdate.value||busy.value)return;
@@ -158,9 +198,19 @@ async function batchApply(){
   return write(value.kind==='view'?'batchSavePubViewRules':'batchSavePubMeritRules',{rules:chosen.map(row=>({id:row.id,publicationId:publication.value.id,natureIds:row.natureIds||value.natureIds,granteeDepartmentId:row.granteeDepartmentId,granteeIdentityId:row.granteeIdentityId,clauses}))},canUpdate.value);
 }
 async function remove(kind,ids){if(!canDelete.value||busy.value)return;const values=ids.slice();if(!await confirmAction({title:messages.copy_7f31eec657,body:messages.copy_80406a7947.replace('{0}',values.length),danger:true}))return;return write(kind==='view'?'batchDeletePubViewRules':'batchDeletePubMeritRules',{ruleIds:values},canDelete.value);}
-function generate(kind){return write(kind==='view'?'generatePubViewRules':'generatePubMeritRules',{publicationId:publication.value.id},canCreate.value);}
+function generate(kind){if(!publication.value?.id)return;return write(kind==='view'?'generatePubViewRules':'generatePubMeritRules',{publicationId:publication.value.id},canUpdate.value);}
 function openDesignations(rule,clause){if(!canUpdate.value||busy.value)return;const workGroups=new Set(candidates.value.filter(item=>item.departmentId===rule.granteeDepartmentId&&item.identityId===rule.granteeIdentityId&&item.workGroupId).map(item=>item.workGroupId));const options=candidates.value.filter(item=>(!clause.targetIdentityId||item.identityId===clause.targetIdentityId)&&(clause.scopeType==='all_people'||clause.scopeType==='identity_only'||((clause.scopeType==='same_department_identity'||clause.scopeType==='same_department_all')&&item.departmentId===rule.granteeDepartmentId)||((clause.scopeType==='same_work_group_identity'||clause.scopeType==='same_work_group_all')&&item.departmentId===rule.granteeDepartmentId&&workGroups.has(item.workGroupId)))).map(item=>({...item,id:item.assignmentId}));const ids=new Set(designations.value.filter(item=>item.clauseId===clause.id).map(item=>item.targetAssignmentId||item.assignmentId));picker.value={clauseId:clause.id,options,selected:options.filter(item=>ids.has(item.assignmentId))};}
 async function saveDesignations(items){if(!picker.value)return;const data={clauseId:picker.value.clauseId,publicationId:publication.value.id,designationAssignmentIds:items.map(item=>item.assignmentId)};picker.value=null;await write('saveMeritListDesignations',data,canUpdate.value);}
-async function exportSummary(){if(!canExport.value||busy.value)return;const expected=scope();busy.value=true;try{const result=requireSuccess(await callApi('exportMeritListSummary',{activityId:activityId.value,filterDepartment:'',filterIdentity:'',filterWorkGroup:''}));if(!disposed&&expected===scope())downloadTable(result.fileContent,result.fileName,result.extension);}catch(error){if(!disposed)notice.value=errorText(error,messages.copy_2b61466286);}finally{busy.value=false;}}
+async function exportSummary(){
+  if(!canExport.value||busy.value||loading.value||publicationLoadFailed.value||loadedActivityId!==activityId.value)return;
+  const expected=scope();busy.value=true;
+  try {
+    const result=requireSuccess(await callApi('exportMeritListSummary',{activityId:activityId.value,filterDepartment:'',filterIdentity:'',filterWorkGroup:''}));
+    if(disposed||expected!==scope())return;
+    if(result.rowCount===0&&!result.fileContent)showToast(ui.copy_79b5b44e28);
+    else downloadTable(result.fileContent,result.fileName,result.extension);
+  } catch(error){if(!disposed)notice.value=errorText(error,messages.copy_2b61466286);}
+  finally{busy.value=false;}
+}
 watch(busy,value=>emit('busy',value));watch(scope,()=>{generation++;loadedActivityId='';publicationLoadFailed.value=false;activityId.value='';activities.value=[];publication.value=null;rules.view=[];rules.merit=[];selected.view=[];selected.merit=[];summary.value=[];candidates.value=[];designations.value=[];form.value=null;picker.value=null;load();});onBeforeUnmount(()=>{disposed=true;generation++;emit('busy',false);});load();
 </script>

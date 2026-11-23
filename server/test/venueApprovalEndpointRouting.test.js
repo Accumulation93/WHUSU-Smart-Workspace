@@ -235,6 +235,30 @@ async function assertIndependentFlowDrafts() {
   assert.strictEqual(saveCall.data.flowId, 'flow-2', '保存时必须精确提交当前编辑流程 ID');
 }
 
+async function assertFieldLimitedFlowsAndPublicSchedulingCandidates() {
+  const loaded = loadVenuePage('miniprogram/subpackages/venue/pages/venueManage/venueManage.js', async ({ name }) => {
+    if (name === 'listVenues') return { status: 'success', venues: [], configurationVenues: [{ id: 'config-room', name: 'Config room' }] };
+    if (name === 'listVenuesForBooking') return { status: 'success', venues: [{ id: 'public-room', name: 'Public room', description: 'Public metadata' }] };
+    if (name === 'listVenueApprovalFlows') return { status: 'success', flows: [{ id: 'limited', name: 'Visible flow' }] };
+    return { status: 'success' };
+  });
+  const context = createPageContext(loaded.pageDefinition, { authorizationEnforced: true,
+    actionCapabilities: { 'venue.bookings.createApproved': true, 'venue.approvals.read': true, 'venue.approvals.update': true },
+    rulesVenueId: 'config-room' }, { async loadVenueTimetable() {} });
+  await context.loadVenues();
+  assert.deepStrictEqual(context.data.additionalVenues, [
+    { id: 'config-room', name: 'Config room', configuration: true },
+    { id: 'public-room', name: 'Public room', schedule: true }
+  ]);
+  await context.openVenueSchedule({ currentTarget: { dataset: { id: 'public-room' } } });
+  assert.equal(context.data.scheduleVenueName, 'Public room');
+  await context.loadApprovalFlow();
+  assert.equal(context.data.approvalFlows[0].readableSteps, false);
+  assert.equal(context.data.approvalFlows[0].completeMetadata, false);
+  context.openApprovalFlowStepEditor({ currentTarget: { dataset: { id: 'limited' } } });
+  assert.equal(context.data.ruleEditorVisible, false);
+}
+
 async function run() {
   const originalWx = global.wx;
   global.wx = {
@@ -293,6 +317,7 @@ async function run() {
     await assertManagePageRoute(nestedLegacy, 'reject', 'rejectVenueBooking');
     await assertManagePageRoute(nestedWithoutFlowMarker, 'approve', 'approveVenueBooking');
     await assertIndependentFlowDrafts();
+    await assertFieldLimitedFlowsAndPublicSchedulingCandidates();
     await assertPendingReadFailure('miniprogram/subpackages/venue/components/pendingApprovals/pendingApprovals.js', 'loadData', 'loadFailed', 'loaded');
     await assertPendingReadFailure('miniprogram/subpackages/venue/pages/venueBooking/venueBooking.js', 'loadPendingData', 'pendingLoadFailed', 'pendingLoaded');
 

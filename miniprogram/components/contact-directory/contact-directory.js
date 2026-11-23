@@ -18,7 +18,8 @@ Component({
   properties: { admin: { type: Boolean, value: false }, initialKey: { type: String, value: '' }, copyId: { type: String, value: '' } },
   data: { copy, allFilterOptions, relations, groups: [], hasContacts: false, rules: [], selected: [], selectedText: '', query: '', tagGroups: [], selectedTags: [], tagsSelected: false, loading: false, busy: false, notice: '', loadFailed: false,
     contact: null, detailKey: '', detailLoading: false, detailNotice: '', hasDetailFields: false, hasRelatedPositions: false, expandedFilters: {}, fieldsExpanded: false, validationAnchor: '',
-    draft: null, activeSection: '', activeClause: '', batchMode: false, fieldsSummary: '', sections: [], fields: [], people: [], pickerVisible: false, pickerValue: [], deleteTargets: null, deleteText: '', typeLabels: [copy.selectPeople, copy.scope, copy.self] },
+    draft: null, activeSection: '', activeClause: '', batchMode: false, canCreateRule: false, hasDeletableRules: false,
+    fieldsSummary: '', sections: [], fields: [], people: [], pickerVisible: false, pickerValue: [], deleteTargets: null, deleteText: '', typeLabels: [copy.selectPeople, copy.scope, copy.self] },
   lifetimes: {
     attached: function() { this.activate(); },
     detached: function() { this.clearPrivate(); }
@@ -39,7 +40,7 @@ Component({
       if (this._changed) eventBus.off('org:changed', this._changed);
       this._changed = null;
       this._active = false; session.invalidateRequests(this); this._groups = []; this._metadata = null; this._picker = null;
-      this.setData({ activeSection: '', activeClause: '', batchMode: false, fieldsSummary: '', groups: [], hasContacts: false, rules: [], selected: [], draft: null, sections: [], fields: [], people: [], pickerVisible: false, pickerValue: [], query: '', tagGroups: [], selectedTags: [], tagsSelected: false, busy: false, deleteTargets: null, contact: null, detailKey: '', detailLoading: false, detailNotice: '', hasDetailFields: false, hasRelatedPositions: false, expandedFilters: {}, fieldsExpanded: false });
+      this.setData({ activeSection: '', activeClause: '', batchMode: false, canCreateRule: false, hasDeletableRules: false, fieldsSummary: '', groups: [], hasContacts: false, rules: [], selected: [], draft: null, sections: [], fields: [], people: [], pickerVisible: false, pickerValue: [], query: '', tagGroups: [], selectedTags: [], tagsSelected: false, busy: false, deleteTargets: null, contact: null, detailKey: '', detailLoading: false, detailNotice: '', hasDetailFields: false, hasRelatedPositions: false, expandedFilters: {}, fieldsExpanded: false });
       this.triggerEvent('pickerchange', { visible: false });
       this.triggerEvent('busychange', { busy: false });
     },
@@ -54,7 +55,12 @@ Component({
         if (result.status !== 'success') throw result;
         if (this.data.admin) {
           this._metadata = result;
-          this.setData({ rules: result.rules.map(rule => Object.assign({}, rule, { summary: view.ruleSections(rule, result, copy, relations) })), people: view.peopleOptions(result.people), selected: [], selectedText: copy.selectedRules.replace('{count}', '0'), loadFailed: false });
+          const rules = result.rules.map(rule => Object.assign({}, rule, { canUpdate: rule.canUpdate !== false,
+            canDelete: rule.canDelete !== false, summary: view.ruleSections(rule, result, copy, relations) }));
+          const hasDeletableRules = rules.some(rule => rule.canDelete);
+          this.setData({ rules, canCreateRule: result.canCreate !== false, hasDeletableRules,
+            batchMode: hasDeletableRules && this.data.batchMode, people: view.peopleOptions(result.people),
+            selected: [], selectedText: copy.selectedRules.replace('{count}', '0'), loadFailed: false });
         } else {
           this._groups = view.decorateGroups(result.groups, dateFormatter, copy);
           const filterState = this.directoryFilterState(this.data.query, this.data.selectedTags);
@@ -123,7 +129,7 @@ Component({
       this.setData({ ['expandedFilters.' + key]: !this.data.expandedFilters[key] }, () => this.refreshEditor());
     },
     toggleFields: function() { this.setData({ activeSection: this.data.activeSection === 'fields' ? '' : 'fields', fieldsExpanded: this.data.activeSection !== 'fields' }); },
-    toggleBatch: function() { if (!this.blocked()) this.setData({ batchMode: !this.data.batchMode }); },
+    toggleBatch: function() { if (!this.blocked() && this.data.hasDeletableRules) this.setData({ batchMode: !this.data.batchMode }); },
     toggleRuleDetails: function(event) {
       const index = this.data.rules.findIndex(rule => rule.id === event.currentTarget.dataset.id);
       if (index >= 0) this.setData({ ['rules[' + index + '].expanded']: !this.data.rules[index].expanded });
@@ -153,12 +159,18 @@ Component({
       });
     },
     blocked: function() { return this.data.loading || this.data.busy || this.data.loadFailed || Boolean(this.data.deleteTargets); },
+    canUpdateRule: function(id) {
+      const rule = this.data.rules.find(item => item.id === id);
+      return !!rule && rule.canUpdate !== false;
+    },
     edit: function(event) {
       if (this.blocked()) return;
       const id = event.currentTarget.dataset.id;
+      const duplicate = Boolean(event.currentTarget.dataset.copy);
       const existing = this.data.rules.find(rule => rule.id === id);
+      if ((id && !existing) || !(existing && !duplicate ? this.canUpdateRule(id) : this.data.canCreateRule)) return;
       const draft = view.editableRule(existing);
-      if (event.currentTarget.dataset.copy) { delete draft.id; delete draft.version; }
+      if (duplicate) { delete draft.id; delete draft.version; }
       this.setData({ draft, notice: '', validationAnchor: '', activeSection: existing ? '' : 'audience', activeClause: existing ? '' : 'audience-0', expandedFilters: {}, fieldsExpanded: false }, () => { this.refreshEditor(); this.scrollTo('#directory-editor'); });
     },
     refreshEditor: function() {
@@ -267,14 +279,15 @@ Component({
       this.setSelection(selected);
     },
     setSelection: function(selected) {
-      this.setData({ selected, selectedText: copy.selectedRules.replace('{count}', String(selected.length)),
-        rules: this.data.rules.map(rule => Object.assign({}, rule, { selected: selected.includes(rule.id) })) });
+      const allowed = this.data.rules.filter(rule => rule.canDelete !== false && selected.includes(rule.id)).map(rule => rule.id);
+      this.setData({ selected: allowed, selectedText: copy.selectedRules.replace('{count}', String(allowed.length)),
+        rules: this.data.rules.map(rule => Object.assign({}, rule, { selected: allowed.includes(rule.id) })) });
     },
     selectAll: function() { if (!this.blocked()) this.setSelection(this.data.rules.map(rule => rule.id)); },
     clearSelection: function() { if (!this.blocked()) this.setSelection([]); },
     save: async function() {
       const source = this.data.draft;
-      if (!source || this.blocked() || this._confirmingSave) return;
+      if (!source || this.blocked() || this._confirmingSave || !(source.id ? this.canUpdateRule(source.id) : this.data.canCreateRule)) return;
       const issue = view.ruleIssue(source, copy);
       if (issue) {
         const clause = issue.section ? issue.section + '-' + issue.index : '';
@@ -298,21 +311,26 @@ Component({
           return;
         } finally { this._confirmingSave = false; }
       }
-      await this.write('saveContactDirectoryRule', view.payload(source));
+      if (!this.blocked() && (source.id ? this.canUpdateRule(source.id) : this.data.canCreateRule)) {
+        await this.write('saveContactDirectoryRule', view.payload(source));
+      }
     },
     toggleEnabled: function(event) {
       if (this.blocked()) return;
       const rule = this.data.rules.find(item => item.id === event.currentTarget.dataset.id);
+      if (!rule || rule.canUpdate === false) return;
       this.write('batchContactDirectoryRules', { action: rule.enabled ? 'disable' : 'enable', rules: [{ id: rule.id, version: rule.version }] });
     },
     deleteSelected: function() {
       if (this.blocked() || !this.data.selected.length) return;
-      const targets = this.data.rules.filter(rule => this.data.selected.includes(rule.id));
+      const targets = this.data.rules.filter(rule => rule.canDelete !== false && this.data.selected.includes(rule.id));
+      if (!targets.length) return;
       this.setData({ deleteTargets: targets, deleteText: copy.confirmDelete.replace('{count}', String(targets.length)) }, () => this.scrollTo('#directory-delete'));
     },
     cancelDelete: function() { if (!this.data.busy) this.setData({ deleteTargets: null }); },
     confirmDelete: function() {
-      if (this.data.busy || !this.data.deleteTargets) return;
+      if (this.data.loading || this.data.busy || this.data.loadFailed || !this.data.deleteTargets
+        || !this.data.deleteTargets.every(target => this.data.rules.some(rule => rule.id === target.id && rule.canDelete !== false))) return;
       this.write('batchContactDirectoryRules', { action: 'delete', rules: this.data.deleteTargets.map(rule => ({ id: rule.id, version: rule.version })) });
     },
     write: async function(name, data) {

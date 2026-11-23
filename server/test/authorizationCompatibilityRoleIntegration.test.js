@@ -86,6 +86,19 @@ test('temporary roles preserve existing grants and restrictions across two datab
     assert.equal(recorded, 1);
     assert.equal(retained, legacyCount);
 
+    const repair = schema('20261124123000_complete_legacy_audit_verification_roles.sql');
+    await connection.query("INSERT INTO hr_info VALUES ('without-position','active','No current assignment')");
+    await connection.query("INSERT INTO audit_verification_permissions (id, org_id, grantee_hr_id, granted_by) VALUES ('no-position-grant','active','without-position','admin')");
+    for (let run = 0; run < 2; run++) await connection.query(repair);
+    const [[dormant]] = await connection.query("SELECT * FROM authorization_rules WHERE source_ref='no-position-grant'");
+    assert.equal(dormant.scheme_id, roles.idForRule('active', dormant.id));
+    assert.match(dormant.policy_json.subjects[0].ids[0], /^compat-verifier-/);
+    assert.deepEqual(dormant.policy_json.capabilities, ['audit.verification.verify']);
+    assert.equal((await connection.query("SELECT id FROM authorization_rules WHERE source_ref='shadow-grant'"))[0].length, 0);
+    await connection.query('DELETE FROM authorization_rules WHERE id=?', [dormant.id]);
+    await connection.query(repair);
+    assert.equal((await connection.query("SELECT id FROM authorization_rules WHERE source_ref='no-position-grant'"))[0].length, 0);
+
     await connection.beginTransaction();
     await roles.bindOrganization(connection, 'shadow', 'test-cutover');
     await connection.commit();

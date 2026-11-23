@@ -127,6 +127,39 @@ test('rule create and edit reveal the form below a long rule directory', async (
   await expect(page.getByLabel(copy.ruleName, { exact: true })).toHaveValue('Rule 0');
 });
 
+test('readable calendar rules show only the granted edit and delete actions', async ({ page }) => {
+  await setup(page);
+  const base = { version: 1, enabled: true, audience: [{ type: 'people', personIds: ['p'] }],
+    targets: [{ type: 'self' }], actions: ['assign'] };
+  const readOnly = { ...base, id: 'read-only', name: 'Read only rule', canUpdate: false, canDelete: false };
+  const editable = { ...base, id: 'editable', name: 'Editable rule', canUpdate: true, canDelete: true };
+  await page.route('**/api/getCalendarRules', route => route.fulfill({ json: {
+    status: 'success', canCreate: false, people: [], departments: [], identities: [], workGroups: [], rules: [readOnly, editable]
+  } }));
+  const writes = [];
+  await page.route('**/api/saveCalendarRule', route => {
+    const value = route.request().postDataJSON();
+    writes.push(value);
+    editable.name = value.name;
+    return route.fulfill({ json: { status: 'success' } });
+  });
+  await page.goto('/web/calendar');
+  await page.getByRole('button', { name: copy.ruleManage, exact: true }).click();
+  const readOnlyCard = page.locator('article').filter({ hasText: readOnly.name });
+  const editCard = page.locator('article').filter({ hasText: editable.name });
+  await expect(readOnlyCard).toBeVisible();
+  await expect(readOnlyCard.getByRole('button')).toHaveCount(0);
+  await expect(readOnlyCard.getByRole('checkbox')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: copy.createRule, exact: true })).toHaveCount(0);
+  await expect(editCard.getByRole('button', { name: copy.duplicate, exact: true })).toHaveCount(0);
+  await editCard.getByRole('button', { name: copy.edit, exact: true }).click();
+  await page.getByLabel(copy.ruleName, { exact: true }).fill('Updated rule');
+  await page.getByRole('button', { name: copy.save, exact: true }).click();
+  await expect(page.getByText('Updated rule', { exact: true })).toBeVisible();
+  expect(writes).toHaveLength(1);
+  expect(writes[0]).toMatchObject({ id: 'editable', version: 1, name: 'Updated rule' });
+});
+
 test('安排规则复制后编辑保存，批量删除取消不发请求',async({page})=>{
   await setup(page);const writes=[];
   const rule={id:'rule',version:1,name:'办公室安排',enabled:true,audience:[{type:'people',personIds:['p']}],targets:[{type:'self'}],actions:['assign']};

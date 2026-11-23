@@ -6,6 +6,19 @@ const { CATALOG } = require('./authorizationCatalog');
 const { preparePolicies, evaluate, projectFields } = require('./authorizationPolicy');
 const { createScopeCompiler } = require('./authorizationSqlScope');
 const { authorizationError } = require('./authorizationError');
+const { getState } = require('../../utils/requestWork');
+
+function trackAuthorizationBoundaries(rules, now) {
+  const requestState = getState();
+  if (!requestState) return;
+  for (const { policy } of rules) {
+    if (!policy.enabled) continue;
+    for (const boundary of [policy.startsAt, policy.endsAt]) {
+      const time = Date.parse(boundary);
+      if (time > now) requestState.nextBusinessBoundary = Math.min(requestState.nextBusinessBoundary || Infinity, time);
+    }
+  }
+}
 
 // 生命周期限定为本次数据库读取/写事务；禁止将此对象放入跨请求缓存。
 async function createAuthorizationSession(connection, reference, options = {}) {
@@ -61,4 +74,4 @@ async function createAuthorizationSession(connection, reference, options = {}) {
     isSuper: actor?.isSuper === true, check, queryScope, project, hasExplicitEntry };
 }
 
-module.exports = { createAuthorizationSession };
+module.exports = { createAuthorizationSession, trackAuthorizationBoundaries };

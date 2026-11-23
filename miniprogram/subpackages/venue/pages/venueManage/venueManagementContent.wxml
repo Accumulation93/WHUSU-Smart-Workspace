@@ -24,9 +24,15 @@
       </view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
         <view class="card-loading-overlay" wx:if="{{loading}}"><app-loading compact="{{true}}" /></view>
-        <view class="empty-inline" wx:if="{{!loading && !venues.length && !configurationOnlyVenues.length}}">{{localeCopy.copy_5e9f82c1cf}}</view>
-        <view class="list-item list-item-stacked" wx:for="{{configurationOnlyVenues}}" wx:key="id">
-          <view class="list-main"><view class="list-name">{{item.name}}</view><view class="card-actions"><button class="secondary-btn ui-motion-button" data-id="{{item.id}}" bindtap="openRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_f10a13b6e1}}</button></view></view>
+        <view class="empty-inline" wx:if="{{!loading && !venues.length && !additionalVenues.length}}">{{localeCopy.copy_5e9f82c1cf}}</view>
+        <view class="list-item list-item-stacked" wx:for="{{additionalVenues}}" wx:key="id">
+          <view class="list-main">
+            <view class="list-name">{{item.name}}</view>
+            <view class="card-actions">
+              <button wx:if="{{item.configuration}}" class="secondary-btn ui-motion-button" data-id="{{item.id}}" bindtap="openRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_f10a13b6e1}}</button>
+              <button wx:if="{{item.schedule}}" class="secondary-btn ui-motion-button" data-id="{{item.id}}" bindtap="openVenueSchedule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_391b522838}}</button>
+            </view>
+          </view>
         </view>
         <block wx:if="{{venues.length}}">
           <view class="list-item list-item-stacked" wx:for="{{venues}}" wx:key="id">
@@ -239,27 +245,27 @@
         </block>
         <block wx:if="{{rulesTab === 'booking'}}">
           <button class="secondary-btn rule-add-btn ui-motion-button" wx:if="{{authorizationEnforced ? actionCapabilities['venue.approvals.create'] : canApproveVenue}}" catchtap="addApprovalFlow" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">+ {{localeCopy.copy_1aba371667}}</button>
-          <view wx:if="{{!approvalFlows.length}}" class="empty-inline">{{localeCopy.copy_76c76a4d37}}</view>
+          <view wx:if="{{(!authorizationEnforced || actionCapabilities['venue.approvals.read']) && !approvalFlows.length}}" class="empty-inline">{{localeCopy.copy_76c76a4d37}}</view>
           <block wx:if="{{approvalFlows.length}}">
             <view class="list-item list-item-stacked flow-meta-card ui-motion-card" wx:for="{{approvalFlows}}" wx:key="id">
               <view class="list-main">
                 <view class="list-name">{{item.name || localeCopy.copy_890d7f4874}}</view>
-                <view class="info-chip">{{item.is_active === 0 ? flowManagementCopy.disabled : flowManagementCopy.enabled}}</view>
-                <view class="list-desc">{{item.steps.length}} {{localeCopy.copy_310413445b}} <text class="info-chip" wx:if="{{!item.steps.length}}">{{flowManagementCopy.incomplete}}</text></view>
+                <view wx:if="{{item.is_active != null}}" class="info-chip">{{item.is_active === 0 ? flowManagementCopy.disabled : flowManagementCopy.enabled}}</view>
+                <view wx:if="{{item.readableSteps}}" class="list-desc">{{item.steps.length}} {{localeCopy.copy_310413445b}} <text class="info-chip" wx:if="{{!item.steps.length}}">{{flowManagementCopy.incomplete}}</text></view>
                 <view class="flow-switch-row" catchtap="noop">
-                  <view class="flow-switch-item"><text class="flow-switch-label">{{localeCopy.copy_6f806672e2}}</text><switch checked="{{item.allow_user_select === 1}}" data-id="{{item.id}}" data-field="allow_user_select" disabled="{{authorizationEnforced ? !actionCapabilities['venue.approvals.update'] : !canApproveVenue}}" bindchange="toggleApprovalFlowFlag" color="#3b82f6" /></view>
-                  <view class="flow-switch-item"><text class="flow-switch-label">{{localeCopy.allowDesignateFirstApprover}}</text><switch checked="{{item.allow_designate_first === 1}}" data-id="{{item.id}}" data-field="allow_designate_first" disabled="{{authorizationEnforced ? !actionCapabilities['venue.approvals.update'] : !canApproveVenue}}" bindchange="toggleApprovalFlowFlag" color="#3b82f6" /></view>
-                  <view class="flow-switch-item"><text class="flow-switch-label">{{localeCopy.allowDesignateNextApprover}}</text><switch checked="{{item.allow_designate_next === 1}}" data-id="{{item.id}}" data-field="allow_designate_next" disabled="{{authorizationEnforced ? !actionCapabilities['venue.approvals.update'] : !canApproveVenue}}" bindchange="toggleApprovalFlowFlag" color="#3b82f6" /></view>
+                  <view wx:if="{{!authorizationEnforced || item.allow_user_select != null}}" class="flow-switch-item"><text class="flow-switch-label">{{localeCopy.copy_6f806672e2}}</text><switch checked="{{item.allow_user_select === 1}}" data-id="{{item.id}}" data-field="allow_user_select" disabled="{{authorizationEnforced ? (!actionCapabilities['venue.approvals.update'] || !item.completeMetadata) : !canApproveVenue}}" bindchange="toggleApprovalFlowFlag" color="#3b82f6" /></view>
+                  <view wx:if="{{!authorizationEnforced || item.allow_designate_first != null}}" class="flow-switch-item"><text class="flow-switch-label">{{localeCopy.allowDesignateFirstApprover}}</text><switch checked="{{item.allow_designate_first === 1}}" data-id="{{item.id}}" data-field="allow_designate_first" disabled="{{authorizationEnforced ? (!actionCapabilities['venue.approvals.update'] || !item.completeMetadata) : !canApproveVenue}}" bindchange="toggleApprovalFlowFlag" color="#3b82f6" /></view>
+                  <view wx:if="{{!authorizationEnforced || item.allow_designate_next != null}}" class="flow-switch-item"><text class="flow-switch-label">{{localeCopy.allowDesignateNextApprover}}</text><switch checked="{{item.allow_designate_next === 1}}" data-id="{{item.id}}" data-field="allow_designate_next" disabled="{{authorizationEnforced ? (!actionCapabilities['venue.approvals.update'] || !item.completeMetadata) : !canApproveVenue}}" bindchange="toggleApprovalFlowFlag" color="#3b82f6" /></view>
                 </view>
               </view>
               <view class="inline-actions list-actions-below card-actions">
-                <text class="link ui-motion-chip" data-id="{{item.id}}" wx:if="{{authorizationEnforced ? actionCapabilities['venue.approvals.update'] : canApproveVenue}}" catchtap="openApprovalFlowStepEditor">{{localeCopy.copy_e040ae3016}}</text>
+                <text class="link ui-motion-chip" data-id="{{item.id}}" wx:if="{{authorizationEnforced ? (actionCapabilities['venue.approvals.update'] && item.readableSteps && item.completeMetadata && item.is_active != null) : canApproveVenue}}" catchtap="openApprovalFlowStepEditor">{{localeCopy.copy_e040ae3016}}</text>
                 <text class="link danger ui-motion-chip" data-id="{{item.id}}" wx:if="{{authorizationEnforced ? actionCapabilities['venue.approvals.delete'] : canDeleteVenueRules}}" catchtap="deleteApprovalFlow">{{localeCopy.copy_acc985cabc}}</text>
               </view>
             </view>
           </block>
           <button class="primary-btn rule-add-btn ui-motion-button" wx:if="{{authorizationEnforced ? actionCapabilities['venue.bookingRules.create'] : canApproveVenue}}" data-type="booking" catchtap="openRuleEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c013e80e7c}}</button>
-          <view wx:if="{{!bookingRules.length}}" class="empty-inline">{{localeCopy.copy_62a9684fcb}}</view>
+          <view wx:if="{{(!authorizationEnforced || actionCapabilities['venue.bookingRules.read']) && !bookingRules.length}}" class="empty-inline">{{localeCopy.copy_62a9684fcb}}</view>
           <block wx:if="{{bookingRules.length}}">
             <view class="list-item list-item-stacked" wx:for="{{bookingRules}}" wx:key="id">
               <view class="list-main">

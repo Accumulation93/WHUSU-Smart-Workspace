@@ -61,6 +61,7 @@ module.exports = async function scoringRuleAuthorizationCases(pool, orgStorage, 
     await pool.query("INSERT INTO pub_view_rule_clauses(id,rule_id,scope_type,target_identity_id,org_id) VALUES ('published-other-clause','published-other-view','all_people','audit-identity','submit-a')");
     assert.equal((await post('getCurrentScoreActivity')).activity.id, 'rule-activity');
     assert.deepEqual((await post('listScoreActivities')).list, []);
+    assert.deepEqual((await post('listScorePublicationActivities')).list, []);
     assert.equal((await post('getLatestPublishedScoreActivity')).activity.id, 'published-activity');
     assert.equal((await post('saveScoreActivity', { name: '不应新增' })).status, 'forbidden');
     const hideDescription = await model.saveRule({ name: '隐藏活动说明', policy: { ...policy, effect: 'deny',
@@ -79,11 +80,16 @@ module.exports = async function scoringRuleAuthorizationCases(pool, orgStorage, 
     await revoke(blockPublished);
     assert.equal((await post('saveResultPublication', { activityId: 'rule-activity', isPublished: false })).status, 'forbidden');
     const createPublication = await grant('创建公示配置', ['scoring.publications.create']);
+    assert.deepEqual((await post('listScorePublicationActivities')).list, [
+      { id: 'rule-activity', name: '规则授权活动', canOpen: false, canCreate: true, canExport: false }
+    ]);
+    assert.deepEqual((await post('listScoreActivities')).list, []);
     assert.equal((await post('getMeritListSummary', { activityId: 'rule-activity' })).status, 'forbidden');
     assert.equal((await post('exportMeritListSummary', { activityId: 'rule-activity' })).status, 'forbidden');
     assert.equal((await post('getResultPublication', { activityId: 'rule-activity' })).publication, null);
     const publication = await post('saveResultPublication', { activityId: 'rule-activity', isPublished: false });
     assert.equal(publication.status, 'success', JSON.stringify(publication));
+    assert.deepEqual((await post('listScorePublicationActivities')).list, []);
     const publicationId = publication.publication.id;
     assert.equal((await post('getResultPublication', { activityId: 'rule-activity' })).status, 'forbidden');
     const readPublication = await grant('读取指定公示', ['scoring.publications.read'], [{ kind: 'records', ids: [publicationId] }]);
@@ -94,11 +100,21 @@ module.exports = async function scoringRuleAuthorizationCases(pool, orgStorage, 
     assert.equal(readBack.status, 'success', JSON.stringify(readBack));
     assert.equal(readBack.publication.id, publicationId);
     assert.equal(readBack.publication.isPublished, false);
+    assert.deepEqual(readBack.access, { update: false, delete: false, export: false });
     assert.equal((await post('getResultPublication', { activityId: 'published-activity' })).status, 'forbidden');
     assert.equal((await pool.query('SELECT is_published FROM result_publications WHERE id=?', [publicationId]))[0][0].is_published, 0);
     assert.equal((await post('saveResultPublication', { activityId: 'rule-activity', isPublished: true })).status, 'forbidden');
+    for (const kind of ['View', 'Merit']) {
+      assert.equal((await post('generatePub' + kind + 'Rules', { publicationId })).status, 'forbidden');
+      assert.equal((await post('savePub' + kind + 'Rule', { publicationId })).status, 'forbidden');
+    }
+    await revoke(createPublication);
     const updatePublication = await grant('维护指定公示', ['scoring.publications.update'], [{ kind: 'records', ids: [publicationId] }]);
     const deletePublicationRules = await grant('删除指定公示规则', ['scoring.publications.delete'], [{ kind: 'records', ids: [publicationId] }]);
+    const readOtherPublication = await grant('仅查看另一份公示', ['scoring.publications.read'], [{ kind: 'records', ids: ['published-result'] }]);
+    assert.deepEqual((await post('getResultPublication', { activityId: 'rule-activity' })).access, { update: true, delete: true, export: false });
+    assert.deepEqual((await post('getResultPublication', { activityId: 'published-activity' })).access, { update: false, delete: false, export: false });
+    await revoke(readOtherPublication);
     for (const kind of ['View', 'Merit']) {
       const ruleForm = { publicationId, granteeDepartmentId: 'audit-department', granteeIdentityId: 'audit-identity',
         clauses: [{ scopeType: 'same_department_identity', targetIdentityId: 'audit-identity', displayMode: 'score', quotaLimit: 1 }] };
@@ -228,6 +244,7 @@ module.exports = async function scoringRuleAuthorizationCases(pool, orgStorage, 
         assert(!JSON.stringify(summary).includes('PRIVATE-SUMMARY-STUDENT'));
         assert.equal((await post('exportMeritListSummary', { activityId: 'rule-activity' })).status, 'forbidden');
         const exportPermission = await grant('导出指定公示', ['scoring.publications.export'], [{ kind: 'records', ids: [publicationId] }]);
+        assert.equal((await post('getResultPublication', { activityId: 'rule-activity' })).access.export, true);
         const exported = await post('exportMeritListSummary', { activityId: 'rule-activity' });
         assert.equal(exported.status, 'success', JSON.stringify(exported));
         assert.equal(exported.rowCount, 1);
@@ -240,6 +257,7 @@ module.exports = async function scoringRuleAuthorizationCases(pool, orgStorage, 
         assert.equal((await post('getMeritListSummary', { activityId: 'published-activity' })).status, 'forbidden');
         assert.equal((await post('exportMeritListSummary', { activityId: 'published-activity' })).status, 'forbidden');
         const denyExport = await grant('禁止指定公示导出', ['scoring.publications.export'], [{ kind: 'records', ids: [publicationId] }], 'deny');
+        assert.equal((await post('getResultPublication', { activityId: 'rule-activity' })).access.export, false);
         assert.equal((await post('exportMeritListSummary', { activityId: 'rule-activity' })).status, 'forbidden');
         assert.equal((await post('getMeritListSummary', { activityId: 'rule-activity' })).status, 'success');
         await revoke(denyExport);
@@ -273,6 +291,7 @@ module.exports = async function scoringRuleAuthorizationCases(pool, orgStorage, 
     assert.equal(storedPublication.is_published, 1);
     assert.equal(storedPublication.published_by, reference.personId);
     const publicationBlock = await grant('禁止公示修改', ['scoring.publications.update'], [{ kind: 'records', ids: [publicationId] }], 'deny');
+    assert.equal((await post('getResultPublication', { activityId: 'rule-activity' })).access.update, false);
     assert.equal((await post('saveResultPublication', { activityId: 'rule-activity', isPublished: false })).status, 'forbidden');
     assert.equal((await pool.query('SELECT is_published FROM result_publications WHERE id=?', [publicationId]))[0][0].is_published, 1);
     await revoke(publicationBlock);
@@ -292,9 +311,15 @@ module.exports = async function scoringRuleAuthorizationCases(pool, orgStorage, 
     assert.equal((await post('getResultPublication', { activityId: 'rule-activity' })).publication.isPublished, true);
     await revoke(updatePublication);
     await revoke(readPublication);
-    await revoke(createPublication);
+    const exportOnly = await grant('只导出该活动公示', ['scoring.publications.export'], [{ kind: 'records', ids: [publicationId] }]);
+    assert.deepEqual((await post('listScorePublicationActivities')).list, [
+      { id: 'rule-activity', name: '规则授权活动', canOpen: false, canCreate: false, canExport: true }
+    ]);
+    assert.deepEqual((await post('listScoreActivities')).list, []);
+    assert.equal((await post('exportMeritListSummary', { activityId: 'rule-activity' })).status, 'success');
     assert.equal((await post('getMeritListSummary', { activityId: 'rule-activity' })).status, 'forbidden');
     assert.equal((await post('getResultPublication', { activityId: 'rule-activity' })).status, 'forbidden');
+    await revoke(exportOnly);
     assert.equal((await post('saveResultPublication', { activityId: 'rule-activity', isPublished: true })).status, 'forbidden');
     assert.equal((await post('saveRateRule', form)).status, 'forbidden');
     const create = await grant('允许新增评分规则', ['scoring.rules.create']);
