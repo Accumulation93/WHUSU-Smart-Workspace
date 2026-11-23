@@ -191,7 +191,8 @@ for (const resource of RESOURCES) {
       legacy, legacyKeys: Object.freeze(LEGACY_ACTIONS[key] || (legacy ? [legacy] : [])),
       governance: Boolean(resource.governance), delegation: Boolean(resource.delegation),
       classification: specialCategory ? 'special' : 'general', specialCategory,
-      requiresExplicitFields: Object.freeze(resource.adminOnlyFields || []),
+      // 统一授权下，人事成员查看权包含获准范围内的基础学号；其他操作仍按各自字段授权判断。
+      requiresExplicitFields: Object.freeze(key === 'hr.people.read' ? [] : resource.adminOnlyFields || []),
       systemControlled: resource.key === 'authorization.rules' || resource.key === 'authorization.delegations'
         || resource.key === 'authorization.schemes' && !['share', 'receive'].includes(action),
       profileFieldKeys: action !== 'delete' && ['hr.people', 'hr.profileReview'].includes(resource.key),

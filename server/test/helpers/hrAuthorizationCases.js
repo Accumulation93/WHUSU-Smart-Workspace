@@ -348,6 +348,27 @@ module.exports = async function hrAuthorizationCases(db) {
     // 使用和新页面相同的岗位请求。审核时只信服务端保存的提交者岗位，退出浏览器不影响审批。
     managementContext = false;
     sourceContext = false;
+    const scopedReader = { ...policy, id: 'hr-student-id-reader', fields: null,
+      scopes: [{ kind: 'records', ids: ['hr-target-row'] }] };
+    await db.query('INSERT INTO authorization_rules (id,org_id,name,policy_json) VALUES (?,?,?,?)',
+      [scopedReader.id, scopedReader.organizationId, '人事学号读取测试', JSON.stringify(scopedReader)]);
+    const modernDirectory = await call('listHrProfileAdminData');
+    assert.equal(modernDirectory.data.status, 'success');
+    assert.deepEqual(modernDirectory.data.rows.map(row => [row.id, row.studentId]), [['hr-target-row', 'HR-T']]);
+    assert.deepEqual((await call('listHrInfo')).data.list.map(row => [row.id, row.studentId]), [['hr-target-row', 'HR-T']]);
+    assert.deepEqual((await call('listHrGovernance')).data.rows.map(row => [row.id, row.studentId]), [['hr-target-row', 'HR-T']]);
+    const modernDetail = await call('getHrPersonDetail', { hrId: 'hr-target-row' });
+    assert.equal(modernDetail.data.profile?.studentId, 'HR-T');
+    assert.equal((await call('getHrPersonDetail', { hrId: 'hr-actor-row' })).code, 403);
+    assert.equal((await call('getHrPersonDetail', { hrId: 'hr-source-operator' })).code, 403);
+    const scopedDeny = { ...scopedReader, id: 'hr-student-id-deny', effect: 'deny', fields: ['studentId'] };
+    await db.query('INSERT INTO authorization_rules (id,org_id,name,policy_json) VALUES (?,?,?,?)',
+      [scopedDeny.id, scopedDeny.organizationId, '人事学号禁止测试', JSON.stringify(scopedDeny)]);
+    const deniedDirectory = await call('listHrProfileAdminData');
+    assert.deepEqual(deniedDirectory.data.rows.map(row => [row.id, row.studentId]), [['hr-target-row', undefined]]);
+    await db.query('DELETE FROM authorization_rules WHERE org_id=? AND id IN (?)',
+      [scopedReader.organizationId, [scopedReader.id, scopedDeny.id]]);
+    console.log('人事成员学号 HTTP 专项：普通工作岗位目录、合并目录和成员详情可见，跨范围及字段禁止通过。');
     const [fields] = await db.query("SELECT f.id FROM org_hr_profile_template_snapshot_fields f JOIN org_hr_profile_template_snapshots s ON s.id=f.snapshot_id WHERE s.org_id='hr-auth' AND f.is_active=1");
     const input = { sourceOrgId:'hr-source',personIds:['hr-target'],
       fieldActions:[{sourceFieldId:'hr-source-phone',action:'copy',targetTemplateFieldId:fields[0].id,conflictPolicy:'overwrite'}] };

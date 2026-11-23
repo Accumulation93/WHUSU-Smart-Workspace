@@ -90,7 +90,7 @@ function basics(member) {
   const { row, fields, assignments } = member;
   const result = { id: row.id };
   if (fields.has('name')) result.name = row.name || '';
-  // 仅从人事专用入口消耗已明确批准的学号字段授权。
+  // 人事专用入口只返回当前操作及记录范围已允许的学号。
   if (fields.has('studentId')) result.studentId = row.student_id || '';
   if (fields.has('membershipStatus')) Object.assign(result, { membershipStatus: row.membership_status,
     joinedAt: row.joined_at, leftAt: row.left_at });

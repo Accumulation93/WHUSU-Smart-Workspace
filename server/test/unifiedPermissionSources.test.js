@@ -39,16 +39,24 @@ test('general sensitive account actions match authorized people while special go
   assert.equal(evaluate({ ...payload, actor: { ...old, isSuper: true }, resource, capability: 'auth.persons.merge', policies: [] }).allowed, true);
 });
 
-test('snapshot legacy grants and explicitly authorized protected fields stay distinct', () => {
+test('scoped member readers receive student IDs while explicit field and record restrictions still apply', () => {
   const member = actor('chosen', { legacyAdminGrantIds: ['old-admin'] });
   const legacy = policy('legacy', [{ kind: 'adminGrants', ids: ['old-admin'] }], 'hr.people.read');
-  const ordinary = policy('general', assignments('chosen', 'future'), 'hr.people.read');
-  const request = { resource: { type: 'hr.people', organizationId }, capability: 'hr.people.read', catalog: CATALOG,
+  const ordinary = policy('general', assignments('chosen', 'future'), 'hr.people.read', [{ kind: 'records', ids: ['target'] }]);
+  const request = { resource: { id: 'target', type: 'hr.people', organizationId }, capability: 'hr.people.read', catalog: CATALOG,
     now, businessAllowed: true, requestedFields: ['studentId'] };
   assert.equal(evaluate({ ...request, actor: member, policies: [legacy, ordinary] }).allowed, true);
-  assert.equal(evaluate({ ...request, actor: actor('future'), policies: [legacy, ordinary] }).allowed, false);
-  const explicit = { ...ordinary, fields: ['studentId'] };
-  assert.equal(evaluate({ ...request, actor: actor('future'), policies: [explicit] }).allowed, true);
+  const scoped = { ...request, actor: actor('future'), policies: [legacy, ordinary] };
+  assert.equal(evaluate(scoped).allowed, true);
+  assert.equal(evaluate({ ...scoped, resource: { ...request.resource, id: 'outside' } }).allowed, false);
+  assert.equal(evaluate({ ...scoped, resource: { ...request.resource, organizationId: 'other-org' } }).allowed, false);
+  assert.equal(evaluate({ ...scoped, actor: actor('future', { unifiedAuthorization: false }) }).allowed, false);
+  assert.equal(evaluate({ ...scoped, policies: [{ ...ordinary, fields: ['name'] }] }).allowed, false);
+  const deny = { ...ordinary, id: 'deny', effect: 'deny', fields: ['studentId'] };
+  assert.equal(evaluate({ ...scoped, policies: [ordinary, deny] }).allowed, false);
+  const separateOperation = 'hr.people.export';
+  assert.equal(evaluate({ ...scoped, capability: separateOperation,
+    policies: [{ ...ordinary, capabilities: [separateOperation] }] }).allowed, false);
 });
 
 test('delegate lineage checks recipient, issuer and scope and revokes just its own rules', () => {
