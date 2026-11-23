@@ -1,7 +1,16 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { auditAssignmentLabel, isAuditAdministrativeContext } from '../src/runtime/auditAssignmentLabel.js';
-import { presentAuditStep } from '../src/shared/auditStepView.js';
+import { presentAuditStep, presentAuditSubmitter } from '../src/shared/auditStepView.js';
+
+test('a resubmission snapshot never takes the place of a missing original role', () => {
+  const submission = { submittedPersonId: 'current', submittedBy: 'current-hr',
+    submittedContextSnapshot: { assignmentId: 'role-1', assignmentLabel: 'Current role label' } };
+  const original = { eventType: 'submit', operatorName: 'Original name', operatorPersonId: 'original' };
+  const view = presentAuditSubmitter(submission, [original, { eventType: 'resubmit' }]);
+  assert.deepEqual(view, { name: 'Original name', personId: 'original', hrId: '', snapshot: null });
+  assert.equal(presentAuditSubmitter(submission, [original]).snapshot, submission.submittedContextSnapshot);
+});
 
 test('historical event fields remain visible without changing the snapshot', () => {
   const snapshot = Object.freeze({ identity: 'Chair', department: 'Committee', workGroup: '', role: 'user' });

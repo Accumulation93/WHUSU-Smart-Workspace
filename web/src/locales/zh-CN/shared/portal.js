@@ -38,7 +38,7 @@ const sharedModule = Object.freeze({
     superAdmin: '超级管理员',
     user: '普通用户',
     admin: '普通管理员',
-    unset: '未设置岗位',
+    unset: '未设置工作角色',
     welcome: '欢迎使用'
   }),
   messages: Object.freeze({

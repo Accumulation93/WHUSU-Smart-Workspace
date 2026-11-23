@@ -13,14 +13,14 @@
       <div class="panel-head">
         <div class="stack-tight">
           <span class="section-title">{{ copy.venue.historyTitle }}</span>
-          <span class="panel-note">{{ copy.venue.emptyHistory }}</span>
+          <span class="panel-note">{{ historyCopy.copy_0804df041f }}</span>
         </div>
       </div>
       <p v-if="loadNotice" class="notice-line" role="alert">{{ loadNotice }}</p>
       <button v-if="loadNotice" type="button" class="btn btn-secondary" @click="load">{{ copy.common.retry }}</button>
       <div v-if="loading" class="empty-state"><AppLoading :text="copy.common.loading" /></div>
-      <div v-else-if="!loadNotice && !items.length" class="empty-state">{{ copy.venue.emptyBookings }}</div>
-      <div v-else class="list">
+      <div v-else-if="!loadNotice && !items.length" class="empty-state">{{ historyCopy.copy_86accadcca }}</div>
+      <div v-else-if="items.length" class="list">
         <div v-for="item in items" :key="item.id" class="list-row" role="button" tabindex="0" :aria-label="item.title || item.venueName" @click="openDetail(item)" @keydown.enter.self="openDetail(item)" @keydown.space.self.prevent="openDetail(item)">
           <div class="list-row-main stack-tight">
             <span class="list-row-title break-all">{{ item.title || item.venueName }}</span>
@@ -28,7 +28,7 @@
               <span v-if="item.venueName" class="chip chip-sky">{{ item.venueName }}</span>
               <span class="chip chip-blue">{{ venueStatusLabel(item) }}</span>
               <span v-if="item.applicantName || item.submitterName" class="chip chip-sky">
-                {{ copy.audit.submitterLabel }} <PersonLink :name="item.applicantName || item.submitterName" :assignment-id="item.applicantAssignmentId" />
+                {{ bookingCopy.copy_ce30bda5a2 }} <PersonLink :name="item.applicantName || item.submitterName" :assignment-id="item.applicantAssignmentId" />
               </span>
             </span>
             <span class="muted">{{ timeRange(item) }}</span>
@@ -45,6 +45,8 @@ import { useRouter } from 'vue-router';
 import VenueNav from '@/components/VenueNav.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
+import historyCopy from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueApprovalHistory/venueApprovalHistory.js';
+import bookingCopy from '@/locales/zh-CN/shared/generated/subpackages/venue/components/venueBookingDetail/venueBookingDetail.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { formatListTime, formatTimeRange } from '@/runtime/dateTime.js';
 import { roleLabelOf, session } from '@/runtime/session.js';

@@ -2,11 +2,11 @@
 'use strict';
 
 const sharedModule = Object.freeze({
-  assignmentNatureStaff: '本会岗位',
-  assignmentNatureLiaison: '学院对接岗位',
-  assignmentNatureOther: '其他岗位',
+  assignmentNatureStaff: '本会工作角色',
+  assignmentNatureLiaison: '学院对接工作角色',
+  assignmentNatureOther: '其他工作角色',
   cancelSwitch: '暂不切换',
-  currentAssignmentRequired: '当前没有可用于评分的岗位',
+  currentAssignmentRequired: '当前没有可评分的工作角色',
   historicalReadOnly: '这条评分暂时无法修改，请联系管理员',
   historicalReadOnlyShort: '暂时无法修改',
   historicalReadOnlyTap: '这条评分暂时无法修改，请联系管理员',
@@ -19,8 +19,8 @@ const sharedModule = Object.freeze({
   loadFailedTitle: '评分内容暂未载入',
   loadFailedDescription: '评分内容未能加载，请重试',
   retryLoad: '重新加载',
-  switchWorkContext: '切换岗位',
-  workContextTitle: '需要切换岗位',
+  switchWorkContext: '切换工作角色',
+  workContextTitle: '需要切换工作角色',
   copy_0c1a3a9fd9: "考核评分",
   copy_0e293b9410: '超出评分范围',
   copy_0e686e89bb: "最低分：",
@@ -63,7 +63,7 @@ const sharedModule = Object.freeze({
   copy_ef8b7ffa9b: "第",
   copy_f35088610d: '请填写分值',
   copy_fa906e8178: "展开键盘",
-  historicalAssignmentUnavailable: '历史岗位未记录',
+  historicalAssignmentUnavailable: '未记录评分时的工作角色',
   navigationTitle: "考核评分 - WHUSU智慧工作台"
 });
 

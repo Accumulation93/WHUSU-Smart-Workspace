@@ -24,7 +24,7 @@
       <div class="panel-head"><span class="list-row-title break-all">{{ row.title || ui.copy_9639901862 }}</span><span class="chip chip-blue">{{ venueStatusLabel(row) }}</span></div>
       <span class="muted break-all">{{ row.venueName }}<template v-if="row.venueLocation"> · {{ row.venueLocation }}</template></span>
       <span class="muted break-all"><PersonLink :name="row.creatorName || row.userName" :assignment-id="row.creatorAssignmentId" :hr-id="row.userHrId" /> · {{ row.creatorLabel || ui.copy_8b191a40d9 }}<template v-if="row.userDept"> · {{ row.userDept }}</template></span>
-      <span v-if="row.creatorAssignmentLabel" class="chip chip-sky">{{ ui.bookingAssignment }} · {{ row.creatorAssignmentLabel }}</span>
+      <span v-if="row.creatorSubmissionText" class="muted break-all">{{ row.creatorSubmissionText }}</span>
       <span class="muted">{{ venueTimeRange(row) }}</span>
       <span v-if="row.description" class="muted break-all">{{ row.description }}</span>
       <span v-if="row.approvalComment" class="muted break-all">{{ ui.copy_3b3b392755 }}{{ row.approvalComment }}</span>

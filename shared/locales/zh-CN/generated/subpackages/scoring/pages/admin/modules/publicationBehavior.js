@@ -36,7 +36,7 @@ module.exports = Object.freeze({
   copy_813300cf46: `已删除 {0} 个类别`,
   copy_9662ceba48: '生成失败，请重试',
   copy_9a2854d17d: '全部成员',
-  copy_9a4a6e8793: '查看本人考核结果',
+  copy_9a4a6e8793: '查看者所用工作角色',
   copy_9d5c7b0e2b: `已更新 {0} 个类别的授权`,
   copy_c5b6490a3f: '不合格',
   copy_c5ed87fa11: '请先选择评分活动',

@@ -2,7 +2,7 @@
 'use strict';
 
 const sharedModule = Object.freeze({
-  bookingAssignment: '提交岗位',
+  bookingAssignment: '提交时的工作角色',
   bookingDetailTitle: '借用详情',
   bookingNotFound: '未找到这条借用记录，请刷新列表后查看。',
   cancelInUse: '借用已开始。如需提前结束，请选择“结束使用”。',

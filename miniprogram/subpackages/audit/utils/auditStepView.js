@@ -1,4 +1,20 @@
 'use strict';
+function presentAuditSubmitter(submission, events, unknownName) {
+  const records = events || [];
+  const firstSubmission = records.find(event => event.eventType === 'submit') || {};
+  const resubmitted = records.some(event => event.eventType === 'resubmit');
+  const [eventName, submissionName] = [firstSubmission.operatorName, submission.submitterName]
+    .map(value => typeof value === 'string' && value.trim() !== unknownName ? value.trim() : '');
+  const eventPersonId = eventName && firstSubmission.operatorPersonId;
+  const submissionPersonId = submission.submittedPersonId || '';
+  return {
+    name: eventName || submissionName,
+    hrId: eventPersonId && eventPersonId !== submissionPersonId ? '' : submission.submittedBy || '',
+    personId: eventPersonId || submissionPersonId,
+    snapshot: firstSubmission.operatorContextSnapshot || (!resubmitted && submission.submittedContextSnapshot) || null
+  };
+}
+
 // 展示只能解释原始事实，不能按序号猜测已完成，不能用候选人替代实际经办人。
 function presentAuditStep(submission, step, events, latestRound) {
   const round = Number(step.round || 1);
@@ -94,5 +110,5 @@ function groupAuditRounds(submission, steps, events) {
   });
   return result;
 }
-module.exports = { presentAuditStep, signingStepCurrent, groupAuditRounds,
+module.exports = { presentAuditSubmitter, presentAuditStep, signingStepCurrent, groupAuditRounds,
   materialsOfAuditDraft, auditMaterialInput, directAuditStampChoices, missingAuditMaterial };

@@ -21,13 +21,17 @@ function createVenueFactsView(copy, statusCopy, occupiedText) {
     const facts = item.displayFacts || {};
     const anonymous = item.visibility === 'occupancy_only' || item.visibility === 'busy' || item.creatorType === 'anonymous';
     const name = anonymous ? '' : facts.creatorName || copy.nameMissing;
-    const assignment = !anonymous && facts.creatorName && facts.creatorType !== 'admin'
-      ? facts.assignmentLabel || copy.assignmentMissing : '';
+    const showsAssignment = !anonymous && facts.creatorName && facts.creatorType !== 'admin';
+    const label = typeof facts.assignmentLabel === 'string' ? facts.assignmentLabel.trim() : '';
+    const assignment = showsAssignment ? label || copy.assignmentMissing : '';
+    const creatorSubmissionText = showsAssignment
+      ? label ? copy.submittedWithAssignment(label) : copy.submissionRoleMissing
+      : '';
     const result = Object.assign({}, item, {
       creatorName: name, userName: name, applicantName: name,
       creatorLabel: anonymous ? occupiedText : facts.creatorType === 'admin' ? copy.creatorAdmin
         : facts.creatorType === 'user' ? copy.creatorUser : copy.creatorUnknown,
-      creatorAssignmentLabel: assignment, applicantAssignmentLabel: assignment,
+      creatorAssignmentLabel: assignment, applicantAssignmentLabel: assignment, creatorSubmissionText,
       venueName: facts.venueName || copy.venueNameMissing,
       myActionLabel: item.myAction === 'rejected' ? statusCopy.copy_5d5af942c5
         : item.myAction === 'approved' ? statusCopy.copy_ce171a2581 : statusCopy.copy_4cfdf3f638

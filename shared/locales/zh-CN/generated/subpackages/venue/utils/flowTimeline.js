@@ -1,7 +1,7 @@
 'use strict';
 
 module.exports = Object.freeze({
-  historyAssignmentMissing: '岗位未记录',
+  historyAssignmentMissing: '未记录处理时的工作角色',
   automaticApproved: '自动通过',
   copy_1d12af72f6: '等待审批',
   copy_2d8cba342c: '已通过',

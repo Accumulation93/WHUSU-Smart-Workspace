@@ -21,8 +21,8 @@
       <p v-if="loadNotice" class="notice-line">{{ loadNotice }}</p>
 
       <div v-if="loading" class="empty-state"><AppLoading :text="copy.common.loading" /></div>
-      <div v-else-if="!rows.length" class="empty-state">{{ copy.audit.emptyPending }}</div>
-      <div v-else class="list">
+      <div v-else-if="!loadNotice && !rows.length" class="empty-state">{{ copy.audit.emptyPending }}</div>
+      <div v-else-if="rows.length" class="list">
         <div v-for="row in rows" :key="row.id" class="list-row">
           <div class="list-row-main">
             <div role="button" class="audit-row-open" tabindex="0" @keydown.enter.self.prevent="$event.currentTarget.click()" @keydown.space.self.prevent="$event.currentTarget.click()" @click="openDetail(row.submissionId)">
@@ -50,8 +50,9 @@ import { useRouter } from 'vue-router';
 import AuditNav from '@/components/AuditNav.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
-import { callApi, errorText } from '@/runtime/api.js';
-import { detailTimeText, formatTemplate } from '@/runtime/audit.js';
+import nativeCopy from '@/locales/zh-CN/shared/generated/subpackages/audit/pages/submissionDetail/submissionDetail.js';
+import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
+import { detailTimeText } from '@/runtime/audit.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
 
 const router = useRouter();
@@ -77,8 +78,8 @@ function goWorkRole() {
 }
 
 function stepText(row) {
-  const order = Number(row.sortOrder || 0) + 1;
-  return formatTemplate(copy.audit.stepProgress, [order, order]);
+  const order = Number(row.sortOrder);
+  return Number.isInteger(order) && order > 0 ? nativeCopy.stepNumber(order) : nativeCopy.copy_265568fe85;
 }
 
 function isSignatureStep(row) {
@@ -89,7 +90,7 @@ async function load() {
   loading.value = true;
   loadNotice.value = '';
   try {
-    const result = await callApi('listPendingApprovals', {});
+    const result = requireSuccess(await callApi('listPendingApprovals', {}), copy.audit.loadFailed);
     rows.value = Array.isArray(result.pending) ? result.pending : [];
   } catch (error) {
     rows.value = [];

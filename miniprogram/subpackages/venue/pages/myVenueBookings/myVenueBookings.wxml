@@ -20,7 +20,10 @@
         </view>
         <view class="booking-meta">{{item.venueName}} · {{item.venueLocation || '-'}}</view>
         <view class="booking-meta">{{item.timeRangeText}}</view>
-        <view class="booking-assignment-chip" wx:if="{{item._creatorAssignmentText}}">{{localeCopy.bookingAssignment}} · {{item._creatorAssignmentText}}</view>
+        <view wx:if="{{item.creatorSubmissionText}}" class="booking-meta">
+          <view wx:if="{{item.creatorName}}">{{borrowerLabel}} {{item.creatorName}}</view>
+          <view class="booking-assignment-chip">{{item.creatorSubmissionText}}</view>
+        </view>
         <view class="booking-meta" wx:if="{{item.description}}">{{item.description}}</view>
         <view class="booking-meta" wx:if="{{item.approvalComment}}">{{localeCopy.copy_3b3b392755}}{{item.approvalComment}}</view>
         <view class="booking-actions" wx:if="{{item._canCancel || item._canEnd}}">

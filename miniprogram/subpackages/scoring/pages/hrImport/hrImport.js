@@ -98,7 +98,8 @@ Page({
       const used = new Set();
       const mappings = file.headers.map((header, index) => {
         const normalized = normalizedHeader(header);
-        const aliasKey = BASIC.find(key => (copy.headerAliases[key] || [copy[key]]).some(label => normalizedHeader(label) === normalized));
+        const aliasKey = BASIC.find(key => [copy[key]].concat(copy.headerAliases[key] || [])
+          .some(label => normalizedHeader(label) === normalized));
         let selectedIndex = this._mappingOptions.findIndex(item => item.key && !used.has(item.key)
           && (aliasKey ? item.key === aliasKey : normalizedHeader(item.label) === normalized));
         if (selectedIndex < 0) selectedIndex = 0;

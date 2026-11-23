@@ -75,6 +75,17 @@ async function main() {
     aliases.changeSession(); aliases.page._active = false; aliases.page.scrollToSection('#import-issue-list');
     assert.equal(aliases.scrolls.length, 1);
   }
+  const oldHeaders = ['岗位性质', '岗位识别码'];
+  assert.notEqual(copy.nature, oldHeaders[0]);
+  assert.notEqual(copy.assignmentId, oldHeaders[1]);
+  for (const headers of [[copy.nature, copy.assignmentId], oldHeaders]) {
+    const roles = createPage(async () => ({ status: 'success', fields: [] }), {
+      fileName: 'roles.xlsx', headers: [copy.name, copy.studentId, ...headers], rows: [['测试甲', '001', '分类甲', 'a-1']]
+    });
+    await roles.page.chooseFile();
+    assert.deepEqual(JSON.parse(JSON.stringify(roles.page.payload().basicMapping)),
+      { name: 0, studentId: 1, nature: 2, assignmentId: 3 });
+  }
   assert(wxml.includes('id="import-issue-list"'));
   assert(wxml.includes('wx:if="{{item.showComparison}}"'));
   console.log('PASS 表头别名匹配、按标题实测位置扣除导航栏滚动及离页拦截');

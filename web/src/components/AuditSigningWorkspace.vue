@@ -16,7 +16,7 @@
     </div>
     <div class="signing-stage" ref="stageRef">
       <canvas ref="surfaceRef" :aria-label="pad ? text.padTitle : text.title" @pointerdown="start" @pointermove="move" @pointerup="end" @pointercancel="cancelGesture" @lostpointercapture="end" @wheel.prevent="wheel"></canvas>
-      <div v-if="busy || notice" class="signing-stage-state"><AppLoading v-if="busy" :text="text.loading" /><p v-else>{{ notice }}</p><button v-if="notice && !busy" class="btn-quiet" @click="loadPage(page)">{{ text.retry }}</button></div>
+      <div v-if="busy || notice" class="signing-stage-state"><AppLoading v-if="busy" :text="text.loading" /><p v-else>{{ notice }}</p><button v-if="notice && !busy" class="btn-quiet" @click="loadPage(requestedPage)">{{ text.retry }}</button></div>
     <section v-if="toolsExpanded && mode !== 'browse'" class="signing-panel signing-toolpanel" :aria-label="text.tools">
     <div class="signing-panel-heading"><strong>{{ text.tools }}</strong><button class="btn-quiet signing-panel-close" :aria-label="text.closeTools" @click="toolsExpanded = false"><UiIcon name="x" /></button></div>
     <div class="signing-panel-body">
@@ -110,6 +110,7 @@ const penStyles=[{value:'hard',label:text.hardPen},{value:'soft',label:text.soft
 const widthOptions=[{value:0.15,label:text.widthHairline,height:1},{value:0.3,label:text.widthFine,height:2},
   {value:0.5,label:text.widthMedium,height:3},{value:0.8,label:text.widthBold,height:5},{value:1.2,label:text.widthHeavy,height:7}];
 const zoom=ref(1), page=ref(fileDraft.currentPage), totalPages=ref(1), busy=ref(true), notice=ref(''), exportNotice=ref(''), saving=ref(false), activeId=ref(props.active);
+let requestedPage = fileDraft.currentPage;
 const stageRef=ref(null), surfaceRef=ref(null), inkRef=ref(null);
 const channels=computed(()=>[1,3,5].map(offset=>parseInt(normalizeColor(color.value).slice(offset,offset+2),16)));
 const channelLabels=[text.redChannel,text.greenChannel,text.blueChannel];
@@ -160,6 +161,7 @@ async function pageData(number, options = {}) {
   return value;
 }
 async function loadPage(number){
+  requestedPage = number;
   const request=++sequence;busy.value=true;notice.value='';stroke=null;gesture=null;pointers.clear();
   try {
     const value=await pageData(number,{edge:2048});

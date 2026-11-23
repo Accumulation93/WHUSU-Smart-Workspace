@@ -16,6 +16,7 @@ test('场地六类读取入口保留业务事实，替换服务端系统说明�
     const row = view.response(name, { status: 'success', [key]: [record] })[key][0];
     assert.equal(row.creatorName, '张某'); assert.equal(row.creatorLabel, copy.creatorUser);
     assert.equal(row.creatorAssignmentLabel, '负责人 · 部门'); assert.equal(row.title, record.title);
+    assert.equal(row.creatorSubmissionText, '以『负责人 · 部门』提交');
     assert.equal(row.description, record.description); assert.equal(row.venueName, '会议室');
   }
   assert.equal(view.response('getVenueApprovalHistoryDetail', {status:'success',detail:record}).detail.userName, '张某');
@@ -28,6 +29,7 @@ test('未知和匿名记录不猜身份，姓名缺失不叠岗位提示，历�
     approvalProgress:{flowSteps:[{stepIndex:0,displayFacts:{stepName:''}}],events:[{displayFacts:{approverName:''}}]} });
   assert.equal(row.creatorName, copy.nameMissing); assert.equal(row.creatorLabel, copy.creatorUnknown);
   assert.equal(row.creatorAssignmentLabel, '');
+  assert.equal(row.creatorSubmissionText, '');
   assert.equal(row.approvalProgress.flowSteps[0].stepName, copy.defaultStepName(1));
   assert.equal(row.approvalProgress.flowSteps[0].approverName, undefined);
   assert.equal(row.approvalProgress.events[0].stepName, copy.stepNameMissing);
@@ -36,8 +38,14 @@ test('未知和匿名记录不猜身份，姓名缺失不叠岗位提示，历�
   const admin = view.booking({approvalProgress:{events:[{stepIndex:2,displayFacts:{approverType:'admin',approverName:'李某'}}]}});
   assert.equal(admin.approvalProgress.events[0].approverAssignmentLabel, '');
   assert.equal(admin.approvalProgress.events[0].stepName, copy.defaultStepName(3));
+  const adminBooking = view.booking({ displayFacts: { creatorType: 'admin', creatorName: '李某', assignmentLabel: '输入的旧值' } });
+  assert.equal(adminBooking.creatorSubmissionText, '');
+  const missing = view.booking({ creatorAssignmentLabel: '旧版占位',
+    displayFacts: { creatorType: 'user', creatorName: '张某', assignmentLabel: '' } });
+  assert.equal(missing.creatorSubmissionText, copy.submissionRoleMissing);
   const anonymous = view.booking({creatorType:'anonymous',visibility:'busy',title:'后端提示'});
   assert.equal(anonymous.title, occupied); assert.equal(anonymous.userName, '');
+  assert.equal(anonymous.creatorSubmissionText, '');
   const unrelated = {status:'success',title:'业务原文'};
   assert.equal(view.response('getSubmissionDetail',unrelated),unrelated);
 });

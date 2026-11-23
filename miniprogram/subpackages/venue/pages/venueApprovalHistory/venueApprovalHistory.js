@@ -3,7 +3,6 @@ const { callFunction, getErrorText, showShortToast } = require('../../../../util
 const orgSession = require('../../../../utils/orgSession');
 const authContext = require('../../../../utils/authContext');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
-const { formatAssignmentLabel } = require('../../utils/workContextPresentation');
 const { prepareVenueBookingDetail } = require('../../utils/venueBookingDetail');
 
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
@@ -36,6 +35,7 @@ Page({
     localeCopy,
     history: [],
     loading: false,
+    historyLoaded: false,
     currentContextText: localeCopy.copy_7c80a228a6
   },
 
@@ -50,6 +50,7 @@ Page({
       this.setData({
         history: [],
         loading: false,
+        historyLoaded: false,
         currentContextText: organizationName + ' · ' + workContextName
       });
     } else {
@@ -78,19 +79,19 @@ Page({
           const displayStatus = item.displayStatus || item.status || '';
           return prepareVenueBookingDetail(Object.assign({}, item, {
             _statusLabel: STATUS_LABELS[displayStatus] || displayStatus,
-            _statusClass: displayStatus,
-            _applicantAssignmentText: formatAssignmentLabel({
-              assignmentId: item.applicantAssignmentId,
-              assignmentLabel: item.applicantAssignmentLabel
-            }, '')
+            _statusClass: displayStatus
           }));
         });
-        this.setData({ history: history });
+        this.setData({ history: history, historyLoaded: true });
       } else {
+        this.setData({ historyLoaded: false });
         showShortToast(res.message || localeCopy.copy_e52119b17e);
       }
     } catch (error) {
-      if (orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(error, localeCopy.copy_e52119b17e));
+      if (orgSession.isRequestCurrent(this, request)) {
+        this.setData({ historyLoaded: false });
+        showShortToast(getErrorText(error, localeCopy.copy_e52119b17e));
+      }
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }

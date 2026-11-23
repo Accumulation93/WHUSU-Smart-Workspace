@@ -18,7 +18,7 @@ function buildAssignmentLabel(assignment) {
 function normalizeAssignment(assignment, copy) {
   const source = assignment || {};
   const assignmentNature = safeText(source.assignmentNature || source.assignmentKind);
-  const natureLabels = copy && copy.assignmentNatureLabels || {};
+  const natureLabels = copy && copy.assignmentNatureDisplayLabels || {};
   return {
     assignmentId: safeText(source.assignmentId || source.id),
     assignmentNature,
@@ -42,13 +42,14 @@ function buildAdminCandidate(item, copy) {
   };
 }
 
-function candidateMatches(candidate, keyword) {
+function candidateMatches(candidate, keyword, legacyNatureLabels = {}) {
   const text = safeText(keyword).toLowerCase();
   if (!text) return true;
   const personFields = [candidate.name, candidate.studentId];
   const assignmentFields = (candidate.assignments || []).reduce((fields, assignment) => fields.concat([
     assignment.assignmentNature,
     assignment.assignmentNatureLabel,
+    legacyNatureLabels[assignment.assignmentNature],
     assignment.department,
     assignment.identityCategoryName,
     assignment.workGroup,
@@ -61,10 +62,11 @@ function candidateMatches(candidate, keyword) {
 
 function filterAdminCandidates(sourceList, keyword, limit, copy) {
   const max = Math.max(0, Number(limit) || 0);
+  const legacyNatureLabels = copy && copy.assignmentNatureLabels || {};
   const result = [];
   (Array.isArray(sourceList) ? sourceList : []).some((item) => {
     const candidate = buildAdminCandidate(item, copy);
-    if (candidateMatches(candidate, keyword)) result.push(candidate);
+    if (candidateMatches(candidate, keyword, legacyNatureLabels)) result.push(candidate);
     return max > 0 && result.length >= max;
   });
   return result;

@@ -22,7 +22,7 @@
         <div v-if="publicView" class="identity-time identity-live-time"><UiIcon name="clock" tone="primary" size-role="context-trailing" /><div><span class="muted">{{ copy.currentTime }}</span><div class="identity-time-value">{{ currentTimeText }}</div></div></div>
         <div v-if="publicView && checkedAtText" class="identity-time"><UiIcon name="clock" tone="muted" size-role="context-trailing" /><div><span class="muted">{{ copy.checkedAt }}</span><div class="identity-time-value">{{ checkedAtText }}</div></div></div>
         <div v-if="!publicView" class="stack identity-code">
-          <div class="row row-between row-wrap identity-code-heading"><strong>{{ copy.liveCheck }}</strong><span class="muted">{{ copy.expiryHint }}</span></div>
+          <div class="row row-between row-wrap identity-code-heading"><strong>{{ copy.liveCheck }}</strong><span v-if="image" class="muted">{{ copy.expiryHint }}</span></div>
           <AppLoading v-if="qrLoading" :text="copy.generating" />
           <div v-if="image" class="tabs identity-code-tabs"><button class="tab" :class="{'tab-active':codeMode==='verification'}" :aria-pressed="codeMode==='verification'" @click="codeMode='verification'">{{ copy.verificationCode }}</button><button class="tab" :class="{'tab-active':codeMode==='miniProgram'}" :aria-pressed="codeMode==='miniProgram'" @click="codeMode='miniProgram'">{{ copy.miniProgramCode }}</button></div>
           <img v-if="image" class="identity-image" :src="image" :alt="copy.scanHint" />
@@ -43,7 +43,7 @@
         <AppLoading v-if="policyLoading" :text="copy.loading" />
         <template v-else-if="policy">
           <div class="identity-policy-row">
-            <strong>{{ copy.management.issue }}</strong>
+            <div><strong>{{ copy.management.issue }}</strong><p class="muted">{{ copy.management.issueHelp }}</p></div>
             <UiSwitch :label="copy.management.issue" :checked="policy.issueEnabled" :disabled="!canUpdatePolicy || policySaving" @change="changePolicy('issueEnabled', $event.target.checked)" />
           </div>
           <div class="identity-policy-row">

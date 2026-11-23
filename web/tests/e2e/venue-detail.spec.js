@@ -9,7 +9,8 @@ const booking = {
   description: 'Saved description '.repeat(100), timeStart: '2035-01-01T01:00:00.000Z', timeEnd: '2035-01-01T02:00:00.000Z',
   approvalProgress: { flowId: 'flow-a', currentStep: 0, totalSteps: 3,
     flowSteps: [{ name: 'Step A' }, { name: 'Step B' }, { name: 'Step C' }],
-    snapshots: [{ flowId: 'flow-a', stepIndex: 1, approverName: 'Historical reviewer', comment: 'Saved opinion' },
+    snapshots: [{ flowId: 'flow-a', stepIndex: 0, automatic: true, approverName: 'System snapshot actor' },
+      { flowId: 'flow-a', stepIndex: 1, approverName: 'Historical reviewer', comment: 'Saved opinion' },
       { flowId: 'flow-b', stepIndex: 2, approverName: 'Other route reviewer' }] }
 };
 test('my booking opens shared detail and cancel does not open detail', async ({ page }) => {
@@ -28,6 +29,10 @@ test('my booking opens shared detail and cancel does not open detail', async ({ 
   await expect(dialog.getByText('Historical assignment', { exact: true })).toBeVisible();
   await dialog.locator('summary').filter({ hasText: 'Step B' }).click();
   await expect(dialog.getByText('Saved opinion', { exact: false })).toBeVisible();
+  const automaticStep = dialog.locator('summary').filter({ hasText: 'Step A' });
+  await expect(automaticStep).toContainText('自动通过');
+  await automaticStep.click();
+  await expect(dialog.getByText('System snapshot actor', { exact: true })).toHaveCount(0);
   await expect(dialog.getByRole('progressbar')).toHaveAttribute('value', '67');
   await expect(dialog.getByText('Other route reviewer', { exact: false })).toHaveCount(0);
   await dialog.getByRole('button', { name: '关闭', exact: true }).click();

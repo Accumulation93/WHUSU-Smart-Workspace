@@ -126,7 +126,9 @@ Page({
       if (res.status === 'success') {
         const current = this.data.activeWorkContext || {};
         let pending = (res.pending || []).map(function(item) {
-          return workContextView.normalizePendingItem(item, current);
+          const row = workContextView.normalizePendingItem(item, current);
+          row.eligibleContextTexts = row.eligibleContextLabels.map(localeCopy.canProcessWithRole);
+          return row;
         });
         this.setData({
           pending: pending,
@@ -181,8 +183,8 @@ Page({
     });
     if (item && item.requiresContextSwitch) {
       const contextText = item.eligibleContextLabels.length
-        ? localeCopy.eligibleAssignmentsPrefix + item.eligibleContextLabels.join(localeCopy.assignmentSeparator)
-        : localeCopy.workContextMismatchDescription;
+        ? localeCopy.switchToEligibleRoles(item.eligibleContextLabels.join(localeCopy.assignmentSeparator))
+        : localeCopy.workContextRequiredDescription;
       this.showWorkContextGuide(contextText);
       return;
     }

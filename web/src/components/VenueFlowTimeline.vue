@@ -3,8 +3,8 @@
     <details v-for="step in steps" :key="step.key" class="list-row flow-step" :class="step.state">
       <summary class="stack-tight"><strong>{{ step.name }}</strong><span>{{ step.label }}</span></summary>
       <div v-if="step.snapshot" class="stack-tight flow-expanded">
-        <span v-if="step.snapshot.approverName">{{ step.snapshot.directApproval ? directCopy.directApprovalActor : native.copy_866290fa02 }}<PersonLink :name="step.snapshot.approverName" :person-id="step.snapshot.approverPersonId" :assignment-id="step.snapshot.approverAssignmentId" /></span>
-        <span v-if="step.assignment">{{ native.approverAssignment }}{{ step.assignment }}</span>
+        <span v-if="!step.snapshot.automatic && step.snapshot.approverName">{{ step.snapshot.directApproval ? directCopy.directApprovalActor : native.copy_866290fa02 }}<PersonLink :name="step.snapshot.approverName" :person-id="step.snapshot.approverPersonId" :assignment-id="step.snapshot.approverAssignmentId" /></span>
+        <span v-if="!step.snapshot.automatic && step.assignment">{{ native.approverAssignment }}{{ step.assignment }}</span>
         <span v-if="step.snapshot.approvedAt">{{ native.copy_dcadcebf08 }}{{ formatDetailTime(step.snapshot.approvedAt, step.snapshot.approvedAtReviewStatus) }}</span>
         <span v-if="step.snapshot.comment">{{ native.copy_3b3b392755 }}{{ step.snapshot.comment }}</span>
       </div>

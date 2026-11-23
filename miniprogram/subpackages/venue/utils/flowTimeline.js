@@ -64,12 +64,13 @@ function buildFlowTimeline(prog) {
     }
 
     let comment = (snap && snap.comment) || '';
-    let approverName = (snap && snap.approverName) || '';
+    const isAutomatic = Boolean(snap && snap.automatic);
+    const approverName = !isAutomatic && snap ? snap.approverName || '' : '';
     let approvedAtText = formatDetailTime(snap && snap.approvedAt, {
       reviewStatus: snap && snap.approvedAtReviewStatus
     });
     let approverAssignmentText = '';
-    if (snap) {
+    if (snap && !isAutomatic) {
       const assignmentSnapshot = snap.approverAssignmentSnapshot || null;
       const hasImmutableSnapshot = Boolean(
         assignmentSnapshot
@@ -102,7 +103,7 @@ function buildFlowTimeline(prog) {
       approverAssignmentId: snap && snap.approverAssignmentId || '',
       approverAssignmentText: approverAssignmentText,
       approvedAtText: approvedAtText,
-      isAutomatic: Boolean(snap && snap.automatic),
+      isAutomatic: isAutomatic,
       isLast: si === totalSteps - 1
     });
   }

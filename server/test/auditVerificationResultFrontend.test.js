@@ -94,7 +94,7 @@ definition.methods.present.call(component, { verificationVersion: 2, overallStat
   ...verifiedChecks, platformCertificate: { status: 'failed' }, externalTrust: { status: 'failed' }
 } }] });
 assert.equal(component.data.view.files[0].failures.length, 2, '专业检查中的失败也必须在默认摘要显示');
-for (const page of ['miniprogram/subpackages/audit/pages/verification/verification', 'miniprogram/subpackages/scoring/pages/admin/admin',
+for (const page of ['miniprogram/subpackages/audit/pages/verification/verification', 'miniprogram/subpackages/workspace/pages/admin/admin',
   'miniprogram/subpackages/audit/pages/verificationReport/verificationReport']) {
   const json = JSON.parse(fs.readFileSync(path.join(root, page + '.json'), 'utf8'));
   assert(json.usingComponents['audit-verification-result']);

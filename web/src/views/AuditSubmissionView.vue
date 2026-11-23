@@ -22,10 +22,19 @@
         <p class="hero-subtitle break-all">
           {{ submission.description || copy.audit.detailEmptyDescription }}
         </p>
+        <div v-if="submission.status !== 'draft'" class="stack-tight audit-submitter">
+          <div class="row row-wrap">
+            <span class="chip chip-sky audit-submitter-label">
+              {{ nativeCopy.submitterLabel }}
+              <PersonLink v-if="submitter.name" :name="submitter.name" :hr-id="submitter.hrId" :person-id="submitter.personId" />
+              <span v-else>{{ nativeCopy.submitterNameMissing }}</span>
+            </span>
+          </div>
+          <p v-if="submittedAssignmentText" class="hero-subtitle audit-submitted-at">{{ submittedAssignmentText }}</p>
+        </div>
         <div class="row row-wrap">
-          <span class="chip chip-sky">{{ copy.audit.submitterLabel }} <PersonLink :name="submission.submitterName" :hr-id="submission.submittedBy" /></span>
           <span v-if="submission.templateName" class="chip chip-sky">{{ submission.templateName }}</span>
-          <span class="soft">{{ copy.audit.submittedAtLabel }} {{ detailTimeText(submission.createdAt, submission.createdAtReviewStatus) }}</span>
+          <span v-if="submission.status !== 'draft'" class="hero-subtitle audit-submitted-at">{{ copy.audit.submittedAtLabel }} {{ detailTimeText(submission.createdAt, submission.createdAtReviewStatus) }}</span>
         </div>
       </section>
 
@@ -115,13 +124,13 @@
               </span>
               <span v-if="stepPresentation(step).hasActor" class="soft"><template v-if="stepPresentation(step).directApproval">{{ directCopy.directApprovalActor }} · </template>{{ stepPresentation(step).actorName }}</span>
               <span v-if="stepPresentation(step).directApproval && step.originalApproverNames?.length" class="soft">{{ directCopy.audit.originalApprover }} · {{ step.originalApproverNames.join(' · ') }}</span>
-              <span v-if="stepPresentation(step).hasActor && !isAuditAdministrativeContext(stepPresentation(step).snapshot)" class="soft">{{ auditAssignmentLabel(stepPresentation(step).snapshot) || signing.assignmentUnknown }}</span>
+              <span v-if="stepAssignmentText(step)" class="soft break-all">{{ stepAssignmentText(step) }}</span>
             </div>
           </div>
           <div v-for="event in roundGroup.events" :key="event.id" class="list-row">
             <div class="list-row-main stack-tight">
               <span class="list-row-title">{{ eventTitle(event) }}</span>
-              <span class="soft break-all"><PersonLink :name="event.operatorName || copy.audit.submitterLabel" :person-id="event.operatorPersonId" /> · {{ detailTimeText(event.createdAt, event.createdAtReviewStatus) }}</span>
+              <span class="soft break-all"><PersonLink v-if="event.operatorName" :name="event.operatorName" :person-id="event.operatorPersonId" /><span v-else>{{ signing.actorUnknown }}</span> · {{ detailTimeText(event.createdAt, event.createdAtReviewStatus) }}</span>
               <span v-if="event.comment" class="muted break-all">{{ event.comment }}</span>
             </div>
           </div>
@@ -137,7 +146,9 @@
             <div class="list-row-main stack-tight">
               <span class="list-row-title break-all">{{ file.fileName }}</span>
               <span class="soft">{{ fileMeta(file) }}</span>
-              <span v-if="submission.status !== 'withdrawn' && fileSignatureText(file)" class="soft break-all">{{ fileSignatureText(file) }}</span>
+              <template v-if="submission.status !== 'withdrawn'">
+                <span v-for="label in fileSignatureLabels(file)" :key="label" class="soft break-all">{{ label }}</span>
+              </template>
             </div>
             <div class="list-row-actions">
               <button type="button" class="btn-quiet" @click="download(file)">
@@ -188,14 +199,13 @@ import directCopy from '@/locales/zh-CN/shared/approvalDirect.js';
 import { signingAssets } from '@/runtime/signingAssets.js';
 import { addMaterial as recordMaterial, deleteLayer } from '@/shared/auditInk.js';
 import { signingDrafts, stepDraft, setSigningHandoff } from '@/runtime/signingDrafts.js';
-import { presentAuditStep, groupAuditRounds, materialsOfAuditDraft, auditMaterialInput, missingAuditMaterial } from '@/shared/auditStepView.js';
+import { presentAuditSubmitter, presentAuditStep, groupAuditRounds, materialsOfAuditDraft, auditMaterialInput, missingAuditMaterial } from '@/shared/auditStepView.js';
 import { auditAssignmentLabel, isAuditAdministrativeContext } from '@/runtime/auditAssignmentLabel.js';
 import copy from '@/locales/zh-CN/index.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import {
   detailTimeText,
   downloadAuditFile,
-  formatTemplate,
   statusLabel,
   statusTone,
   stepStatusLabel
@@ -256,8 +266,15 @@ function goWorkRole() {
 }
 
 const submission = computed(() => (detail.value && detail.value.submission) || {});
-const steps = computed(() => (detail.value && detail.value.steps) || []);
 const events = computed(() => (detail.value && detail.value.events) || []);
+const submitter = computed(() => presentAuditSubmitter(submission.value, events.value, nativeCopy.legacySubmitterNamePlaceholder));
+const submittedAssignmentText = computed(() => {
+  const snapshot = submitter.value.snapshot;
+  if (isAuditAdministrativeContext(snapshot)) return '';
+  const label = auditAssignmentLabel(snapshot);
+  return label ? nativeCopy.submittedWithAssignment(label) : nativeCopy.submissionRoleMissing;
+});
+const steps = computed(() => (detail.value && detail.value.steps) || []);
 const files = computed(() => (detail.value && detail.value.files) || []);
 const directSteps = computed(() => detail.value?.canDirectApprove === true
   ? (detail.value.directApprovalSteps || []).map(entry => {
@@ -311,7 +328,8 @@ const canWithdraw = computed(() => {
 });
 
 function stepTitle(step) {
-  return step.stepName || formatTemplate(copy.audit.stepNumber, [Number(step.sortOrder || 0) + 1]);
+  const order = Number(step.sortOrder);
+  return step.stepName || (Number.isInteger(order) && order > 0 ? nativeCopy.stepNumber(order) : nativeCopy.copy_265568fe85);
 }
 
 function stepTone(step) {
@@ -321,6 +339,16 @@ function stepTone(step) {
   return stepPresentation(step).state === 'active' ? 'chip-blue' : 'chip-sky';
 }
 function stepPresentation(step){return presentAuditStep(submission.value,step,events.value,Math.max(1,...steps.value.map(item=>Number(item.round||1))));}
+function stepAssignmentText(step) {
+  const presentation = stepPresentation(step);
+  if (!presentation.hasActor) return '';
+  for (const snapshot of [presentation.snapshot, step.processedContextSnapshot]) {
+    if (isAuditAdministrativeContext(snapshot)) return '';
+    const label = auditAssignmentLabel(snapshot);
+    if (label) return nativeCopy.processedWithAssignment(label);
+  }
+  return nativeCopy.approvalRoleMissing;
+}
 function stepLabel(step){const presentation=stepPresentation(step), state=presentation.state;return presentation.bypassed ? directCopy.audit.bypassedUntilDirectDecision : state==='active'?signing.processing:state==='future'?signing.future:state==='stopped'?signing.stopped:stepStatusLabel(state);}
 
 function fileMeta(file) {
@@ -332,11 +360,25 @@ function fileMeta(file) {
   return file.mimeType ? file.mimeType + ' · ' + text : text;
 }
 
-function fileSignatureText(file) {
-  const list = Array.isArray(detail.value.signatures) ? detail.value.signatures : [];
-  const names = list.filter((item) => item.fileId === file.id).map((item) => item.signerName);
-  if (!names.length) return '';
-  return copy.audit.actionLabels.sign + '：' + Array.from(new Set(names)).join('、');
+function fileSignatureLabels(file) {
+  const signatures = detail.value.signatures;
+  const records = Array.isArray(signatures) ? signatures.filter((item) => item.fileId === file.id) : [];
+  const labels = [];
+  for (const [type, formatLabel] of [
+    ['signature', nativeCopy.fileHandwrittenSigners],
+    ['stamp', nativeCopy.fileStampOperators]
+  ]) {
+    const matches = records.filter((item) => item.signatureType === type);
+    if (!matches.length) continue;
+    const names = matches.map((item) => String(item.signerName || '').trim())
+      .filter((name) => name && name !== nativeCopy.legacySubmitterNamePlaceholder);
+    labels.push(formatLabel([...new Set(names)].join('、')));
+  }
+  if (records.some((item) => item.signatureType === 'digital')) labels.push(nativeCopy.fileDigitalSigningRecord);
+  if (records.some((item) => !['signature', 'stamp', 'digital'].includes(item.signatureType))) {
+    labels.push(nativeCopy.fileOtherSigningRecord);
+  }
+  return labels;
 }
 
 function eventTitle(event) {
@@ -346,9 +388,10 @@ function eventTitle(event) {
     reject: copy.audit.eventRejected,
     withdraw: copy.audit.eventWithdrawn,
     resubmit: copy.audit.eventResubmitted,
+    edit: nativeCopy.copy_cacc39a0fd,
     submit: copy.audit.eventSubmitted
   };
-  return map[event.eventType] || event.eventType;
+  return Object.prototype.hasOwnProperty.call(map, event.eventType) ? map[event.eventType] : nativeCopy.eventTypeUnknown;
 }
 
 function activateStepDraft(request) {
@@ -549,6 +592,8 @@ onBeforeUnmount(()=>{alive=false;requestSequence+=1;requests.dispose();});
 </script>
 
 <style scoped>
+.audit-submitter-label { gap: var(--ui-inline-gap); max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.audit-submitted-at { margin-top: 0; font-size: var(--ui-type-caption); }
 .audit-round-heading { display:flex; align-items:center; gap:var(--ui-inline-gap); width:100%; min-height:var(--ui-field-control-height); padding:var(--ui-control-padding-y) 0; background:transparent; border:0; color:var(--ui-text); text-align:left; }
 .audit-round-title { flex:1; min-width:0; font-size:var(--ui-type-section); font-weight:700; line-height:1.4; }
 .field-textarea {

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import copy from '../../src/locales/zh-CN/index.js';
 import signing from '../../src/locales/zh-CN/shared/auditSigning.js';
+import detailCopy from '../../src/locales/zh-CN/shared/generated/subpackages/audit/pages/submissionDetail/submissionDetail.js';
 import { callsOf, mockApi, submissionDetail, STORED_PASSPHRASE, STORED_STUDENT_ID } from './fixtures.js';
 
 const WEB_BASE = '/web';
@@ -65,11 +66,87 @@ test('申请详情展示进度与附件，并可下载附件', async ({ page }) 
   await expect.poll(() => callsOf(api.calls, 'markSubmissionRead').length).toBe(1);
 });
 
+test('审核步骤、编辑记录和附件材料按实际数据展示', async ({ page }) => {
+  await mockApi(page);
+  const detail = submissionDetail();
+  detail.steps[0].stepName = '';
+  detail.steps[0].sortOrder = 1;
+  detail.steps[1].sortOrder = 2;
+  detail.submission.currentStepIndex = 2;
+  detail.events.push({ ...detail.events[0], id: 'edit-1', eventType: 'edit' });
+  detail.events.push({ ...detail.events[0], id: 'other-1', eventType: 'new_event_code' });
+  detail.signatures = [
+    { id: 'ink', fileId: 'file-1', signatureType: 'signature', signerName: '签写人甲' },
+    { id: 'seal', fileId: 'file-1', signatureType: 'stamp', signerName: '用印人乙' },
+    { id: 'pdf', fileId: 'file-1', signatureType: 'digital', signerName: '系统记录丙' }
+  ];
+  await page.route('**/api/getSubmissionDetail', route => route.fulfill({ json: detail }));
+  await login(page);
+  await page.goto(`${WEB_BASE}/audit/submission/submission-1`);
+  await expect(page.getByText(detailCopy.stepNumber(1), { exact: true })).toBeVisible();
+  await expect(page.getByText(detailCopy.copy_cacc39a0fd, { exact: true })).toBeVisible();
+  await expect(page.getByText(detailCopy.eventTypeUnknown, { exact: true })).toBeVisible();
+  await expect(page.getByText(detailCopy.fileHandwrittenSigners('签写人甲'), { exact: true })).toBeVisible();
+  await expect(page.getByText(detailCopy.fileStampOperators('用印人乙'), { exact: true })).toBeVisible();
+  await expect(page.getByText(detailCopy.fileDigitalSigningRecord, { exact: true })).toBeVisible();
+  await expect(page.getByText('系统记录丙')).toHaveCount(0);
+});
+
+test('审核列表收到业务拒绝时不显示没有记录', async ({ page }) => {
+  await mockApi(page);
+  await login(page);
+  for (const [path, api, empty] of [
+    ['pending', 'listPendingApprovals', copy.audit.emptyPending],
+    ['history', 'listMyApprovalHistory', copy.audit.emptyHistory],
+    ['my-submissions', 'listMySubmissions', copy.audit.emptySubmissions]
+  ]) {
+    await page.route(`**/api/${api}`, route => route.fulfill({ json: { status: 'forbidden' } }));
+    await page.goto(`${WEB_BASE}/audit/${path}`);
+    await expect(page.locator('.notice-line')).toBeVisible();
+    await expect(page.getByText(empty, { exact: true })).toHaveCount(0);
+  }
+});
+
+test('修改验签编号或更换为过大的文件后清除原结果', async ({ page }) => {
+  await mockApi(page);
+  await login(page);
+  await page.route('**/api/verifySignatureChain', route => route.fulfill({ json: {
+    status: 'success', submissionId: 'submission-1', files: [],
+    matches: [{ submissionId: 'submission-1', status: 'approved', title: '签署申请甲', submissionNumber: 'SP-2026-0001' }]
+  } }));
+  await page.goto(`${WEB_BASE}/audit/verification`);
+
+  const number = page.getByLabel(copy.verify.numberLabel);
+  const verify = page.getByRole('button', { name: copy.verify.verifyAction, exact: true });
+  const result = page.getByText(copy.verify.resultTitle, { exact: true });
+  await number.fill('SP-2026-0001');
+  await verify.click();
+  await expect(result).toBeVisible();
+  await expect(page.getByText('签署申请甲', { exact: true })).toBeVisible();
+  await number.fill('SP-2026-0002');
+  await expect(result).toHaveCount(0);
+
+  await page.getByRole('button', { name: copy.verify.modeFile, exact: true }).click();
+  const file = page.locator('input[type=file]');
+  await file.setInputFiles({ name: 'original.pdf', mimeType: 'application/pdf', buffer: Buffer.from('file') });
+  await expect(page.getByText('original.pdf', { exact: true })).toBeVisible();
+  await verify.click();
+  await expect(result).toBeVisible();
+  await file.setInputFiles({ name: 'oversize.pdf', mimeType: 'application/pdf', buffer: Buffer.alloc(10 * 1024 * 1024 + 1) });
+  await expect(page.getByText(copy.verify.fileTooLarge, { exact: true })).toBeVisible();
+  await expect(page.getByText('original.pdf', { exact: true })).toHaveCount(0);
+  await expect(result).toHaveCount(0);
+});
+
 test('historical assignment fields render on the actual audit detail page', async ({ page }) => {
   await mockApi(page);
   const detail = submissionDetail();
   const oldSnapshot = { identity: 'Chair', department: 'Committee', workGroup: '', role: 'user', contextId: 'historical-context' };
-  detail.events.find(event => event.eventType === 'approve').operatorContextSnapshot = oldSnapshot;
+  const initialEvent = detail.events.find(event => event.eventType === 'submit');
+  initialEvent.operatorContextSnapshot = { assignmentId: 'submitter-role', assignmentLabel: '学术部 · 部员', role: 'user' };
+  detail.submission.submitterName = '现有目录姓名';
+  detail.submission.submittedContextSnapshot = { ...initialEvent.operatorContextSnapshot };
+  detail.events.find(event => event.eventType === 'approve').operatorContextSnapshot = { assignmentId: 'a-historical' };
   detail.steps[0].processedContextSnapshot = oldSnapshot;
   await page.route('**/api/getSubmissionDetail', route => route.fulfill({
     status: 200,
@@ -78,9 +155,31 @@ test('historical assignment fields render on the actual audit detail page', asyn
   }));
   await login(page);
   await page.goto(`${WEB_BASE}/audit/submission/submission-1`);
+  const submitter = page.locator('.audit-submitter');
+  await expect(submitter).toContainText('提交人');
+  await expect(submitter.getByText('张同学', { exact: true })).toBeVisible();
+  await expect(submitter.getByText('现有目录姓名', { exact: true })).toHaveCount(0);
+  await expect(submitter.getByText('以『学术部 · 部员』提交', { exact: true })).toBeVisible();
   const processedStep = page.locator('.list-row').filter({ hasText: '部门初审' });
-  await expect(processedStep.getByText('Chair · Committee', { exact: true })).toBeVisible();
+  await expect(processedStep.getByText('以『Chair · Committee』审批', { exact: true })).toBeVisible();
   await expect(processedStep.getByText(signing.assignmentUnknown, { exact: true })).toHaveCount(0);
+  detail.submission.submittedContextSnapshot.assignmentLabel = '学术部 · 成员';
+  detail.events.push({ id: 'resubmitted-role', eventType: 'resubmit', round: 2, createdAt: '2026-10-15T08:00:00Z',
+    operatorName: '张同学', operatorContextSnapshot: detail.submission.submittedContextSnapshot });
+  await page.reload();
+  await expect(submitter.getByText('张同学', { exact: true })).toBeVisible();
+  await expect(submitter.getByText('以『学术部 · 部员』提交', { exact: true })).toBeVisible();
+  await expect(submitter.getByText(/最近一次|学术部 · 成员/)).toHaveCount(0);
+  await expect(page.getByText(/^提交时间/)).toBeVisible();
+
+  initialEvent.operatorName = '';
+  detail.submission.submitterName = '未知';
+  initialEvent.operatorContextSnapshot = null;
+  detail.submission.submittedContextSnapshot = null;
+  await page.reload();
+  await expect(submitter.getByText('未记录姓名', { exact: true })).toBeVisible();
+  await expect(submitter.getByText('未记录提交时的工作角色', { exact: true })).toBeVisible();
+  await expect(submitter.getByRole('link')).toHaveCount(0);
 });
 
 test('application detail retains workflow actions without template condition explanations', async ({ page }, testInfo) => {

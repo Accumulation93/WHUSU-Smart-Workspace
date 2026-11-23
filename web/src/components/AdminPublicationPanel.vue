@@ -6,6 +6,7 @@
       <AppLoading v-if="loading || busy" /><p v-if="notice" role="alert">{{ notice }}</p><button v-if="notice" class="btn-quiet" :disabled="busy || loading" @click="load">{{ copy.common.retry }}</button>
       <p v-if="publicationLoadFailed" role="alert">{{ messages.publicationLoadFailed }}</p><button v-if="publicationLoadFailed" class="btn-quiet" :disabled="busy || loading" @click="loadPublication">{{ messages.publicationRetry }}</button>
       <label v-if="activityId" class="row"><input v-model="published" type="checkbox" :disabled="busy || loading || publicationLoadFailed || !(publication?.id ? canUpdate : canCreate)" />{{ ui.copy_e5c0e22c49 }}</label>
+      <p v-if="activityId" class="muted">{{ ui.publicationOpenHelp }}</p>
       <button v-if="activityId && (publication?.id ? canUpdate : canCreate)" class="btn btn-primary" :disabled="busy || loading || publicationLoadFailed" @click="savePublication">{{ ui.copy_a7cce01d43 }}</button>
     </section>
     <template v-if="publication?.id">
@@ -20,6 +21,8 @@
             <summary>{{ scopeLabel(clause.scopeType, kind.key) }}<template v-if="clause.targetIdentity && (kind.key === 'merit' || identityScopes.includes(clause.scopeType))"> · {{ clause.targetIdentity }}</template></summary>
             <div class="stack-tight">
               <span class="muted">{{ natureLabel(clause.natureIds) }}</span>
+              <span v-if="kind.key === 'view' && relativeViewScopes.includes(clause.scopeType)" class="muted">{{ ui.resultScopeReferenceHelp }}</span>
+              <span v-if="kind.key === 'view' && sameWorkGroupScopes.includes(clause.scopeType)" class="muted">{{ ui.sameWorkGroupScopeHelp }}</span>
               <span v-if="kind.key === 'view'">{{ clause.displayMode === 'grade' ? ui.copy_23eefbcaad : ui.copy_8a8b68c027 }}</span>
               <span v-for="(band,index) in clause.gradeBands || []" :key="index">{{ band.gradeName }} · {{ band.minScore }}–{{ band.maxScore }}</span>
               <span v-if="kind.key === 'merit'">{{ ui.copy_f1dc48a65c }} · {{ clause.quotaLimit }}</span>
@@ -43,6 +46,8 @@
         <p v-if="clause.legacyNatureScope" class="muted">{{ natureCopy.legacyScopeHelp }}</p>
         <div class="field"><span class="field-label">{{ form.kind === 'view' ? natureCopy.resultTargetNatures : natureCopy.meritTargetNatures }}</span><div class="chip-group"><button v-for="item in natures" :key="item.id" type="button" class="chip" :class="{'is-active':clause.natureIds.includes(item.id)}" :aria-pressed="clause.natureIds.includes(item.id)" :disabled="busy" @click="toggleNature(clause,item.id,true)">{{ item.name }}</button></div></div>
         <label class="field"><span class="field-label">{{ form.kind === 'view' ? ui.resultViewScopeTitle : ui.meritTargetScopeTitle }}</span><select v-model="clause.scopeType" class="field-input" :disabled="busy"><option v-for="scope in clauseScopes(form.kind, clause.scopeType)" :key="scope.value" :value="scope.value">{{ scope.label }}</option></select></label>
+        <p v-if="form.kind === 'view'" class="muted">{{ ui.resultScopeReferenceHelp }}</p>
+        <p v-if="form.kind === 'view' && sameWorkGroupScopes.includes(clause.scopeType)" class="muted">{{ ui.sameWorkGroupScopeHelp }}</p>
         <label v-if="form.kind==='merit'||identityScopes.includes(clause.scopeType)" class="field"><span class="field-label">{{ form.kind === 'view' ? ui.resultTargetIdentity : ui.meritTargetIdentity }}</span><select v-model="clause.targetIdentityId" required class="field-input" :disabled="busy || !clause.natureIds.length"><option value="">{{ natureCopy.selectIdentity }}</option><option v-for="item in applicableIdentities(clause.natureIds)" :key="item.id" :value="item.id">{{ item.name }}</option></select></label>
         <template v-if="form.kind==='view'"><label class="field"><span class="field-label">{{ ui.copy_41f0769610 }}</span><select v-model="clause.displayMode" class="field-input" :disabled="busy"><option value="score">{{ ui.copy_8a8b68c027 }}</option><option value="grade">{{ ui.copy_23eefbcaad }}</option></select></label><template v-if="clause.displayMode==='grade'"><article v-for="(band,bandIndex) in clause.gradeBands" :key="bandIndex" class="stack-tight"><label class="field"><span class="field-label">{{ ui.copy_23eefbcaad }}</span><input v-model="band.gradeName" required class="field-input" :disabled="busy" /></label><label v-for="key in ['minScore','maxScore']" :key="key" class="field"><span class="field-label">{{ key==='minScore'?ui.copy_c536f98c27:ui.copy_c7710f6c1e }}</span><input v-model.number="band[key]" required type="number" step="any" class="field-input" :disabled="busy" /></label><button type="button" class="btn-quiet btn-quiet-danger" :disabled="busy" @click="clause.gradeBands.splice(bandIndex,1)">{{ ui.copy_acc985cabc }}</button></article><button type="button" class="btn-quiet" :disabled="busy" @click="clause.gradeBands.push({gradeName:'',minScore:0,maxScore:100})">{{ ui.copy_5c1dc295d8 }}</button></template></template>
         <template v-else><label class="field"><span class="field-label">{{ ui.copy_f1dc48a65c }}</span><input v-model.number="clause.quotaLimit" type="number" min="0" step="1" required class="field-input" :disabled="busy" /></label><label class="row"><input v-model="clause.requireExactQuota" type="checkbox" :disabled="busy" />{{ ui.copy_063079dbec }}</label></template>
@@ -99,6 +104,8 @@ async function confirmNatureScopes(value){
 let loadedActivityId='';
 const kinds=[{key:'view',label:ui.copy_17903d1b98},{key:'merit',label:ui.copy_09bf239b61}],identityScopes=['identity_only','same_department_identity','same_work_group_identity'];
 const scopes=[['own_results','copy_9a4a6e8793'],['same_work_group_identity','copy_3787c80077'],['same_work_group_all','copy_fd80cc149b'],['same_department_identity','copy_c70c40dae1'],['same_department_all','copy_8e7c345003'],['all_people','copy_1580e09c5c']].map(([value,key])=>({value,label:utilityCopy[key]}));
+const sameWorkGroupScopes = ['same_work_group_all', 'same_work_group_identity'];
+const relativeViewScopes = [...sameWorkGroupScopes, 'same_department_all', 'same_department_identity'];
 const meritScopes=[{value:'all_people',aliases:['all_people','identity_only'],label:ui.meritScopeOrganization},{value:'same_department_identity',aliases:['same_department_identity','same_department_all'],label:ui.meritScopeDepartment},{value:'same_work_group_identity',aliases:['same_work_group_identity','same_work_group_all'],label:ui.meritScopeWorkGroup}];
 const scopeLabel=(value,kind)=>kind==='merit'?(meritScopes.find(item=>item.aliases.includes(value))?.label||ui.meritScopeUnknown):(scopes.find(item=>item.value===value)?.label||homeCopy.publicationGroupUnknown);
 const clauseScopes=(kind,current)=>kind==='view'?scopes:meritScopes.map(item=>({value:item.aliases.includes(current)?current:item.value,label:item.label}));

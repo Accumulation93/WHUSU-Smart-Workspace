@@ -138,7 +138,7 @@
           </view>
           <view class="booking-item-meta">{{item.venueName}}<text wx:if="{{item.venueLocation}}"> · {{item.venueLocation}}</text></view>
           <view class="booking-item-meta"><person-link name="{{item.creatorName || item.userName}}" person-id="{{item.creatorPersonId}}" assignment-id="{{item.creatorAssignmentId}}" hr-id="{{item.userHrId}}" /> · {{item.creatorLabel || localeCopy.copy_8b191a40d9}}<text wx:if="{{item.userDept}}"> · {{item.userDept}}</text></view>
-          <view class="booking-assignment-chip" wx:if="{{item._creatorAssignmentText}}">{{localeCopy.bookingAssignment}} · {{item._creatorAssignmentText}}</view>
+          <view class="booking-assignment-chip" wx:if="{{item.creatorSubmissionText}}">{{item.creatorSubmissionText}}</view>
           <view class="booking-item-meta">{{item.timeRangeText}}</view>
           <view class="booking-item-meta" wx:if="{{item.description}}">{{item.description}}</view>
           <view class="booking-item-meta" wx:if="{{item.approvalComment}}">{{localeCopy.copy_3b3b392755}}{{item.approvalComment}}</view>

@@ -1,4 +1,4 @@
-import verificationCopy from '@/locales/zh-CN/auditVerification.js';
+import verificationCopy from '@/locales/zh-CN/shared/auditVerification.js';
 import { session } from './session.js';
 
 /**

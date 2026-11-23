@@ -1,7 +1,7 @@
 'use strict';
 
 module.exports = Object.freeze({
-  copy_076bb5d383: '部门未能删除，请检查是否仍被岗位或规则使用。',
+  copy_076bb5d383: '部门未能删除。请检查是否还有工作角色或规则使用这个部门。',
   copy_215e3c57da: '部门未能保存，请检查填写内容',
   copy_21cc5de126: '删除部门',
   copy_2531b7527d: '请填写部门名称',

@@ -2,7 +2,7 @@
 'use strict';
 
 const sharedModule = Object.freeze({
-  copy_076bb5d383: '职能组未能删除，请检查是否仍被岗位或规则使用。',
+  copy_076bb5d383: '职能组未能删除。请检查是否还有工作角色或规则使用这个职能组。',
   copy_1d828c61a6: '职能组已删除',
   copy_215e3c57da: '职能组未能保存，请检查名称和所属部门。',
   copy_2bc5d4cf83: '删除职能组',

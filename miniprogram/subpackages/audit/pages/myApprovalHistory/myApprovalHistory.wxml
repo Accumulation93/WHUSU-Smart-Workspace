@@ -23,8 +23,8 @@
               <view class="audit-submission-meta-text"><person-link name="{{item.submitterName}}" hr-id="{{item.submittedBy}}" /> · {{item.submissionNumber}}</view>
             </view>
             <view class="audit-submission-date">{{item.myLastActionAtText || item.updatedAtText || item.createdAtText}}</view>
-            <view class="history-assignment-list" wx:if="{{item.handledAssignmentLabels.length}}">
-              <view class="audit-chip audit-chip-approved" wx:for="{{item.handledAssignmentLabels}}" wx:for-item="assignmentLabel" wx:key="*this">{{localeCopy.processedAssignmentPrefix}}{{assignmentLabel}}</view>
+            <view class="history-assignment-list" wx:if="{{item.handledAssignmentTexts.length}}">
+              <view class="audit-chip audit-chip-approved" wx:for="{{item.handledAssignmentTexts}}" wx:for-item="assignmentText" wx:key="*this">{{assignmentText}}</view>
             </view>
             <view class="history-assignment-neutral" wx:if="{{item.hasLegacyAssignmentSnapshot}}">{{localeCopy.legacyAssignmentSnapshotUnavailable}}</view>
           </view>

@@ -19,7 +19,7 @@ const sharedModule = Object.freeze({
     saveCandidateChanged: '部分所选成员已不符合评优条件，请重新选择。',
     saveRulesChanged: '评优规则已更新，请重新加载名单后再选择。',
     savePublicationClosed: '这份评优名单已关闭，暂时无法修改。',
-    saveNoPermission: '当前岗位无权修改这份评优名单。',
+    saveNoPermission: '当前工作角色无权修改这份评优名单。',
     saveSuccess: '评优名单已保存',
     saveFailed: '评优名单未能保存，请重试。',
     saveResultUnknown: '无法确认名单是否已保存，请先重新加载。',

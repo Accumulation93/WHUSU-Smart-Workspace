@@ -48,7 +48,7 @@ const sharedModule = Object.freeze({
   dictionaryUsageClose: '我知道了',
   dictionaryUsageCategories: Object.freeze({
     legacy_people: '历史人员资料',
-    positions: '成员岗位',
+    positions: '成员任职记录',
     work_groups: '职能组',
     scoring_rules: '评分规则',
     scoring_history: '评分历史',
@@ -64,8 +64,8 @@ const sharedModule = Object.freeze({
     stamp_bindings: '印章使用授权',
     unknown: '其他业务内容'
   }),
-  adminCandidateNoPosition: '暂未设置岗位',
-  adminCandidatePositionPrefix: '岗位',
+  adminCandidateNoPosition: '暂无工作角色',
+  adminCandidatePositionPrefix: '工作角色',
   hrProfileSelfSubmittedAt: '本人提交时间',
   hrProfileMaintainedAt: '管理员维护时间',
   hrProfileMaintainedBy: '维护管理员',
@@ -77,11 +77,16 @@ const sharedModule = Object.freeze({
     liaison: '学院对接岗位',
     other: '其他岗位'
   }),
-  chooseAssignmentNature: '请选择岗位性质',
-  addAssignmentNature: '新增岗位性质',
-  assignmentNatureName: '岗位性质名称',
+  assignmentNatureDisplayLabels: Object.freeze({
+    staff: '本会工作角色',
+    liaison: '学院对接工作角色',
+    other: '其他工作角色'
+  }),
+  chooseAssignmentNature: '请选择工作角色性质',
+  addAssignmentNature: '新增工作角色性质',
+  assignmentNatureName: '工作角色性质名称',
   createAndSelectNature: '新增并选用',
-  assignmentNatureMissing: '岗位性质未记录'
+  assignmentNatureMissing: '未记录工作角色性质'
 });
 
 export default sharedModule;

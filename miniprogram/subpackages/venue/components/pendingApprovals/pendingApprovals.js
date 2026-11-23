@@ -440,7 +440,7 @@ Component({
     const required = item && item._requiredContextText;
     showWorkContextModal({
       content: required
-        ? localeCopy.requiredContextPrefix + required
+        ? localeCopy.switchToEligibleRoles(required)
         : localeCopy.requiredContextGeneric,
       onConfirm: this.goWorkContextSwitch.bind(this)
     });

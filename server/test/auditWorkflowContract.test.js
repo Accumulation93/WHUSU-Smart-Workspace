@@ -37,9 +37,10 @@ const adminRouteSource = hydrateLocale(
 );
 const behaviorSource = fs.readFileSync(behaviorPath, 'utf8');
 const personnelPickerWxmlSource = fs.readFileSync(personnelPickerWxmlPath, 'utf8');
+const adminCopy = require('../../miniprogram/locales/zh-CN/generated/subpackages/scoring/pages/admin/admin');
 const adminWxmlSource = hydrateLocale(
   require('../../scripts/lib/miniprogramSource').readMarkup(adminWxmlPath),
-  require('../../miniprogram/locales/zh-CN/generated/subpackages/scoring/pages/admin/admin'),
+  adminCopy,
   'localeCopy'
 );
 const submissionWxmlSource = fs.readFileSync(submissionWxmlPath, 'utf8');
@@ -116,8 +117,9 @@ assert(adminRouteSource.includes("const orgId = await getCurrentOrgId();")
 assert(adminWxmlSource.includes('auditTemplateStepEditorVisible')
   && adminWxmlSource.includes('catchtouchmove="noop"'),
   '审批步骤弹窗必须锁住背景触摸，内部 scroll-view 才能独立滚动');
-assert(adminWxmlSource.includes('允许指定本步骤的审批岗位')
-  && adminWxmlSource.includes('onStepApproverDesignationChange'),
+assert(adminWxmlSource.includes(adminCopy.copy_ec94756105)
+  && adminWxmlSource.includes('data-enabled="true" catchtap="onStepApproverDesignationChange"')
+  && adminWxmlSource.includes('data-enabled="false" catchtap="onStepApproverDesignationChange"'),
   '步骤编辑器必须提供允许和不允许两种审批人指定模式');
 assert(submissionWxmlSource.includes('item.stepIndex === 1 && item.allowApproverDesignation')
   && submissionWxmlSource.includes('nextStepInfo && nextStepInfo.allowApproverDesignation'),

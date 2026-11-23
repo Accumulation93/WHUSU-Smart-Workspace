@@ -39,8 +39,8 @@
       <p v-if="loadNotice" class="notice-line">{{ loadNotice }}</p>
 
       <div v-if="loading" class="empty-state"><AppLoading :text="copy.common.loading" /></div>
-      <div v-else-if="!rows.length" class="empty-state">{{ copy.audit.emptySubmissions }}</div>
-      <div v-else class="list">
+      <div v-else-if="!loadNotice && !rows.length" class="empty-state">{{ copy.audit.emptySubmissions }}</div>
+      <div v-else-if="rows.length" class="list">
         <div v-for="row in rows" :key="row.id" class="list-row">
           <span v-if="row.isUnread" class="unread-dot" aria-hidden="true"></span>
           <div class="list-row-main">
@@ -77,7 +77,7 @@ import AuditNav from '@/components/AuditNav.vue';
 import AuthorizedManagementTabs from '@/components/AuthorizedManagementTabs.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import copy from '@/locales/zh-CN/index.js';
-import { callApi, errorText } from '@/runtime/api.js';
+import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { listTimeText, statusLabel, statusTone } from '@/runtime/audit.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
 
@@ -120,7 +120,7 @@ async function load() {
   try {
     const payload = {};
     if (status.value) payload.status = status.value;
-    const result = await callApi('listMySubmissions', payload);
+    const result = requireSuccess(await callApi('listMySubmissions', payload), copy.audit.loadFailed);
     rows.value = Array.isArray(result.submissions) ? result.submissions : [];
   } catch (error) {
     rows.value = [];
@@ -149,8 +149,9 @@ function openDetail(id) {
 }
 
 async function markAllRead() {
+  loadNotice.value = '';
   try {
-    await callApi('markAllSubmissionsRead', {});
+    requireSuccess(await callApi('markAllSubmissionsRead', {}), copy.audit.loadFailed);
     rows.value = rows.value.map((row) => Object.assign({}, row, { isUnread: false }));
   } catch (error) {
     loadNotice.value = errorText(error, copy.audit.loadFailed);

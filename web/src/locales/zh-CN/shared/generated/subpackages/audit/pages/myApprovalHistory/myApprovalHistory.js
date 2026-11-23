@@ -13,8 +13,9 @@ const sharedModule = Object.freeze({
   copy_aa4f0ed6cd: common.brandName,
   copy_e52119b17e: '请稍后重试',
   copy_f69eaef5c5: "我的审批记录",
-  processedAssignmentPrefix: '处理岗位：',
-  legacyAssignmentSnapshotUnavailable: '审批岗位未记录',
+  processedAssignmentPrefix: '审批时的工作角色：',
+  processedWithAssignment: label => `以『${label}』审批`,
+  legacyAssignmentSnapshotUnavailable: '未记录审批时的工作角色',
   navigationTitle: "我的审批记录 - WHUSU智慧工作台"
 });
 

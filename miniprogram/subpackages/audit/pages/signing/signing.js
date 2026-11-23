@@ -113,6 +113,7 @@ Page({
   },
   async loadPage(page) {
     if (!this._alive || !this._handoff || !this._validated || this._handoff.draft.locked) return;
+    this._requestedPage = page;
     const request = (this._request || 0) + 1; this._request = request;
     this.setData({ loading: true, ready: false, notice: '' });
     let phase = 'preview_request';
@@ -169,7 +170,7 @@ Page({
     if (this._waiter) { this._waiter.reject(new Error('canvas_failed')); this._waiter = null; }
     this.setData({ ready: false, notice: copy.failed });
   },
-  retry() { if (!this._validated) this.validateStep(); else this.loadPage(this.data.page); },
+  retry() { if (!this._validated) this.validateStep(); else this.loadPage(this._requestedPage); },
   previous() { if (!this.data.saving && this.data.page > 1) this.loadPage(this.data.page - 1); },
   next() { if (!this.data.saving && this.data.page < this.data.totalPages) this.loadPage(this.data.page + 1); },
   syncHistory() { const pad = this.selectComponent('#signingPad'); if (pad) { pad._syncHistory(); pad._render(); } },

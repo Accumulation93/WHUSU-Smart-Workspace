@@ -40,7 +40,7 @@
         <span class="field-label">{{ copy.verify.fileLabel }}</span>
         <div class="row">
           <span class="value grow break-all">{{ fileName || copy.verify.filePlaceholder }}</span>
-          <button type="button" class="btn btn-secondary" :disabled="busy" @click="chooseFile">
+          <button type="button" class="btn btn-secondary" :disabled="busy || readingFile" @click="chooseFile">
             {{ copy.verify.filePlaceholder }}
           </button>
         </div>
@@ -48,12 +48,12 @@
           ref="fileInput" hidden
           class="visually-hidden"
 
-          :disabled="busy"
+          :disabled="busy || readingFile"
           @change="onFileChange"
         />
       </div>
 
-      <button type="button" class="btn btn-primary" :disabled="busy" @click="verify">
+      <button type="button" class="btn btn-primary" :disabled="busy || readingFile" @click="verify">
         {{ busy ? copy.verify.verifying : copy.verify.verifyAction }}
       </button>
     </section>
@@ -108,9 +108,9 @@ import FileInput from '@/components/FileInput.vue';
 import { ref, watch, onBeforeUnmount } from 'vue';
 import AuditVerificationResult from './AuditVerificationResult.vue';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
-import matchCopy from '@/locales/zh-CN/auditVerification.js';
+import matchCopy from '@/locales/zh-CN/shared/auditVerification.js';
 import copy from '@/locales/zh-CN/index.js';
-import { callApi, errorText } from '@/runtime/api.js';
+import { errorText } from '@/runtime/api.js';
 import { buildMatchVerificationParams, presentVerificationResponse } from '@/runtime/verification.js';
 import { auditRequests } from '@/runtime/auditRequests.js';
 defineProps({embedded:Boolean});
@@ -132,10 +132,12 @@ const fileName = ref('');
 const fileBase64 = ref('');
 const fileInput = ref(null);
 const busy = ref(false);
+const readingFile = ref(false);
 const result = ref(null);
 const notice = ref('');
 
 function setMode(next) {
+  if (busy.value || readingFile.value || mode.value === next) return;
   mode.value = next;
   result.value = null;
   notice.value = '';
@@ -161,20 +163,26 @@ function readFileAsBase64(file) {
 async function onFileChange(event) {
   const input = event.target;
   const file = input && input.files && input.files[0];
-  if (!file) return;
+  if (!file || busy.value || readingFile.value) return;
+  fileName.value = '';
+  fileBase64.value = '';
+  result.value = null;
   notice.value = '';
   if (file.size > MAX_FILE_BYTES) {
     notice.value = copy.verify.fileTooLarge;
     input.value = '';
     return;
   }
+  readingFile.value = true;
   try {
-    fileBase64.value = await readFileAsBase64(file);
+    const encoded = await readFileAsBase64(file);
+    if (!alive) return;
+    fileBase64.value = encoded;
     fileName.value = file.name;
-    result.value = null;
   } catch (_) {
-    notice.value = copy.verify.fileReadFailed;
+    if (alive) notice.value = copy.verify.fileReadFailed;
   } finally {
+    readingFile.value = false;
     input.value = '';
   }
 }
@@ -202,7 +210,8 @@ async function runVerify(params) {
 }
 
 function verify() {
-  if(busy.value)return;
+  if (busy.value || readingFile.value) return;
+  result.value = null;
   if (mode.value === 'number') {
     const number = submissionNumber.value.trim();
     if (!number) {
@@ -225,6 +234,11 @@ function selectMatch(submissionId) {
   if (!params || params.submissionId === String((result.value && result.value.submissionId) || '')) return;
   runVerify(params);
 }
+watch(submissionNumber, (next, previous) => {
+  if (next.trim() === previous.trim()) return;
+  result.value = null;
+  notice.value = '';
+}, { flush: 'sync' });
 watch(busy,value=>emit('busy',value),{flush:'sync'});
 onBeforeUnmount(()=>{alive=false;requests.dispose();emit('busy',false);});
 </script>

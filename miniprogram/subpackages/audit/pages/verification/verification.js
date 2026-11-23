@@ -34,6 +34,7 @@ Page({
     filePath: '',
     fileBase64: '',
     fileSize: 0,
+    readingFile: false,
     loading: false,
     result: null
   },
@@ -41,7 +42,7 @@ Page({
   onShow() {
     if (!orgSession.consume(this).changed) return;
     orgSession.invalidateRequests(this);
-    this.setData({ result: null, submissionNumber: '', fileName: '', filePath: '', fileBase64: '', fileSize: 0, loading: false });
+    this.setData({ result: null, submissionNumber: '', fileName: '', filePath: '', fileBase64: '', fileSize: 0, loading: false, readingFile: false });
   },
 
   // 原生选文件会临时隐藏页面；只作废验签请求，保留受组织及卸载保护的文件选择回调。
@@ -53,14 +54,24 @@ Page({
 
   onVerifyModeChange(e) {
     const modes = ['number', 'file'];
-    this.setData({ verifyMode: modes[e.detail.value] || 'number', result: null });
+    const verifyMode = modes[e.detail.value] || 'number';
+    if (verifyMode === this.data.verifyMode) return;
+    orgSession.beginRequest(this, 'auditVerification');
+    this.setData({ verifyMode, result: null, loading: false });
   },
 
   onInputNumber(e) {
-    this.setData({ submissionNumber: e.detail.value });
+    const submissionNumber = e.detail.value;
+    if (submissionNumber.trim() === this.data.submissionNumber.trim()) {
+      this.setData({ submissionNumber });
+      return;
+    }
+    orgSession.beginRequest(this, 'auditVerification');
+    this.setData({ submissionNumber, result: null, loading: false });
   },
 
   chooseVerifyFile() {
+    if (this.data.readingFile) return;
     const that = this;
     const request = orgSession.beginRequest(this, 'verificationFileRead');
     inputFile({
@@ -68,8 +79,12 @@ Page({
       type: 'all',
       success: function(res) {
         if (!orgSession.isRequestCurrent(that, request)) return;
-        let file = res.tempFiles[0];
-        if (!file || file.size > 10 * 1024 * 1024) { showShortToast(signingCopy.fileTooLarge); return; }
+        const file = res.tempFiles[0];
+        if (!file) return;
+        const tooLarge = file.size > 10 * 1024 * 1024;
+        orgSession.beginRequest(that, 'auditVerification');
+        that.setData({ filePath: '', fileName: '', fileBase64: '', fileSize: 0, result: null, loading: false, readingFile: !tooLarge });
+        if (tooLarge) { showShortToast(signingCopy.fileTooLarge); return; }
         wx.getFileSystemManager().readFile({
           filePath: file.path,
           encoding: 'base64',
@@ -80,11 +95,12 @@ Page({
               fileName: file.name,
               fileBase64: readRes.data,
               fileSize: file.size,
-              result: null
+              readingFile: false
             });
           },
           fail: function() {
             if (!orgSession.isRequestCurrent(that, request)) return;
+            that.setData({ readingFile: false });
             showShortToast(localeCopy.copy_03d69a9d28);
           }
         });
@@ -93,6 +109,7 @@ Page({
   },
 
   async verify() {
+    if (this.data.loading || this.data.readingFile) return;
     const request = orgSession.beginRequest(this, 'auditVerification');
     let params = {};
     let mode = this.data.verifyMode;
@@ -127,6 +144,7 @@ Page({
   },
 
   async selectVerificationMatch(e) {
+    if (this.data.loading || this.data.readingFile) return;
     const submissionId = e.detail && e.detail.submissionId
       ? e.detail.submissionId
       : e.currentTarget.dataset.submissionId;

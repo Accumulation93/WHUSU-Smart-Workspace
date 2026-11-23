@@ -34,7 +34,7 @@ const sharedModule = Object.freeze({
   copy_e52119b17e: '请稍后重试',
   copy_f54076411e: '全部职能组',
   copy_f6a9d3621a: '被评分人加载失败，请稍后重试',
-  historicalAssignmentUnavailable: '历史岗位未记录'
+  historicalAssignmentUnavailable: '未记录评分时的工作角色'
 });
 
 export default sharedModule;

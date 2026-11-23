@@ -32,7 +32,7 @@
             <span v-if="item.userName" class="soft">
               {{ native.copy_ce30bda5a2 }} <PersonLink :name="item.userName" :assignment-id="item.creatorAssignmentId" :hr-id="item.userHrId || item.userId" />
             </span>
-            <span v-if="item.creatorAssignmentLabel" class="muted">{{ native.applicantAssignment }} · {{ item.creatorAssignmentLabel }}</span>
+            <span v-if="item.creatorSubmissionText" class="muted break-all">{{ item.creatorSubmissionText }}</span>
             <span class="muted">{{ timeRange(item) }}</span>
           </div>
           <div class="list-row-actions" @click.stop @keydown.stop>

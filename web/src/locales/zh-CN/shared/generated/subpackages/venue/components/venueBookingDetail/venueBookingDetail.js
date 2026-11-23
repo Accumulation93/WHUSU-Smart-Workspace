@@ -2,8 +2,8 @@
 'use strict';
 
 const sharedModule = Object.freeze({
-  applicantAssignment: '借用岗位',
-  approverAssignment: '处理岗位：',
+  applicantAssignment: '提交时的工作角色',
+  approverAssignment: '处理时的工作角色：',
   copy_02419589be: "部门",
   copy_303b7a8611: "职能组",
   copy_34e2d1f8a0: "组织",

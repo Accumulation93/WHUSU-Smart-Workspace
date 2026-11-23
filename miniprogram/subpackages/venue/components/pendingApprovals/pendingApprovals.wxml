@@ -24,7 +24,7 @@
               <view class="pending-item-step" wx:if="{{item.approvalCurrentStep > 0}}">{{item.approvalCurrentStep}}/{{item.approvalTotalSteps}} {{localeCopy.copy_dc59906817}}</view>
             </view>
             <view class="pending-item-info">{{item.venueName}} · {{item.userName}} · {{item.timeRangeText}}</view>
-            <view class="assignment-chip" wx:if="{{item._creatorAssignmentText}}">{{localeCopy.applicantAssignment}} · {{item._creatorAssignmentText}}</view>
+            <view class="assignment-chip" wx:if="{{item.creatorSubmissionText}}">{{item.creatorSubmissionText}}</view>
             <view class="context-switch-notice" wx:if="{{item._requiresContextSwitch}}">
               <view class="context-switch-title">{{localeCopy.contextSwitchRequired}}</view>
               <view class="context-switch-detail" wx:if="{{item._requiredContextText}}">{{item._requiredContextText}}</view>

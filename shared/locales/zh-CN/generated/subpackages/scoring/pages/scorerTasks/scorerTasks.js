@@ -1,9 +1,9 @@
 'use strict';
 
 module.exports = Object.freeze({
-  assignmentNatureStaff: '本会岗位',
-  assignmentNatureLiaison: '学院对接岗位',
-  assignmentNatureOther: '其他岗位',
+  assignmentNatureStaff: '本会工作角色',
+  assignmentNatureLiaison: '学院对接工作角色',
+  assignmentNatureOther: '其他工作角色',
   copy_010476007d: "尚未完成任务的评分人",
   copy_09614cef6c: "关闭",
   copy_0c1a3a9fd9: "考核评分",
@@ -28,7 +28,7 @@ module.exports = Object.freeze({
   copy_8029e5c326: "刷新列表",
   copy_8dfeae7ced: "正在加载评分任务",
   copy_937ade982a: "部门与身份类别",
-  copy_9ce810a320: "按姓名或岗位信息搜索",
+  copy_9ce810a320: "搜索姓名或工作角色",
   copy_aa4f0ed6cd: "WHUSU智慧工作台",
   copy_b0bf25e2b8: "导出当前名单",
   copy_b7c3654faa: "没有匹配的评分人",
@@ -40,6 +40,6 @@ module.exports = Object.freeze({
   copy_d6b32891ae: "搜索评分人",
   copy_e47f95e658: "导出明细",
   copy_e52119b17e: '请稍后重试',
-  historicalAssignmentUnavailable: '历史岗位未记录',
+  historicalAssignmentUnavailable: '未记录评分时的工作角色',
   navigationTitle: "考核评分 - WHUSU智慧工作台"
 });

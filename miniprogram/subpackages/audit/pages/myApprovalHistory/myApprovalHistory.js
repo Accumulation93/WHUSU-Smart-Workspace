@@ -49,17 +49,15 @@ Page({
           const views = (item.mySteps || []).map(function(step) {
             return workContextView.normalizeSnapshot(step.operatorContextSnapshot);
           });
-          const labels = views.filter(function(view) {
-            return view.hasSnapshot;
-          }).map(function(view) { return view.assignmentLabel; }).filter(function(value, index, source) {
-            return source.indexOf(value) === index;
+          const labels = views.map(function(view) { return view.assignmentLabel; }).filter(function(value, index, source) {
+            return Boolean(value) && source.indexOf(value) === index;
           });
           return Object.assign({}, item, {
             createdAtText: formatAuditTime(item.createdAt, item.createdAtReviewStatus),
             updatedAtText: formatAuditTime(item.updatedAt, item.updatedAtReviewStatus),
             myLastActionAtText: formatAuditTime(item.myLastActionAt, item.myLastActionAtReviewStatus),
-            handledAssignmentLabels: labels,
-            hasLegacyAssignmentSnapshot: Boolean((item.mySteps || []).length && !labels.length)
+            handledAssignmentTexts: labels.map(localeCopy.processedWithAssignment),
+            hasLegacyAssignmentSnapshot: !labels.length && views.some(view => !view.isAdministrativeContext)
           });
         });
         this.setData({ items });

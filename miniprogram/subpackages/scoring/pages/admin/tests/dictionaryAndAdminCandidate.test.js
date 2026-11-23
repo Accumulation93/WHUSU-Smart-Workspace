@@ -121,7 +121,8 @@ test('管理员候选检索遍历全部岗位元组且不读取顶层旧岗位�
   assert.equal(secondPositionMatch.length, 1);
   assert.equal(secondPositionMatch[0].assignments.length, 2);
   assert.equal(secondPositionMatch[0].assignments[1].assignmentLabel, '部门负责人 · 权益部 · 调研组');
-  assert.equal(secondPositionMatch[0].assignments[1].assignmentNatureLabel, '学院对接岗位');
+  assert.equal(secondPositionMatch[0].assignments[1].assignmentNatureLabel, '学院对接工作角色');
+  assert.equal(filterAdminCandidates(source, '学院对接岗位', 80, personnelCopy).length, 1);
   assert.equal(filterAdminCandidates(source, '旧部门快照', 80, personnelCopy).length, 0);
 
   assert.match(adminManagementBehavior, /filterAdminCandidates\(\s*sourceList,[\s\S]*personnelCopy/);

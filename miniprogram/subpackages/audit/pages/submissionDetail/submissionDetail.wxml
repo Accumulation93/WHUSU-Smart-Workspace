@@ -179,6 +179,14 @@
       <!-- Status -->
       <view class="card">
         <view class="info-grid">
+          <view class="info-block info-block-full" wx:if="{{submission.status !== 'draft'}}">
+            <view class="info-label">{{localeCopy.submitterLabel}}</view>
+            <view class="info-value">
+              <person-link wx:if="{{submission.submitter.name}}" name="{{submission.submitter.name}}" hr-id="{{submission.submitter.hrId}}" person-id="{{submission.submitter.personId}}" />
+              <text wx:else>{{localeCopy.submitterNameMissing}}</text>
+            </view>
+            <view wx:if="{{submission.submittedAssignmentText}}" class="assignment-snapshot-value assignment-snapshot-neutral">{{submission.submittedAssignmentText}}</view>
+          </view>
           <view class="info-block">
             <view class="info-label">{{localeCopy.copy_8aee737e64}}</view>
             <view class="info-value">
@@ -194,12 +202,6 @@
           <view class="info-block info-block-full" wx:if="{{submission.templateName}}">
             <view class="info-label">{{localeCopy.copy_e1b8f22129}}</view>
             <view class="info-value">{{submission.templateName}}</view>
-          </view>
-          <view class="info-block info-block-full">
-            <view class="info-label">{{localeCopy.submittedAssignment}}</view>
-            <view class="info-value assignment-snapshot-value {{submission.submittedAssignmentView.hasSnapshot ? '' : 'assignment-snapshot-neutral'}}">
-              {{submission.submittedAssignmentView.hasSnapshot ? submission.submittedAssignmentView.assignmentLabel : localeCopy.legacyAssignmentSnapshotUnavailable}}
-            </view>
           </view>
         </view>
         <!-- Status context hint — 6 states clearly explained -->
@@ -370,10 +372,10 @@
                 <!-- Expanded detail -->
                 <view wx:if="{{expandedNodeKey === node._key}}" class="flow-expand-detail">
                   <view class="flow-detail-text">
-                    <text class="flow-detail-label">{{localeCopy.copy_253aca0bd3}}</text><person-link name="{{node.operatorName || localeCopy.copy_b121b80801}}" person-id="{{node.operatorPersonId}}" />
+                    <text class="flow-detail-label">{{localeCopy.copy_253aca0bd3}}</text><person-link wx:if="{{node.operatorName}}" name="{{node.operatorName}}" person-id="{{node.operatorPersonId}}" /><text wx:else>{{signingCopy.actorUnknown}}</text>
                   </view>
-                  <view wx:if="{{node.operatorName && !node.operatorAssignmentView.isAdministrativeContext}}" class="flow-assignment-snapshot {{node.operatorAssignmentView.hasSnapshot ? '' : 'assignment-snapshot-neutral'}}">
-                    <text class="flow-detail-label">{{localeCopy.operationAssignment}}</text>{{node.operatorAssignmentView.hasSnapshot ? node.operatorAssignmentView.assignmentLabel : localeCopy.legacyAssignmentSnapshotUnavailable}}
+                  <view wx:if="{{node.operatorName && !node.operatorAssignmentView.isAdministrativeContext}}" class="flow-assignment-snapshot {{node.operatorAssignmentView.assignmentLabel ? '' : 'assignment-snapshot-neutral'}}">
+                    {{node.operatorAssignmentText}}
                   </view>
                   <view wx:if="{{node.comment}}" class="flow-detail-text flow-detail-comment-text">
                     <text class="flow-detail-label">{{node.event === 'approve' ? localeCopy.copy_4161e513f6 : (node.event === 'reject' ? localeCopy.copy_5564430f9c : localeCopy.copy_b141bec1f6)}}</text>{{node.comment}}
@@ -418,8 +420,8 @@
                   <view wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}" class="flow-detail-processed-meta">
                     {{localeCopy.copy_aa5c293ca5}}{{node.processedAtText || ''}}
                   </view>
-                  <view wx:if="{{node.operatorName && !node.processedAssignmentView.isAdministrativeContext && (node.flowIcon === 'check' || node.flowIcon === 'cross')}}" class="flow-assignment-snapshot {{node.processedAssignmentView.hasSnapshot ? '' : 'assignment-snapshot-neutral'}}">
-                    <text class="flow-detail-label">{{localeCopy.processedAssignment}}</text>{{node.processedAssignmentView.hasSnapshot ? node.processedAssignmentView.assignmentLabel : localeCopy.legacyAssignmentSnapshotUnavailable}}
+                  <view wx:if="{{node.operatorName && !node.processedAssignmentView.isAdministrativeContext && (node.flowIcon === 'check' || node.flowIcon === 'cross')}}" class="flow-assignment-snapshot {{node.processedAssignmentView.assignmentLabel ? '' : 'assignment-snapshot-neutral'}}">
+                    {{node.processedAssignmentText}}
                   </view>
                   <!-- Approval comment -->
                   <view wx:if="{{node.comment && node.flowIcon === 'check'}}" class="flow-detail-comment">
@@ -447,7 +449,10 @@
       <view wx:if="{{roundGroup.expanded && roundGroup.signatures.length}}">
         <view class="section-title">{{localeCopy.copy_6a200ce590}}（{{roundGroup.signatures.length}}{{localeCopy.copy_7ccfef7ef3}}</view>
         <view class="audit-sig-card" wx:for="{{roundGroup.signatures}}" wx:key="id">
-          <view class="list-name"><person-link name="{{item.signerName}}" hr-id="{{item.signerHrId}}" /> · {{item.signatureType === 'signature' ? localeCopy.copy_0c02992813 : (item.signatureType === 'digital' ? localeCopy.copy_cb9e71339c : localeCopy.copy_ed981b1744)}} · {{item.roundText}}</view>
+          <view class="list-name">
+            <block wx:if="{{item.signatureType === 'signature' || item.signatureType === 'stamp'}}"><person-link name="{{item.signerName}}" hr-id="{{item.signerHrId}}" /> · {{item.signatureType === 'signature' ? localeCopy.copy_0c02992813 : localeCopy.copy_ed981b1744}}</block>
+            <text wx:else>{{item.signatureType === 'digital' ? localeCopy.fileDigitalSigningRecord : localeCopy.fileOtherSigningRecord}}</text> · {{item.roundText}}
+          </view>
           <view class="list-desc">{{item.signedAtText}}</view>
         </view>
       </view>

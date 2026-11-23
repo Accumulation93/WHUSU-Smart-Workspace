@@ -17,7 +17,10 @@
     "activityLabel": { "module": "zh-CN/home.js", "segments": ["text", "currentActivity"] }
   },
   "hr.js": { "profileReadOnlyNote": null },
-  "venue.js": { "adminNote": null },
+  "venue.js": {
+    "adminNote": null,
+    "bookingAssignment": { "module": "zh-CN/generated/subpackages/venue/pages/myVenueBookings/myVenueBookings.js", "segments": ["bookingAssignment"] }
+  },
   "audit.js": { "signatureRequiredBody": null, "designateRequiredBody": null },
   "login.js": {
     "studentId": { "module": "zh-CN/login.js", "segments": ["view", "studentId"] },

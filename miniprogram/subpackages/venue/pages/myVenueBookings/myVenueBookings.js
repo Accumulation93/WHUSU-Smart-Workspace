@@ -1,4 +1,5 @@
 const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/venue/pages/myVenueBookings/myVenueBookings');
+const venueDetailCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/venue/components/venueBookingDetail/venueBookingDetail');
 const { callFunction, createResultError, getErrorText, showShortToast } = require('../../../../utils/api');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
@@ -51,6 +52,7 @@ Page({
     navigationTitle: localeCopy.navigationTitle,
     navTopPx: 0,
     localeCopy,
+    borrowerLabel: venueDetailCopy.copy_ce30bda5a2,
     bookings: [],
     loading: false,
     bookingDetailVisible: false,

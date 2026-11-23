@@ -14,7 +14,7 @@ const { calculateWorkflowProgress } = require('../../utils/workflowProgress');
 const signingDrafts = require('../../../../utils/auditSigningDrafts');
 const signingCopy = require('../../package-resources/locales/zh-CN/auditSigning');
 const directApprovalCopy = require('../../package-resources/locales/zh-CN/approvalDirect');
-const { presentAuditStep, groupAuditRounds, materialsOfAuditDraft, auditMaterialInput, directAuditStampChoices, missingAuditMaterial } = require('../../utils/auditStepView');
+const { presentAuditSubmitter, presentAuditStep, groupAuditRounds, materialsOfAuditDraft, auditMaterialInput, directAuditStampChoices, missingAuditMaterial } = require('../../utils/auditStepView');
 const { buildConditions } = require('../../package-resources/utils/auditConditionView');
 const conditionCopy = require('../../package-resources/locales/zh-CN/auditConditions');
 
@@ -1206,8 +1206,12 @@ Page({
       });
       if (!orgSession.isRequestCurrent(this, request)) return;
       if (res.status === 'success') {
+        const submitter = presentAuditSubmitter(res.submission, res.events, localeCopy.legacySubmitterNamePlaceholder);
+        const assignment = workContextView.normalizeSnapshot(submitter.snapshot);
         const submissionView = Object.assign({}, res.submission, {
-          submittedAssignmentView: workContextView.normalizeSnapshot(res.submission.submittedContextSnapshot)
+          submitter,
+          submittedAssignmentText: assignment.isAdministrativeContext ? '' : assignment.assignmentLabel
+            ? localeCopy.submittedWithAssignment(assignment.assignmentLabel) : localeCopy.submissionRoleMissing
         });
         const submissionStatus = submissionView.status;
         const currentStepIndex = submissionView.currentStepIndex || 0;
@@ -1483,7 +1487,8 @@ Page({
               rejectionReason: step.status === 'rejected' ? (eventInfo.comment || step.rejectionReason || '') : step.rejectionReason,
               round: step.round,
               processedAtText: actualProcessedAt,
-              processedAssignmentView: actualOperatorName && eventInfo.assignmentView && eventInfo.assignmentView.hasSnapshot
+              processedAssignmentView: actualOperatorName && eventInfo.assignmentView
+                && (eventInfo.assignmentView.assignmentLabel || eventInfo.assignmentView.isAdministrativeContext)
                 ? eventInfo.assignmentView
                 : workContextView.normalizeSnapshot(step.processedContextSnapshot),
               flowNodeClass: flowNodeClass,
@@ -1687,6 +1692,13 @@ Page({
         flowTimeline.forEach(node => {
           node.roundText = Number(node.round) > 0 ? localeCopy.roundNumber(node.round) : '';
           node.stepText = node.stepName || (Number(node.sortOrder) > 0 ? localeCopy.stepNumber(node.sortOrder) : '');
+          const operatorLabel = (node.operatorAssignmentView || {}).assignmentLabel;
+          const processedLabel = (node.processedAssignmentView || {}).assignmentLabel;
+          const submitted = node.event === 'submit' || node.event === 'resubmit';
+          const formatOperator = submitted ? localeCopy.submittedWithAssignment : localeCopy.handledWithAssignment;
+          node.operatorAssignmentText = operatorLabel ? formatOperator(operatorLabel)
+            : submitted ? localeCopy.submissionRoleMissing : localeCopy.legacyAssignmentSnapshotUnavailable;
+          node.processedAssignmentText = processedLabel ? localeCopy.processedWithAssignment(processedLabel) : localeCopy.approvalRoleMissing;
         });
         this.setData({
           signingReadFailed: false, pendingActionRead: false,

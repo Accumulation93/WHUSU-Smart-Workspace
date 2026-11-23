@@ -42,7 +42,7 @@ async function setup(page, options = {}) {
     state.calls.push({ name, body });
     let result;
     if (name === 'getSubmissionDetail') result = state.failRead ? { status: 'error' } : state.detail;
-    if (name === 'getAuditFilePreview') result = state.failPreview ? { status: 'error' } : { status: 'success', previewMime: 'image/png', data: preview, pageWidth: 800, pageHeight: 400, totalPages: 2 };
+    if (name === 'getAuditFilePreview') result = state.failPreview || state.failPreviewPage === body.page ? { status: 'error' } : { status: 'success', previewMime: 'image/png', data: preview, pageWidth: 800, pageHeight: 400, totalPages: 2 };
     if (name === 'listMyStamps') result = { status: 'success', stamps: [{ id: 'stamp-1', name: '测试印章' }] };
     if (name === 'getMyStampImage') result = { status: 'success', imageData: mark };
     if (name === 'saveSignature') { state.savedImage=body.imageData; result = { status: 'success', id: 'saved-template' }; }
@@ -430,6 +430,17 @@ test('审批拒绝保留书写，成功后读取失败只重读且不能重复�
   state.failRead = false; await page.getByRole('button', { name: text.retry, exact: true }).first().click();
   await expect(page.getByRole('button', { name: copy.audit.actionApprove, exact: true })).toHaveCount(0);
   expect(state.calls.filter(item => item.name === 'approveStep')).toHaveLength(2);
+});
+
+test('签署第二页加载失败后重试第二页', async ({ page }) => {
+  const state = await setup(page);
+  await enter(page);
+  state.failPreviewPage = 2;
+  await page.getByRole('button', { name: text.nextPage }).click();
+  await expect(page.getByText(text.failed, { exact: true })).toBeVisible();
+  state.failPreviewPage = null;
+  await page.getByRole('button', { name: text.retry, exact: true }).click();
+  await expect(page.getByText('2 / 2', { exact: true })).toBeVisible();
 });
 
 

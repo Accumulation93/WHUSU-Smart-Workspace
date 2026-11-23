@@ -8,6 +8,7 @@ import relations from '../../src/locales/zh-CN/shared/identityNatureRelations.js
 
 const pending = { id: 'booking-1', title: 'Booking A', venueName: 'Room A', userName: 'Applicant', description: 'Long booking description '.repeat(40),
   creatorAssignmentLabel: 'Saved role', timeStart: '2026-10-10T01:00:00Z', timeEnd: '2026-10-10T02:00:00Z',
+  displayFacts: { creatorType: 'user', creatorName: 'Applicant', assignmentLabel: 'Saved role', venueName: 'Room A' },
   canProcessInCurrentContext: true, approvalFlowId: 'flow-1', currentFlowId: 'flow-1', approvalCurrentStep: 0,
   approvalTotalSteps: 2, flowSteps: [{ name: 'First step' }, { name: 'Next step' }],
   flowSummary: [{ flowId: 'flow-1', allowDesignateNext: true, stepIndex: 0, totalSteps: 2 }], snapshots: [] };
@@ -34,6 +35,7 @@ test(`pending venue approval saves and rereads in ${admin ? 'management tab' : '
     await expect(page.locator('.workspace-hero')).toHaveCount(1);
     await expect(page.locator('.workspace-hero')).toHaveClass(/admin/);
   }
+  await expect(page.getByText('以『Saved role』提交', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: ui.copy_1bb7eb3e1a, exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Booking A' });
   await expect(dialog).toBeVisible();

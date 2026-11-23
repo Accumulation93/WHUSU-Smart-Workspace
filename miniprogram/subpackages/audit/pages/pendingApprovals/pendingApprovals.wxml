@@ -30,7 +30,7 @@
             <view class="pending-required-context" wx:if="{{item.requiredOrganizationName || item.eligibleContextLabels.length}}">
               <view class="audit-chip audit-chip-draft" wx:if="{{item.requiredOrganizationName}}">{{localeCopy.requiredOrganizationPrefix}}{{item.requiredOrganizationName}}</view>
               <view class="eligible-context-list" wx:if="{{item.eligibleContextLabels.length}}">
-                <view class="audit-chip {{item.requiresContextSwitch ? 'audit-chip-pending' : 'audit-chip-approved'}}" wx:for="{{item.eligibleContextLabels}}" wx:for-item="label" wx:key="*this">{{localeCopy.requiredAssignmentPrefix}}{{label}}</view>
+                <view class="audit-chip {{item.requiresContextSwitch ? 'audit-chip-pending' : 'audit-chip-approved'}}" wx:for="{{item.eligibleContextTexts}}" wx:for-item="label" wx:key="*this">{{label}}</view>
               </view>
             </view>
           </view>

@@ -47,7 +47,7 @@ const sharedModule = Object.freeze({
   identity_in_use: '这个身份类别仍有关联的人员、业务配置或历史记录，不能删除。',
   work_group_in_use: '这个职能组仍有关联的人员、业务配置或历史记录，不能删除。',
   work_group_department_unavailable: '所选部门已失效或不属于当前组织，请重新选择。',
-  work_group_department_in_use: '这个职能组已有岗位使用，不能更换所属部门。',
+  work_group_department_in_use: '已有工作角色使用这个职能组，暂时无法更换所属部门。',
   scoring_activity_duplicate: '已存在同名评分活动，请换一个名称。',
   scoring_activity_referenced: '这个评分活动已有评分记录或结果公示，不能删除。',
   scoring_rule_referenced: '这个评分人分类已有评分记录，不能删除。',
