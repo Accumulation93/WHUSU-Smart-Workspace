@@ -133,6 +133,11 @@ test('directory-only admin can configure without loading member records, copy an
   await dialog.getByRole('button',{name:'确认',exact:true}).click();
   await page.getByRole('button',{name:ui.editColumns,exact:true}).click();
   await page.getByLabel('Phone',{exact:true}).check();
+  const actions = page.locator('.directory-form-actions');
+  const cancelBounds = await actions.getByRole('button', { name: ui.cancel, exact: true }).boundingBox();
+  const saveBounds = await actions.getByRole('button', { name: ui.save, exact: true }).boundingBox();
+  expect(cancelBounds?.y).toBe(saveBounds?.y);
+  expect(cancelBounds.x + cancelBounds.width).toBeLessThan(saveBounds.x);
   await page.evaluate(()=>window.scrollTo(0,0));
   await page.screenshot({path:testInfo.outputPath('directory-editor.png'),fullPage:true,animations:'disabled'});
   await page.getByRole('button',{name:ui.save,exact:true}).click();

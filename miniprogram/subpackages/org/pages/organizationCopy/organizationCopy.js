@@ -24,10 +24,19 @@ Page({
   },
   onResize: function() { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight }); },
   onShow: function() {
-    this._active = true; const state = orgSession.consume(this);
-    this.setData({ tone: state.snapshot.role === 'admin' ? 'admin' : 'blue' }); this.load();
+    const state = orgSession.consume(this);
+    if (state.changed) this.clear();
+    this._active = true;
+    this.setData({ tone: state.snapshot.role === 'admin' ? 'admin' : 'blue' });
+    const draftId = !state.changed && this._resumeDraft;
+    this._resumeDraft = null;
+    if (draftId) this.openDraft(draftId);
+    else this.load();
   },
-  onHide: function() { this.clear(); },
+  onHide: function() {
+    this._resumeDraft = this.data.draft && this.data.draft.id || null;
+    this.clear();
+  },
   onUnload: function() { this.clear(); },
   clear: function() {
     this._active = false; orgSession.invalidateRequests(this); this._mapping = {}; this._requestIds = {}; this._pending = null;

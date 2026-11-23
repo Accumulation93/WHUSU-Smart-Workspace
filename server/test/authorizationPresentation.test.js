@@ -20,9 +20,15 @@ const rule = { id: 'rule-a', version: 3, name: '查看借用', policy: { id: 'ru
 
 test('身份卡操作区别本人查看、成码与允许匿名核验', () => {
   const definitions = [...require('../src/core/services/authorizationCatalog').CATALOG.values()];
-  assert.equal(presentation.capabilityLabel('identity.cards.read', definitions, copy), '查看本人身份卡');
-  assert.equal(presentation.capabilityLabel('identity.cards.create', definitions, copy), '生成本人身份码');
-  assert.equal(presentation.capabilityLabel('identity.cards.verify', definitions, copy), '允许他人扫码核验本人身份');
+  assert.equal(presentation.capabilityLabel('identity.cards.read', definitions, copy), '查看 · 本人身份卡');
+  assert.equal(presentation.capabilityLabel('identity.cards.create', definitions, copy), '生成 · 本人身份码');
+  assert.equal(presentation.capabilityLabel('identity.cards.verify', definitions, copy), '允许他人扫码核验 · 本人身份');
+  assert.equal(presentation.capabilityLabel('audit.submissions.delete', definitions, copy), '永久删除 · 审核申请');
+  assert.equal(presentation.capabilityLabel('scoring.publications.delete', definitions, copy), '删除 · 考核公示规则');
+  assert.equal(presentation.capabilityLabel('system.superAdministrators.delete', definitions, copy), '撤销 · 超级管理员资格');
+  assert.equal(copy.capabilityNames['auth.accounts.resetPassphrase'], '重置成员登录口令');
+  const selected = ['audit.submissions.delete', 'identity.cards.read'];
+  assert.deepEqual(editor.selectedPermissionsPage({ catalog: definitions, capabilities: selected, query: '永久删除审核申请', copy }).rows.map(row => row.key), ['audit.submissions.delete']);
 });
 
 test('不同部门的同名职能组分别带所属部门，不按名称合并选项', () => {

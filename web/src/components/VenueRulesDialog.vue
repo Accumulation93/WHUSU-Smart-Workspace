@@ -1,6 +1,6 @@
 <template>
   <GlassDialog :title="ui.copy_ea512602ff + ' · ' + venue.name" :busy="busy || approvalBusy || awaitingRead" @close="close">
-    <template #toolbar><nav class="tabs rule-tabs"><button v-for="tab in tabs" :key="tab.key" type="button" class="tab" :class="{ 'tab-active': active === tab.key }" :aria-pressed="active === tab.key" :disabled="busy || approvalBusy || awaitingRead" @click="active = tab.key; load()">{{ tab.label }}</button></nav></template>
+    <template #toolbar><nav class="tabs workspace-secondary-tabs"><button v-for="tab in tabs" :key="tab.key" type="button" class="tab" :class="{ 'tab-active': active === tab.key }" :aria-pressed="active === tab.key" :disabled="busy || approvalBusy || awaitingRead" @click="active = tab.key; load()">{{ tab.label }}</button></nav></template>
     <h2 class="section-title">{{ tabs.find(tab => tab.key === active)?.title }}</h2>
     <VenueApprovalRules v-if="active === 'booking'" :venue="venue" :window-value="windowForm" @busy="approvalBusy = $event" @editing="approvalEditing = $event" />
     <template v-else>
@@ -158,5 +158,4 @@ onBeforeUnmount(() => { disposed = true; generation++; emit('busy', false); emit
 </script>
 <style scoped>
 .rule-row { flex-direction: column; align-items: stretch; gap: var(--ui-field-gap); }
-.rule-tabs .tab { width: 0; min-width: 0; padding-inline: var(--ui-admin-tab-padding-x); white-space: nowrap; }
 </style>

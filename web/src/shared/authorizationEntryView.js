@@ -15,7 +15,7 @@ const DOMAIN_ENTRIES = Object.freeze({
     management: ['activities', 'templates', 'rules', 'results', 'publications'] },
   system: { business: [], management: ['settings'] },
   calendar: { business: ['calendar.events.read', 'calendar.events.create'], management: ['calendarRules'] },
-  identityCard: { business: ['identity.cards.read', 'identity.cards.create'], management: [] },
+  identityCard: { business: ['identity.cards.read', 'identity.cards.create'], management: ['identityCardSettings'] },
   messages: { business: ['notifications.items.read'], management: [] }
 });
 

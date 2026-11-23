@@ -114,7 +114,8 @@ const RESOURCES = [
   { key: 'notifications.items', legacy: null, actions: ['read', 'delete'], scopes: ['organization', 'records'],
     businessReadRoles: ['user', 'admin'], businessActionRoles: { delete: ['user', 'admin'] } },
   { key: 'identity.cards', legacy: null, actions: ['read', 'create', 'verify'], scopes: ['organization'],
-    businessReadRoles: ['user', 'admin'], businessActionRoles: { create: ['user', 'admin'], verify: ['user', 'admin'] } }
+    businessReadRoles: ['user', 'admin'], businessActionRoles: { create: ['user', 'admin'], verify: ['user', 'admin'] } },
+  { key: 'identity.cardPolicy', legacy: null, actions: ['read', 'update'], governance: true, scopes: ['organization'] }
 ];
 
 // 旧入口的隐含读取逐项映射，不能把删除权扩大成维护权或把日程读取扩大成借用详情。

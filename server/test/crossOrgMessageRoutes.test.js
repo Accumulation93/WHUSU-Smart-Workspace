@@ -29,6 +29,7 @@ const todoCalls = [];
 const notificationCalls = [];
 const markAllCalls = [];
 let notificationTargetType = 'account';
+let defaultOrganizationReads = 0;
 const testOrgStorage = new AsyncLocalStorage();
 
 const todoService = {
@@ -95,7 +96,7 @@ require.cache[orgContextPath] = {
   filename: orgContextPath,
   loaded: true,
   exports: {
-    getCurrentOrgId: async function() { return 'org-a'; },
+    getCurrentOrgId: async function() { defaultOrganizationReads++; return 'org-a'; },
     orgStorage: testOrgStorage
   }
 };
@@ -211,6 +212,29 @@ async function testNotificationOrderAndCounts() {
   );
 }
 
+async function testReadsAvoidUnneededOrganizationLookupAndDeduplicateRoles() {
+  const readsBefore = defaultOrganizationReads;
+  const secondary = { ...contexts[0], contextId: 'secondary', identityType: 'assignment' };
+  contexts.push(secondary);
+  try {
+    assert.strictEqual((await invoke('/getTodoCount', {})).count, 2);
+    const todos = await invoke('/listTodos', { limit: 6 });
+    assert.strictEqual(todos.total, 2);
+    assert.strictEqual(todos.items[1].contextId, 'secondary');
+    notificationCalls.length = 0;
+    const notifications = await invoke('/listNotifications', { limit: 6 });
+    assert.strictEqual(notifications.total, 2);
+    assert.deepStrictEqual(notificationCalls.sort(), ['hr-a', 'hr-b']);
+    assert.strictEqual(defaultOrganizationReads, readsBefore);
+    await invoke('/markNotificationRead', { id: 'notice-a', organizationId: 'org-a' });
+    assert.strictEqual(defaultOrganizationReads, readsBefore);
+    await invoke('/markNotificationRead', { id: 'notice-a' });
+    assert.strictEqual(defaultOrganizationReads, readsBefore + 1);
+  } finally {
+    contexts.pop();
+  }
+}
+
 async function testMarkAllScope() {
   markAllCalls.length = 0;
   const filtered = await invoke('/markAllNotificationsRead', { organizationId: 'org-b' });
@@ -285,6 +309,7 @@ async function testTargetedMutationDoesNotMisreportNotFoundOnPartialFailure() {
   await testOrganizationFilterAndDenial();
   await testPartialFailure();
   await testNotificationOrderAndCounts();
+  await testReadsAvoidUnneededOrganizationLookupAndDeduplicateRoles();
   await testMarkAllScope();
   await testHrProfileNotificationUsesAdminPage();
   await testTargetedMutationDoesNotMisreportNotFoundOnPartialFailure();

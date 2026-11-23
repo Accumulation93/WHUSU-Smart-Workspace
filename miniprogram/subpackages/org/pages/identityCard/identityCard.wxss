@@ -9,6 +9,10 @@
 .identity-card-body { padding: var(--ui-card-padding,24rpx); display: flex; flex-direction: column; gap: var(--ui-field-gap,16rpx); }
 .identity-card-label { font-size: var(--ui-type-meta); color: #64748b; line-height: 1.6; }
 .identity-card-value { font-size: var(--ui-type-body); color: #0f172a; font-weight: 600; line-height: 1.6; overflow-wrap: anywhere; }
+.identity-card-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-inline-gap, 12rpx); }
+.identity-card-actions > .identity-card-refresh { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; margin: 0; }
+.identity-card.identity-policy-card { margin-top: var(--ui-page-action-gap, 24rpx); }
+.identity-policy-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--ui-field-gap, 16rpx); }
 .identity-card-fields { display: grid; grid-template-columns: 1fr; gap: 18rpx; }
 .identity-card-field { display: flex; flex-direction: column; gap: 6rpx; min-width: 0; padding: var(--ui-field-gap,16rpx); border-radius: var(--ui-field-radius); border: 1px solid rgba(147,197,253,.3); background: linear-gradient(135deg,rgba(255,255,255,.82),rgba(239,246,255,.5)); }
 .identity-card-status { display: flex; align-items: center; gap: 8rpx; margin-top: 10rpx; font-size: var(--ui-type-label); line-height: 1.5; }

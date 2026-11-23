@@ -1,33 +1,33 @@
-const auditSigningCopy = require('../../../package-resources/locales/zh-CN/auditSigning');
-const auditConditionsCopy = require('../../../package-resources/locales/zh-CN/auditConditions');
+const auditSigningCopy = require('../../../../../locales/zh-CN/auditSigning');
+const auditConditionsCopy = require('../../../../../locales/zh-CN/auditConditions');
 const natureCopy = require('../../../../../locales/zh-CN/identityNatureRelations');
 const commonCopy = require('../../../../../locales/zh-CN/common');
-const { buildConditions, buildStarterConditions } = require('../../../package-resources/utils/auditConditionView');
-const { inputFile } = require('../../../package-resources/utils/fileIO');
-const localeCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/auditBehavior');
+const { buildConditions, buildStarterConditions } = require('../../../../../utils/auditConditionView');
+const { inputFile } = require('../../../../../utils/fileIO');
+const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/auditBehavior');
 /**
  * Audit Workflow Behavior — Admin-side audit management
  *
  * Tabs: auditTemplates | auditStamps | auditSubmissions | auditVerification
  */
-const utils = require('../../../package-resources/subpackages/scoring/pages/admin/modules/adminUtils');
+const utils = require('./adminUtils');
 const { formatAuditTime, createResultError } = require('../../../../../utils/api');
-const { openAuditFile } = require('../../../package-resources/utils/filePreview');
+const { openAuditFile } = require('../../../../../utils/filePreview');
 const {
   verificationCopy,
   presentVerificationResponse,
   buildMatchVerificationParams
-} = require('../../../package-resources/utils/auditVerification');
+} = require('../../../../../utils/auditVerification');
 const orgSession = require('../../../../../utils/orgSession');
 const eventBus = require('../../../../../utils/eventBus');
-const governanceCopy = require('../../../package-resources/locales/zh-CN/adminGovernance');
-const stampCopy = require('../../../package-resources/locales/zh-CN/stampAuthorization');
-const { buildImageDataUrl, MAX_IMAGE_BYTES: MAX_STAMP_IMAGE_BYTES } = require('../../../package-resources/utils/imageDataUrl');
+const governanceCopy = require('../../../../../locales/zh-CN/adminGovernance');
+const stampCopy = require('../../../../../locales/zh-CN/stampAuthorization');
+const { buildImageDataUrl, MAX_IMAGE_BYTES: MAX_STAMP_IMAGE_BYTES } = require('../../../../../utils/imageDataUrl');
 const {
   ALL_FILTER_KEY,
   buildAuditPersonnelFilterOptions,
   filterAuditPersonnel
-} = require('../../../package-resources/subpackages/scoring/pages/admin/modules/auditPersonnelView');
+} = require('./auditPersonnelView');
 const { showShortToast, getErrorText } = utils;
 
 const AUDIT_PERSONNEL_RENDER_LIMIT = 80;
@@ -1794,7 +1794,7 @@ module.exports = Behavior({
     },
 
     async grantVerificationPermission() {
-      if (this.data.authorizationEnforced && !this.data.actionCapabilities['audit.verification.configure']) return;
+      if (this.data.authorizationEnforced) return;
       const hrId = this.data.verificationGrantHrId;
       if (!hrId) { showShortToast(localeCopy.copy_e5d78a79f7); return; }
       try {
@@ -1815,14 +1815,14 @@ module.exports = Behavior({
     },
 
     async revokeVerificationPermission(e) {
-      if (this.data.authorizationEnforced && !this.data.actionCapabilities['audit.verification.configure']) return;
+      if (this.data.authorizationEnforced) return;
       const hrId = e.currentTarget.dataset.hrId;
       const that = this;
       wx.showModal({
         title: localeCopy.copy_d6c748ac95,
         content: localeCopy.copy_c73a8aa49d,
         success: async function (modalRes) {
-          if (!modalRes.confirm) return;
+          if (!modalRes.confirm || that.data.authorizationEnforced) return;
           try {
             const res = await that.callCloud('saveVerificationPermission', {
               granteeHrId: hrId,
@@ -1859,7 +1859,7 @@ module.exports = Behavior({
           if (!orgSession.isRequestCurrent(that, request)) return;
           const file = res.tempFiles[0];
           if (!file || file.size > 10 * 1024 * 1024) {
-            showShortToast(require('../../../package-resources/locales/zh-CN/signingEvidence').fileTooLarge);
+            showShortToast(require('../../../../../locales/zh-CN/signingEvidence').fileTooLarge);
             return;
           }
           // 文件字节直接交给服务端验证，不用哈希查询代替上传验真。
@@ -1956,11 +1956,12 @@ module.exports = Behavior({
       const label = e.currentTarget.dataset.label || localeCopy.copy_f262abee38;
       let candidates = this._hrList || [];
       if (target === 'grantHrId') {
-        if (this.data.authorizationEnforced && !this.data.actionCapabilities['audit.verification.configure']) return;
+        if (this.data.authorizationEnforced) return;
         if (this.data.loadingMap.auditVerificationCandidates) return;
         this.setLoading('auditVerificationCandidates', true);
         try {
           const result = await this.callCloud('listAuditVerificationCandidates', {});
+          if (this.data.authorizationEnforced) return;
           if (result.status !== 'success') throw createResultError(result, localeCopy.copy_b791913c7a);
           candidates = result.candidates || [];
         } catch (error) {

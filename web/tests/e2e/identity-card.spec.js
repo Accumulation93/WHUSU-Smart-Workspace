@@ -6,6 +6,34 @@ const verificationImage = await createRequire(import.meta.url)('../../../server/
 const card = {name:'Identity Example',organization:'Example organization',position:'Member · Department',state:copy.active,
   stateCode:'active',positionFacts:{assignmentLabel:'Member · Department',role:'user',hasAssignment:true}};
 const image = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jU1sAAAAASUVORK5CYII=';
+test('authorized identity-card policy is editable without requesting a new code', async ({ page }, info) => {
+  await mockApi(page);
+  const capabilities = ['identity.cardPolicy.read', 'identity.cardPolicy.update'];
+  await page.route('**/api/getCurrentAuthorizationAccess', route => route.fulfill({ json: { status: 'success', mode: 'enforced',
+    organizationId: CURRENT_CONTEXT.organizationId, contextId: CURRENT_CONTEXT.contextId, role: CURRENT_CONTEXT.role,
+    capabilities, grantedCapabilities: capabilities } }));
+  let policy = { version: 0, issueEnabled: true, publicVerificationEnabled: true };
+  let issued = 0;
+  await page.route('**/api/createMyIdentityCardCode', route => { issued++; return route.fulfill({ json: {status:'success'} }); });
+  await page.route('**/api/getIdentityCardPolicy', route => route.fulfill({ json: { status: 'success', canUpdate: true, policy } }));
+  await page.route('**/api/saveIdentityCardPolicy', route => {
+    expect(route.request().postDataJSON()).toEqual({ expectedVersion: 0, issueEnabled: true, publicVerificationEnabled: false });
+    policy = { ...policy, version: 1, publicVerificationEnabled: false };
+    return route.fulfill({ json: { status: 'success', canUpdate: true, policy } });
+  });
+  await page.goto('/web/identity-card?area=management');
+  const verificationToggle = page.getByRole('switch', { name: copy.management.publicVerification });
+  await expect(verificationToggle).toBeChecked();
+  await verificationToggle.uncheck();
+  const managementPanel = page.getByRole('region', { name: copy.management.title });
+  await managementPanel.getByRole('button').click();
+  await expect(page.getByRole('status')).toHaveText(copy.management.saved);
+  await page.reload();
+  await expect(verificationToggle).toBeEnabled();
+  await expect(verificationToggle).not.toBeChecked();
+  expect(issued).toBe(0);
+  await page.screenshot({ path: info.outputPath('identity-card-management.png'), fullPage: true, animations: 'disabled' });
+});
 test('hero opens identity card while work-role button keeps its action', async ({page}, info) => {
   await mockApi(page);
   await page.route('**/api/getMyIdentityCard',r=>r.fulfill({json:{status:'success',valid:true,card}}));
@@ -31,6 +59,9 @@ test('hero opens identity card while work-role button keeps its action', async (
   expect(await page.locator('.identity-image').evaluate(el=>getComputedStyle(el).backgroundImage)).toBe(scanBackground);
   await page.getByRole('button',{name:copy.verificationCode,exact:true}).click();
   await expect(page.getByRole('button',{name:copy.originalImage,exact:true})).toBeVisible();
+  const original = await page.getByRole('button', { name: copy.originalImage, exact: true }).boundingBox();
+  const refresh = await page.getByRole('button', { name: copy.refresh, exact: true }).boundingBox();
+  expect(original?.y).toBe(refresh?.y);
   await page.evaluate(()=>window.scrollTo(0,0));
   await page.screenshot({path:info.outputPath('identity-card.png'),fullPage:true,animations:'disabled'});
   const geometry = await page.evaluate(() => ({hero:document.querySelector('.workspace-hero').getBoundingClientRect().bottom, body:document.querySelector('.identity-card').getBoundingClientRect().top, overflow:document.documentElement.scrollWidth > innerWidth}));
@@ -121,6 +152,18 @@ test('code service failure retains basic identity and offers retry', async ({pag
   await expect(page.getByText(copy.failure,{exact:true})).toBeVisible();
   await expect(page.locator('.workspace-person-name')).toHaveText(card.name);
   await expect(page.getByRole('button',{name:copy.refresh,exact:true})).toBeEnabled();
+});
+
+test('a disabled code policy keeps basic identity without starting code generation', async ({ page }) => {
+  await mockApi(page);
+  let issued = 0;
+  await page.route('**/api/getMyIdentityCard', route => route.fulfill({ json: { status: 'success', valid: true, card, codeDisabledByPolicy: true } }));
+  await page.route('**/api/createMyIdentityCardCode', route => { issued++; return route.fulfill({ json: { status: 'success' } }); });
+  await page.goto('/web/identity-card');
+  await expect(page.getByText(copy.codeDisabledByPolicy, { exact: true })).toBeVisible();
+  await expect(page.locator('.workspace-person-name')).toHaveText(card.name);
+  await expect(page.locator('.identity-image')).toHaveCount(0);
+  expect(issued).toBe(0);
 });
 
 test('public identity exposes structured position cards and a local clock without revalidation', async ({page}) => {

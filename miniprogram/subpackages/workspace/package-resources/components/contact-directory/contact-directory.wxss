@@ -16,7 +16,7 @@
 .directory-switch { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-field-gap, 16rpx); }
 .directory-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--ui-field-gap, 16rpx); }
 .directory-actions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--ui-field-gap, 16rpx); }
-.directory-actions .primary-btn, .directory-actions .secondary-btn, .directory-actions .danger-btn { width: 100%; margin: 0; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.4; }
+.directory-actions > .primary-btn, .directory-actions > .secondary-btn, .directory-actions > .danger-btn { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; margin: 0; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.4; }
 .directory-stack > .primary-btn, .directory-stack > .secondary-btn, .directory-stack > .danger-btn { flex: none; width: 100%; height: auto; margin: 0; line-height: 1.4; display: flex; align-items: center; justify-content: center; text-align: center; }
 .directory-person-body { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .directory-group-head { display: flex; align-items: center; }

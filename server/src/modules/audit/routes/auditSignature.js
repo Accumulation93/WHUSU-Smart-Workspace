@@ -53,21 +53,19 @@ function decodeVerificationFile(fileBase64) {
 async function resolveVerificationAccess(req) {
   const reference = req.unifiedAuthorization?.reference;
   const orgId = await getCurrentOrgId();
-  let decision;
   if (reference) {
     try {
-      decision = await require('../models/auditManagementAuthorization').readDecision(orgId, reference, 'audit.verification', 'verify', orgId);
+      const decision = await require('../models/auditManagementAuthorization').readDecision(orgId, reference, 'audit.verification', 'verify', orgId);
+      return { canVerify: decision.allowed };
     } catch (error) {
       if (error.code === 'authorization_forbidden') return { canVerify: false };
       throw error;
     }
-    if (decision.allowed) return { canVerify: true, hrId: null };
-    if (decision.reason !== 'not_granted') return { canVerify: false };
   }
   const actorResult = await resolveCurrentActor(req);
   if (!actorResult.ok) return { canVerify: false, actorResult };
   if (actorResult.actor.type === 'admin') {
-    return { canVerify: !reference, selectedRole: 'admin', hrId: null };
+    return { canVerify: true };
   }
   const assignment = await resolveActorAssignment(actorResult.actor, orgId);
   const hrId = assignment ? assignment.hr_id : null;

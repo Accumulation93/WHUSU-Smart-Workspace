@@ -74,6 +74,8 @@ Page({
 
   onHide() {
     this._isPageVisible = false;
+    orgSession.invalidateRequests(this);
+    if (this.data.loading) this.setData({ loading: false });
     this._clearStatusRefreshTimer();
     if (this._boundVenueChanged) {
       eventBus.off('venue:changed', this._boundVenueChanged);

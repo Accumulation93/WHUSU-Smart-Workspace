@@ -25,6 +25,8 @@ module.exports = async function unifiedPermissionIntegrationCases(admin, post) {
     expectedRevision: await revision(), policy: { effect: 'allow', enabled: true,
       subjects: [{ kind: 'assignments', ids: ['assignment'] }], capabilities: ['audit.submissions.read'],
       scopes: [{ kind: 'organization' }], fields: null } };
+  assert.equal((await (await post('previewAuthorizationRule', { ...body, bindingModel: 'role' })).json()).status,
+    'authorization_role_required');
   const preview = await (await post('previewAuthorizationRule', body)).json();
   assert.equal(preview.status, 'success');
   assert.match(preview.previewToken, /^[a-f0-9]{64}$/);
@@ -34,9 +36,15 @@ module.exports = async function unifiedPermissionIntegrationCases(admin, post) {
   assert.equal((await (await post('saveAuthorizationRule', { ...body, previewToken: 'obsolete' })).json()).status, 'authorization_stale_reference');
   const saved = await (await post('saveAuthorizationRule', { ...body, previewToken: preview.previewToken })).json();
   assert.equal(saved.status, 'success');
+  assert.match(saved.rule.schemeId, /^compat-rule-[\da-f]{48}$/);
   const reopened = await (await post('getAuthorizationManagement', {})).json();
   assert(reopened.rules.some(rule => rule.id === saved.rule.id && rule.policy.subjects[0].ids[0] === 'assignment'));
   assert.equal(reopened.unifiedIdentity, true);
+  assert.equal(reopened.roleBindingOnly, true);
+  const temporary = reopened.schemes.find(item => item.id === saved.rule.schemeId);
+  assert.deepEqual([temporary.compatibilityOnly, temporary.canEdit, temporary.canPublish], [true, false, false]);
+  assert.equal((await (await post('previewAuthorizationRule', { ...body, expectedRevision: await revision(),
+    schemeId: saved.rule.schemeId })).json()).status, 'authorization_forbidden');
   assert.equal((await post('setAuthorizationBasicCapability', { identityModel, capability: 'notifications.items.read',
     enabled: false, expectedRevision: await revision() })).status, 200);
   assert((await model.read(admin, org, false, true)).disabledBasic.has('notifications.items.read'));

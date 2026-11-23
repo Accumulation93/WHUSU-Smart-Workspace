@@ -10,7 +10,7 @@ const homeWxml = fs.readFileSync(path.join(__dirname, 'home.wxml'), 'utf8');
 const homeLocale = fs.readFileSync(path.join(root, 'locales/zh-CN/home.js'), 'utf8');
 const trustedNavigation = fs.readFileSync(path.join(root, 'utils/trustedNavigation.js'), 'utf8');
 const adminPageWxml = fs.readFileSync(
-  path.join(root, 'subpackages/scoring/pages/admin/admin.wxml'),
+  path.join(root, 'subpackages/workspace/pages/admin/admin.wxml'),
   'utf8'
 );
 assert.match(adminPageWxml, /<include src="[^"]*adminWorkbenchContent\.wxml"\s*\/>/);

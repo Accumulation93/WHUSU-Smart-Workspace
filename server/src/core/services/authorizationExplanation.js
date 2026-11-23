@@ -3,7 +3,7 @@
 const { normalizePolicy, subjectMatches, isTrustedSuper, restrictionFor } = require('./authorizationPolicy');
 
 // 无具体资源时只解释条件，不把“存在允许规则”表述为能操作组织内全部记录。
-function explainCapabilities(actor, entries, catalog, now, disabledBasic = new Set()) {
+function explainCapabilities(actor, entries, catalog, now, disabledBasic = new Set(), includeRuleDetails = true) {
   if (!actor || actor.active !== true || !actor.organizationId || !actor.personId
     || !['user', 'admin'].includes(actor.role) || !Number.isFinite(now)) return [];
   const superAdmin = isTrustedSuper(actor);
@@ -21,12 +21,19 @@ function explainCapabilities(actor, entries, catalog, now, disabledBasic = new S
   const matching = normalized.filter(({ policy }) => policy.enabled && policy.organizationId === actor.organizationId
     && (!policy.startsAt || now >= Date.parse(policy.startsAt)) && (!policy.endsAt || now < Date.parse(policy.endsAt))
     && policy.subjects.some(subject => subjectMatches(subject, actor)));
+  const rulesByCapability = new Map();
+  for (const rule of matching) {
+    for (const capability of rule.policy.capabilities) {
+      if (!rulesByCapability.has(capability)) rulesByCapability.set(capability, []);
+      rulesByCapability.get(capability).push(rule);
+    }
+  }
   return [...catalog.values()].map(definition => {
     const result = { capability: definition.key, status: 'denied', reason: 'not_granted', rules: [],
       grantState: 'not_granted', grantBasis: 'none', hasRestrictions: false, businessEntry: false };
     const restriction = restrictionFor(actor, definition);
     if (restriction) return { ...result, reason: restriction };
-    const rules = matching.filter(({ policy }) => policy.capabilities.includes(definition.key));
+    const rules = rulesByCapability.get(definition.key) || [];
     const fullDeny = rules.some(({ policy }) => policy.effect === 'deny' && policy.fields === null
       && policy.scopes.some(scope => scope.kind === 'organization'));
     const hasAllow = rules.some(({ policy }) => policy.effect === 'allow');
@@ -39,8 +46,8 @@ function explainCapabilities(actor, entries, catalog, now, disabledBasic = new S
       grantBasis: fullDeny ? 'none' : hasAllow ? 'rule' : basic ? 'basic_role' : 'none',
       hasRestrictions: !fullDeny && rules.some(({ policy }) => policy.effect === 'deny'),
       businessEntry: hasBusinessEntry,
-      rules: rules.map(({ name, policy }) => ({ id: policy.id, name, effect: policy.effect,
-        scopes: policy.scopes, fields: policy.fields, startsAt: policy.startsAt, endsAt: policy.endsAt })) };
+      rules: includeRuleDetails ? rules.map(({ name, policy }) => ({ id: policy.id, name, effect: policy.effect,
+        scopes: policy.scopes, fields: policy.fields, startsAt: policy.startsAt, endsAt: policy.endsAt })) : [] };
   });
 }
 

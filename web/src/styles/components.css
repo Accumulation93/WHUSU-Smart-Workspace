@@ -495,6 +495,14 @@ button:disabled,
   color: var(--ui-blue-800);
 }
 
+.tabs.workspace-secondary-tabs > .tab {
+  min-width: 0;
+  width: 0;
+  padding-inline: var(--ui-admin-tab-padding-x);
+  font-size: var(--ui-admin-tab-font-size);
+  white-space: nowrap;
+}
+
 /* ---------- 共享工作区 Hero ---------- */
 
 .workspace-hero {

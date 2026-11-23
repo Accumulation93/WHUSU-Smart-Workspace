@@ -1,10 +1,8 @@
 <template>
-  <section class="section-control-card">
-    <div class="tabs" role="tablist">
+    <div class="tabs" :class="secondary ? 'workspace-secondary-tabs' : 'workspace-primary-tabs'" role="tablist">
       <button v-for="item in tabs" :key="item.key" type="button" role="tab" class="tab" :class="{ 'tab-active': tab === item.key }"
         :aria-selected="tab === item.key" :disabled="saving" @click="selectTab(item.key)">{{ item.label }}</button>
     </div>
-  </section>
   <section v-if="discoveryError" class="card row row-wrap">
     <p class="notice-line">{{ discoveryError }}</p><button type="button" class="btn-quiet" :disabled="loading" @click="discover">{{ home.reloadProfile }}</button>
   </section>
@@ -118,6 +116,7 @@ import copy from '@/locales/zh-CN/index.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { session } from '@/runtime/session.js';
 import { showToast } from '@/runtime/notify.js';
+defineProps({ secondary: Boolean });
 const home = homeCopy.text;
 const award = publicationCopy.awardSelection;
 const tab = ref('scoring');
@@ -155,10 +154,15 @@ const panelData = computed(() => tab.value === 'results' ? results.value : merit
 const displayMode = computed(() => results.value?.displayMode || 'score');
 const sorted = rows => rows.map(item => ({ ...item, sortScore: typeof item.sortScore === 'number' ? item.sortScore : parseFloat(item.finalScore) || 0 }))
   .sort((a, b) => b.sortScore - a.sortScore);
+const resultMembers = (rows, mode) => {
+  const visible = rows.map(publicationView.memberView);
+  return mode === 'grade' ? visible : sorted(visible);
+};
 const groups = computed(() => (results.value?.groups || []).map(group => ({ ...group,
   groupLabel: publicationView.groupTitle(group, home), identityLabel: publicationView.groupIdentity(group),
-  members: sorted((group.members || []).map(publicationView.memberView)) })));
-const members = computed(() => groups.value.length ? sorted(groups.value.flatMap(group => group.members)) : sorted((results.value?.results || []).map(publicationView.memberView)));
+  members: resultMembers(group.members || [], group.displayMode) })));
+const members = computed(() => groups.value.length ? groups.value.flatMap(group => group.members)
+  : resultMembers(results.value?.results || [], displayMode.value));
 const memberCount = computed(() => results.value?.page?.total ?? members.value.length);
 const receivingResults = computed(() => Boolean(results.value?.page?.next));
 function matches(member) {
@@ -181,7 +185,10 @@ const grades = computed(() => {
   return Array.from(counts, ([grade, count]) => ({ grade, count }));
 });
 const scoreStats = computed(() => {
-  if (!filteredMembers.value.length || filteredMembers.value.some(member => member.grade)) return { max: '--', average: '--' };
+  if (!filteredMembers.value.length || displayMode.value === 'grade'
+    || filteredGroups.value.some(group => group.displayMode === 'grade') || filteredMembers.value.some(member => member.grade)) {
+    return { max: '--', average: '--' };
+  }
   const scores = filteredMembers.value.map(member => parseFloat(member.finalScore) || 0);
   return { max: scores.reduce((max, score) => Math.max(max, score), -Infinity).toFixed(1), average: (scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(1) };
 });

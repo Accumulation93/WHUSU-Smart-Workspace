@@ -1,6 +1,0 @@
-{
-  "component": true,
-  "usingComponents": {
-    "person-link": "/subpackages/scoring/package-resources/components/person-link/person-link"
-  }
-}

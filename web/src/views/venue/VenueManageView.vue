@@ -6,7 +6,7 @@
       <template v-else-if="permissionNotice"><p role="alert">{{ permissionNotice }}</p><button type="button" class="btn btn-secondary" @click="loadPermissions">{{ copy.common.retry }}</button></template>
       <p v-else class="muted">{{ ui.copy_0de5656de5 }}</p>
     </section>
-    <nav v-if="visibleTabs.length" class="tabs venue-admin-tabs">
+    <nav v-if="visibleTabs.length" class="tabs venue-admin-tabs workspace-secondary-tabs">
       <button v-for="tab in visibleTabs" :key="tab.key" type="button" class="tab" :class="{ 'tab-active': activeTab === tab.key }" :aria-pressed="activeTab === tab.key" :disabled="allBusy || permissionLoading || !!permissionNotice" @click="switchTab(tab.key)">{{ tab.label }}</button>
     </nav>
     <section v-if="allowed && activeTab === 'venue'" class="card stack">
@@ -220,5 +220,4 @@ onBeforeRouteUpdate(() => session.status !== 'authenticated' || !allBusy.value);
 .panel-head > .stack-tight { flex: 1; min-width: 0; }
 .venue-add { flex: none; width: auto; white-space: nowrap; }
 .venue-editor-actions { display: grid; width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-inline-gap); }
-.venue-admin-tabs .tab { flex: 1; width: 0; min-width: 0; padding-inline: var(--ui-admin-tab-padding-x); white-space: nowrap; }
 </style>

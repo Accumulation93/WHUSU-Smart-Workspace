@@ -58,7 +58,9 @@ Page({
 
   onHide() {
     this._isPageVisible = false;
+    orgSession.invalidateRequests(this);
     this.stopPolling();
+    if (this.data.loading) this.setData({ loading: false });
   },
 
   onUnload() {

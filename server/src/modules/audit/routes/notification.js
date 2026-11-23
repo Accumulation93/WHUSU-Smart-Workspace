@@ -10,6 +10,7 @@ const { getAuthenticatedContext } = require('../../../core/services/authenticate
 const messageCache = require('../services/messageCache');
 const messageCopy = require('../../../locales/zh-CN/modules/messagePerformance');
 const { getState } = require('../../../utils/requestWork');
+const { referenceFromRequest } = require('../../../core/services/authorizationReference');
 
 const AGGREGATION_CONCURRENCY = 4;
 
@@ -83,12 +84,14 @@ function organizationMetadata(context) {
     identityName: context.identityName || (context.role === 'admin' ? messageCopy.adminRole : messageCopy.userRole),
     identityScope: context.identityScope || 'organization',
     isCurrentContext: Boolean(context.isCurrentContext),
-    _identityPriority: context.isCurrentContext
-      ? -1
-      : (context.identityType === 'assignment'
-        ? 0
-        : (context.adminLevel === 'super_admin' ? 2 : 1))
+    _identityPriority: identityPriority(context)
   };
+}
+
+function identityPriority(context) {
+  if (context.isCurrentContext) return -1;
+  if (context.identityType === 'assignment') return 0;
+  return context.adminLevel === 'super_admin' ? 2 : 1;
 }
 
 function withoutIdentityPriority(item) {
@@ -97,27 +100,40 @@ function withoutIdentityPriority(item) {
   return value;
 }
 
-function mapNotification(row, context) {
+function notificationRoute(targetType, targetId, row, context) {
+  switch (targetType) {
+    case 'calendar': {
+      if (targetId) {
+        const date = new URLSearchParams(safeString(row.target_url).split('?')[1] || '').get('date');
+        if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+          return '/subpackages/workspace/pages/calendarDetail/calendarDetail?id=' + encodeURIComponent(targetId) + '&date=' + date;
+        }
+      }
+      return '/subpackages/workspace/pages/calendar/calendar';
+    }
+    case 'submission':
+      return targetId ? '/subpackages/audit/pages/submissionDetail/submissionDetail?id=' + targetId : '';
+    case 'booking':
+      return '/subpackages/venue/pages/myVenueBookings/myVenueBookings' + (targetId ? '?bookingId=' + encodeURIComponent(targetId) : '');
+    case 'score_activity':
+    case 'result_publication':
+      return '/subpackages/workspace/pages/home/home?subApp=scoring';
+    case 'hr_profile':
+      return context.role === 'admin' || context.actor.type === 'admin'
+        ? '/subpackages/scoring/pages/admin/admin?subApp=hr&tab=hrInfo'
+        : '/subpackages/workspace/pages/home/home?subApp=hr';
+    case 'account':
+      return '/subpackages/main/pages/portal/portal';
+    case 'account_security':
+      return '/subpackages/org/pages/accountSecurity/accountSecurity';
+    default:
+      return '';
+  }
+}
+
+function mapNotification(row, context, metadata) {
   const targetId = safeString(row.target_id);
-  const calendarDate = new URLSearchParams(safeString(row.target_url).split('?')[1] || '').get('date') || '';
-  const isAdminContext = safeString(context && context.role) === 'admin'
-    || safeString(context && context.actor && context.actor.type) === 'admin';
-  const routes = {
-    calendar: targetId && /^\d{4}-\d{2}-\d{2}$/.test(calendarDate)
-      ? '/subpackages/workspace/pages/calendarDetail/calendarDetail?id=' + encodeURIComponent(targetId) + '&date=' + calendarDate
-      : '/subpackages/workspace/pages/calendar/calendar',
-    submission: targetId ? '/subpackages/audit/pages/submissionDetail/submissionDetail?id=' + targetId : '',
-    booking: targetId
-      ? '/subpackages/venue/pages/myVenueBookings/myVenueBookings?bookingId=' + encodeURIComponent(targetId)
-      : '/subpackages/venue/pages/myVenueBookings/myVenueBookings',
-    score_activity: '/subpackages/workspace/pages/home/home?subApp=scoring',
-    result_publication: '/subpackages/workspace/pages/home/home?subApp=scoring',
-    hr_profile: isAdminContext
-      ? '/subpackages/scoring/pages/admin/admin?subApp=hr&tab=hrInfo'
-      : '/subpackages/workspace/pages/home/home?subApp=hr',
-    account: '/subpackages/main/pages/portal/portal',
-    account_security: '/subpackages/org/pages/accountSecurity/accountSecurity'
-  };
+  const targetType = safeString(row.target_type);
   return Object.assign({
     id: safeString(row.id),
     type: safeString(row.type),
@@ -125,12 +141,12 @@ function mapNotification(row, context) {
     title: safeString(row.title),
     description: safeString(row.description),
     category: safeString(row.category || 'system'),
-    targetType: safeString(row.target_type),
+    targetType,
     targetId,
-    targetUrl: routes[safeString(row.target_type)] || '',
+    targetUrl: notificationRoute(targetType, targetId, row, context),
     isRead: !!row.is_read,
     createdAt: row.created_at
-  }, organizationMetadata(context));
+  }, metadata);
 }
 
 function compareNotifications(left, right) {
@@ -205,15 +221,13 @@ function scopeMetadata(scope, failures) {
   };
 }
 
-async function resolveScope(req, body, defaultToCurrent) {
+async function resolveScope(req, body, defaultToCurrent = false) {
   if (!getAuthenticatedContext(req)) {
     return { ok: false, status: 'auth_failed', message: localeCopy.copy_c22a252e97 };
   }
-  const currentOrgId = await getCurrentOrgId();
-  const role = 'unified';
+  const requestedOrganizationId = safeString(body.organizationId)
+    || (defaultToCurrent ? await getCurrentOrgId() : '');
   const allContexts = await listAccessibleActorContexts(req);
-  const requestedOrganizationId = safeString(body && body.organizationId)
-    || (defaultToCurrent ? currentOrgId : '');
   const contexts = requestedOrganizationId
     ? allContexts.filter((context) => context.organizationId === requestedOrganizationId)
     : allContexts;
@@ -226,9 +240,7 @@ async function resolveScope(req, body, defaultToCurrent) {
   return {
     ok: true,
     accountId: req.authAccount.id,
-    authorizationReference: require('../../../core/services/authorizationReference').referenceFromRequest(req),
-    role,
-    currentOrgId,
+    authorizationReference: referenceFromRequest(req),
     allContexts,
     contexts,
     selectedOrganizationId: requestedOrganizationId
@@ -240,33 +252,34 @@ function respondScopeError(res, scope) {
 }
 
 async function computeTodos(scope, body) {
-  const results = await settleWithConcurrency(scope.contexts, async (context) => {
-    const items = await orgStorage.run(
-      context.organizationId,
-      () => todoService.listAll(context.actor, context.organizationId, { unsorted: true, countOnly: body.countOnly === true,
-        authorizationReference: scope.authorizationReference })
-    );
-    return items.map((item) => Object.assign({}, item, organizationMetadata(context)));
-  });
-  const allItems = results
-    .filter((item) => item.ok)
-    .flatMap((item) => item.value);
+  const results = await settleWithConcurrency(scope.contexts, (context) =>
+    todoService.listAll(context.actor, context.organizationId, {
+      unsorted: true, countOnly: body.countOnly === true, authorizationReference: scope.authorizationReference
+    }));
   const todoMap = new Map();
-  allItems.forEach((item) => {
-    const key = item.organizationId + '::' + item.category + '::' + item.id;
-    const existing = todoMap.get(key);
-    if (!existing || item._identityPriority < existing._identityPriority) {
-      todoMap.set(key, item);
+  for (const result of results) {
+    if (!result.ok) continue;
+    const { context, value } = result;
+    const metadata = body.countOnly || !value.length ? null : organizationMetadata(context);
+    for (const item of value) {
+      const key = context.organizationId + '::' + item.category + '::' + item.id;
+      if (body.countOnly) {
+        todoMap.set(key, null);
+      } else {
+        const existing = todoMap.get(key);
+        if (!existing || metadata._identityPriority < existing._identityPriority) {
+          todoMap.set(key, Object.assign({}, item, metadata));
+        }
+      }
     }
-  });
-  const uniqueItems = Array.from(todoMap.values());
-  if (!body.countOnly) uniqueItems.sort(todoService.compareTodo);
+  }
+  const uniqueItems = body.countOnly ? [] : Array.from(todoMap.values()).sort(todoService.compareTodo);
   return {
     contentVersion: body.countOnly ? '' : messageCache.digest(uniqueItems.map(item => [item.organizationId, item.id, item.dueAt, item.createdAt])),
-    expiresAt: getState() && getState().nextBusinessBoundary || null,
+    expiresAt: getState()?.nextBusinessBoundary || null,
     data: {
-      items: body.countOnly ? [] : uniqueItems.map(withoutIdentityPriority),
-      total: uniqueItems.length,
+      items: uniqueItems.map(withoutIdentityPriority),
+      total: todoMap.size,
       unreadCount: 0,
       nextCursor: ''
     },
@@ -307,7 +320,7 @@ function recipientContexts(contexts) {
   for (const context of contexts) {
     const key = JSON.stringify([context.organizationId, context.actor.type, context.actor.id]);
     const previous = recipients.get(key);
-    if (!previous || organizationMetadata(context)._identityPriority < organizationMetadata(previous)._identityPriority) recipients.set(key, context);
+    if (!previous || identityPriority(context) < identityPriority(previous)) recipients.set(key, context);
   }
   return Array.from(recipients.values());
 }
@@ -325,38 +338,37 @@ async function computeNotifications(scope, body) {
       beforeId: boundary && boundary.beforeId,
       countOnly: body.countOnly === true
     });
+    const metadata = result.items.length ? organizationMetadata(context) : null;
     return {
-      items: result.items.map((row) => mapNotification(row, context)),
+      items: result.items.map((row) => mapNotification(row, context, metadata)),
       total: result.total,
       unreadCount: result.unreadCount,
       expiresAt: result.expiresAt
     };
   });
-  const successful = results.filter((item) => item.ok);
   const notificationMap = new Map();
-  successful.forEach((result) => {
-    result.value.items.forEach((item) => {
+  let total = 0;
+  let unreadCount = 0;
+  let expiresAt = Infinity;
+  // recipientContexts 已按组织、角色类型与收件人去重，每条成功结果可直接计入。
+  for (const result of results) {
+    if (!result.ok) continue;
+    const value = result.value;
+    total += Number(value.total || 0);
+    unreadCount += Number(value.unreadCount || 0);
+    expiresAt = Math.min(expiresAt, value.expiresAt || Infinity);
+    for (const item of value.items) {
       const key = item.organizationId + '::' + item.id;
       const existing = notificationMap.get(key);
       if (!existing || item._identityPriority < existing._identityPriority) {
         notificationMap.set(key, item);
       }
-    });
-  });
+    }
+  }
   const allItems = Array.from(notificationMap.values()).sort(compareNotifications);
   const items = allItems.slice(0, limit).map(withoutIdentityPriority);
-  const recipientCounts = new Map();
-  successful.forEach((result) => {
-    const actor = result.context.actor || {};
-    const key = result.context.organizationId + '::' + actor.type + '::' + actor.id;
-    if (!recipientCounts.has(key)) recipientCounts.set(key, result.value);
-  });
-  const total = Array.from(recipientCounts.values())
-    .reduce((sum, value) => sum + Number(value.total || 0), 0);
-  const unreadCount = Array.from(recipientCounts.values())
-    .reduce((sum, value) => sum + Number(value.unreadCount || 0), 0);
   return {
-    expiresAt: Math.min(...successful.map(item => item.value.expiresAt || Infinity)),
+    expiresAt,
     data: {
       items,
       total,
@@ -375,7 +387,7 @@ function loadNotifications(scope, body) {
 
 router.post('/getMessageOverview', async (req, res) => {
   try {
-    const scope = await resolveScope(req, req.body || {}, false);
+    const scope = await resolveScope(req, req.body || {});
     if (!scope.ok) return respondScopeError(res, scope);
     const limit = parseLimit(req.body.limit || 10);
     const [todos, notifications] = await Promise.all([
@@ -395,7 +407,7 @@ router.post('/getMessageOverview', async (req, res) => {
 
 router.post('/listTodos', async (req, res) => {
   try {
-    const scope = await resolveScope(req, req.body || {}, false);
+    const scope = await resolveScope(req, req.body || {});
     if (!scope.ok) return respondScopeError(res, scope);
     const result = await loadTodos(scope, req.body || {});
     res.json(Object.assign(
@@ -414,7 +426,7 @@ router.post('/listTodos', async (req, res) => {
 
 router.post('/getTodoCount', async (req, res) => {
   try {
-    const scope = await resolveScope(req, req.body || {}, false);
+    const scope = await resolveScope(req, req.body || {});
     if (!scope.ok) return respondScopeError(res, scope);
     const result = await loadTodos(scope, { countOnly: true, refresh: req.body.refresh });
     res.json(Object.assign(
@@ -429,7 +441,7 @@ router.post('/getTodoCount', async (req, res) => {
 
 router.post('/listNotifications', async (req, res) => {
   try {
-    const scope = await resolveScope(req, req.body || {}, false);
+    const scope = await resolveScope(req, req.body || {});
     if (!scope.ok) return respondScopeError(res, scope);
     const result = await loadNotifications(scope, req.body || {});
     res.json(Object.assign(
@@ -451,7 +463,7 @@ router.post('/listNotifications', async (req, res) => {
 
 router.post('/getNotificationUnreadCount', async (req, res) => {
   try {
-    const scope = await resolveScope(req, req.body || {}, false);
+    const scope = await resolveScope(req, req.body || {});
     if (!scope.ok) return respondScopeError(res, scope);
     const result = await loadNotifications(scope, { countOnly: true, refresh: req.body.refresh });
     res.json(Object.assign(

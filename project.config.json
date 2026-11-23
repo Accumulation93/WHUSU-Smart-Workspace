@@ -489,6 +489,10 @@
       },
       {
         "type": "file",
+        "value": "locales/zh-CN/hrProfileApplicability.js"
+      },
+      {
+        "type": "file",
         "value": "locales/zh-CN/hrTemplateFieldDisplay.js"
       },
       {
@@ -642,6 +646,22 @@
       {
         "type": "file",
         "value": "subpackages/scoring/pages/admin/components/hrPermanentDeletionDialog/hrPermanentDeletionDialog.wxss"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/hrProfileApplicability/hrProfileApplicability.js"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/hrProfileApplicability/hrProfileApplicability.json"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/hrProfileApplicability/hrProfileApplicability.wxml"
+      },
+      {
+        "type": "file",
+        "value": "subpackages/scoring/pages/admin/components/hrProfileApplicability/hrProfileApplicability.wxss"
       },
       {
         "type": "file",

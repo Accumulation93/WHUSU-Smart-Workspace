@@ -1,0 +1,8 @@
+<page-meta page-style="{{(adminCandidatePickerVisible || directoryPickerVisible || dragActive || showTemplateCsvDialog || hrProfileExportVisible || hrTemplateSwitchVisible || hrTemplateSwitchBlockVisible || crossOrgMigrationVisible || showHrPersonDetail || hrPermanentDeletionVisible || profileRejectVisible || personCorrectionVisible || showCsvMappingDialog || showHrImportPreview || showValidationErrors || auditTemplateStepEditorVisible || auditStarterConditionEditorVisible || auditSubmissionDetailVisible || auditMultiPickerVisible || auditPersonnelPickerVisible || auditIdentityPickerVisible || showDesignationPicker || orgFormVisible || scorerTargetPopupVisible || recordDetailPopupVisible || contextSwitchGuardVisible || identityActionConfirmVisible || adminDeleteConfirmVisible || showAuthCodeDialog || showAuthRecoveryDialog || authMemberConfirmVisible || stampGrantVisible || dictionaryUsageDialog.visible ? 'overflow: hidden;' : '') + ' --kb-height: ' + dialogKeyboardHeight + 'px;' + ' --ui-navbar-height: ' + navTopPx + 'px;'}}"></page-meta>
+<ui-navbar title="{{navigationTitle}}" />
+<view class="page" style="min-height: calc(100vh - {{navTopPx}}px)">
+  <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{subAppLabel || localeCopy.copy_33a502217d}}" tone="{{heroTone}}"></workspace-hero>
+  <include src="../../package-resources/subpackages/scoring/pages/admin/adminWorkbenchContent.wxml" />
+</view>
+<wxs module="gradeBandWxs" src="../../package-resources/subpackages/scoring/pages/admin/gradeBand.wxs"></wxs>
+<wxs module="pk" src="../../../../utils/pickerIndex.wxs"></wxs>

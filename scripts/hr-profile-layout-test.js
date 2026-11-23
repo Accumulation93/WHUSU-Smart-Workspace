@@ -25,7 +25,7 @@ assert(retryStyle && /flex:\s*none;/.test(retryStyle[1]) && /height:\s*auto;/.te
     && ['width', 'min-width', 'max-width'].every((property) => retryStyle[1].includes(property + ': 100%;')),
   '纵向错误卡内的重试按钮必须解除双列 flex-basis，并遵循全宽自然高度契约');
 const adminWxmlSource = require('./lib/miniprogramSource').readMarkup(
-  path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.wxml')
+  path.join(root, 'miniprogram/subpackages/workspace/pages/admin/admin.wxml')
 );
 const adminWxml = hydrateLocale(
   adminWxmlSource,
@@ -218,8 +218,10 @@ assert(/loadHrGovernanceRows/.test(authPersonnelBehavior)
     && /selectedHrMemberIds/.test(authPersonnelBehavior)
     && /patchHrGovernance/.test(authPersonnelBehavior),
   '成员资料必须直接合并账号治理数据并支持局部状态更新');
-assert(/\.hr-member-tools-actions\s*\{[\s\S]*?display:\s*grid;[\s\S]*?repeat\(2,\s*minmax\(0,\s*1fr\)\)/.test(adminWxss)
-    && /@media\s*\(min-width:\s*520px\)[\s\S]*?\.hr-member-tools-actions\s*\{[\s\S]*?repeat\(4,\s*minmax\(0,\s*1fr\)\)/.test(adminWxss),
+const directoryControlsWxss = fs.readFileSync(path.join(root,
+  'miniprogram/subpackages/scoring/pages/admin/components/hrDirectoryControls/hrDirectoryControls.wxss'), 'utf8');
+assert(/\.hr-member-tools-actions\s*\{[\s\S]*?display:\s*grid;[\s\S]*?repeat\(2,\s*minmax\(0,\s*1fr\)\)/.test(directoryControlsWxss)
+    && /@media\s*\(min-width:\s*520px\)[\s\S]*?\.hr-member-tools-actions\s*\{[\s\S]*?repeat\(4,\s*minmax\(0,\s*1fr\)\)/.test(directoryControlsWxss),
   '成员批量工具必须在手机双列、Pad 四列并排，不能退化为每个按钮独占一行');
 assert(/\.status-chip\s*\{[\s\S]*?border-radius:\s*18rpx;/.test(adminWxss),
   '成员状态标签必须保留柔和圆角，不能退化成方形');
@@ -272,7 +274,7 @@ assert(/<view class="picker-value">\{\{item\.displayValue \|\| copy\.selectDate\
 // 滚动分页契约：scroll-view 只有拿到确定高度才会真正滚动。人事成员目录随页面
 // 铺开后，唯一可达的加载入口就是页面级触底，因此三件事必须同时成立。
 const adminJson = JSON.parse(fs.readFileSync(
-  path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.json'),
+  path.join(root, 'miniprogram/subpackages/workspace/pages/admin/admin.json'),
   'utf8'
 ));
 assert(Number(adminJson.onReachBottomDistance) > 0,
@@ -280,7 +282,7 @@ assert(Number(adminJson.onReachBottomDistance) > 0,
 // 触底加载必须挂在页面对象上（不放在 Behavior 里），避免真机对 Behavior 页面
 // 生命周期方法的处理差异影响管理端。
 const adminJsSource = fs.readFileSync(
-  path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.js'),
+  path.join(root, 'miniprogram/subpackages/workspace/pages/admin/admin.js'),
   'utf8'
 );
 assert(/onReachBottom\(\)\s*\{\s*this\.workbenchReachBottom\(\);\s*\}/.test(adminJsSource), 'Page必须显式注册触底并桥接共享工作台');

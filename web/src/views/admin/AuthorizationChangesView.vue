@@ -168,7 +168,6 @@ document.addEventListener('visibilitychange', visibilityChanged);
 onBeforeUnmount(() => { disposed = true; clear(); document.removeEventListener('visibilitychange', visibilityChanged); });
 </script>
 <style scoped>
-.authorization-changes { max-width: var(--ui-permission-page-width); }
 .button-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-inline-gap); }
 details > summary { cursor: pointer; }
 details[open] > summary { margin-bottom: var(--ui-list-gap); }

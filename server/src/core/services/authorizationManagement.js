@@ -149,19 +149,17 @@ async function readManagement(connection, reference) {
   const delegationOptions = actor.isSuper ? [] : await activeDelegations(connection, actor);
   const envelopes = delegationOptions.map(item => item.envelope);
   const canManage = actor.isSuper || envelopes.length > 0;
-  const { inspectableCandidates } = require('./authorizationInspection');
-  const visible = actor.isSuper ? null : await inspectableCandidates(connection, reference);
-  const canInspectOthers = actor.isSuper || visible.assignments.length > 0 || visible.adminGrants.length > 0;
+  const state = await model.read(connection, actor.organizationId, false, actor.unifiedAuthorization === true);
+  const { hasInspectableCandidate } = require('./authorizationInspection');
+  const canInspectOthers = actor.isSuper || await hasInspectableCandidate(connection, actor, state.rules);
   if (!canManage) {
     // 只获授查询权限的管理员不能读取或编辑授权规则，也不需要取得分配权才能查询。
-    const state = await model.read(connection, actor.organizationId);
     return { revision: state.revision, mode: state.mode, isSuper: false, canManage: false,
       canInspectOwn: true, canInspectOthers, canManageDelegations: false, delegationOptions: [],
       rules: [], schemes: [], delegations: [], capabilityKeys: [],
       catalog: [...CATALOG.values()].map(item => ({ key: item.key, resourceType: item.resourceType, action: item.action,
         systemControlled: item.systemControlled })) };
   }
-  const state = await model.read(connection, actor.organizationId, false, actor.unifiedAuthorization === true);
   const schemes = await model.listSchemes(connection, actor.organizationId);
   const capabilityKeys = actor.isSuper ? [...CATALOG.keys()] : [...new Set(envelopes.flatMap(envelope => envelope.capabilities))];
   const organizationCatalog = await require('../models/authorizationProfileFields').catalog(connection, actor.organizationId, CATALOG);
@@ -190,16 +188,16 @@ async function readManagement(connection, reference) {
     const source = runtime?.sources.get('delegation:' + row.id);
     return { ...row, ...source, sourceActive: !runtime || runtime.activeDelegations.some(item => item.id === row.id) };
   }).filter(row => actor.isSuper || row.issuerAssignmentId === actor.assignment?.id);
-  return { revision: state.revision, mode: state.mode, isSuper: actor.isSuper, canManage: true,
+  return { revision: state.revision, mode: state.mode, roleBindingOnly: state.mode === 'enforced', isSuper: actor.isSuper, canManage: true,
     unifiedIdentity: actor.unifiedAuthorization === true,
     canInspectOwn: true, canInspectOthers, canManageDelegations, delegationOptions,
     rules: (actor.isSuper ? state.rules : state.rules.filter(rule => withinEnvelopes(rule.policy, envelopes)))
       .map(rule => ({ ...rule, canEdit: canEditRule(rule.policy) })),
     schemes: (actor.isSuper ? schemes : schemes.filter(scheme => schemeAllowed(scheme.capabilities, envelopes)
       || scheme.publishedVersion && schemeAllowed(scheme.publishedCapabilities, envelopes)))
-      .map(scheme => ({ ...scheme, canEdit: actor.isSuper || schemeAllowed(scheme.capabilities, envelopes),
+      .map(scheme => ({ ...scheme, canEdit: !scheme.compatibilityOnly && (actor.isSuper || schemeAllowed(scheme.capabilities, envelopes)),
         draftRestrictedCapabilities: actor.isSuper ? specialCapabilities(scheme.capabilities, actor.unifiedAuthorization) : [],
-        canPublish: canPublishScheme(scheme) })),
+        canPublish: !scheme.compatibilityOnly && canPublishScheme(scheme) })),
     delegations,
     basicCapabilities: actor.unifiedAuthorization === true ? [...CATALOG.values()]
       .filter(item => item.businessRoles.includes('user'))

@@ -17,7 +17,8 @@ const mocks = {
   '../models/clauseTemplateConfig': { getByClauseIds: async () => clauses.map(item => ({ clause_id: item.id })) },
   '../models/scoreRecord': { getCompletionTargets: async () => [] },
   './participants': { normalizeGranularity: () => 'assignment', resolveActorParticipant: async () => targets[0],
-    listParticipants: async () => targets, isSameNaturalPerson: () => false },
+    listParticipants: async () => targets, isSameNaturalPerson: () => false,
+    createRecordParticipantResolver: () => (record, side) => record[side + '_assignment_id'] },
   '../../../utils/orgContext': { getCurrentOrgId: async () => 'org' },
   '../../../utils/requestWork': { memo: (_key, run) => run(), getState: () => null },
   '../../../core/models/systemConfig': { get: async () => ({ timezone: 8 }) }

@@ -3,12 +3,12 @@
 <view class="page message-page" style="height: calc(100vh - {{navTopPx}}px)">
   <workspace-hero class="workspace-hero-host" app-name="{{copy.appName}}" page-name="{{copy.pageName}}" tone="{{isAdminRole ? 'admin' : 'blue'}}"></workspace-hero>
 
-  <view class="message-tabs">
-    <view class="message-tab {{activeTab === 'todos' ? 'message-tab-active' : ''}} ui-motion-chip" data-tab="todos" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">
-      {{copy.todos}} <text wx:if="{{todoTotal}}">{{todoTotal}}</text>
+  <view class="tabs-card workspace-primary-tabs message-workspace-tabs">
+    <view class="feature-tab {{activeTab === 'todos' ? 'feature-tab-active' : ''}} ui-motion-chip" data-tab="todos" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">
+      {{copy.todos}} <text class="message-tab-count" wx:if="{{todoTotal}}">{{todoTotal}}</text>
     </view>
-    <view class="message-tab {{activeTab === 'notifications' ? 'message-tab-active' : ''}} ui-motion-chip" data-tab="notifications" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">
-      {{copy.notifications}} <text wx:if="{{unreadCount}}">{{unreadCount > 99 ? '99+' : unreadCount}}</text>
+    <view class="feature-tab {{activeTab === 'notifications' ? 'feature-tab-active' : ''}} ui-motion-chip" data-tab="notifications" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">
+      {{copy.notifications}} <text class="message-tab-count" wx:if="{{unreadCount}}">{{unreadCount > 99 ? '99+' : unreadCount}}</text>
     </view>
   </view>
 

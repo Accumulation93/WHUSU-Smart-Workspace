@@ -909,6 +909,8 @@ module.exports = Behavior({
     },
 
     async loadHrProfileTemplates() {
+      if (this.data.authorizationEnforced && this.data.canSelectHrProfileTemplate && !this.data.canReadHrProfileTemplates
+        && !this.data.canCreateHrProfileTemplates && !this.data.canUpdateHrProfileTemplates && !this.data.canDeleteHrProfileTemplates) return;
       if (!this.data.canReadHrProfileTemplates && !this.data.canManageHrProfileTemplates && !this.data.canSelectHrProfileTemplate
         && !this.data.isSuperAdmin && !(this.data.user.permissions || {})['hr.profile_templates.manage.delete']) return;
       const request = orgSession.beginRequest(this, 'hrTemplateCatalog');

@@ -36,7 +36,7 @@ async function setup(page){
 }
 async function open(page,tab){await page.goto('/web/admin?subApp=audit&tab='+tab);await expect(page.getByRole('tab',{name:ui.copy_7312ee863e,exact:true})).toBeVisible();}
 
-test('verification read, configuration and execution remain independent', async ({page}) => {
+test('enforced verification preserves read and verify but hides legacy assignment', async ({page}) => {
   const state = await setup(page);
   state.permissions = [{id:'existing',granteeHrId:'hr-2',granteeName:'Person B'}];
   let action = 'read';
@@ -51,13 +51,10 @@ test('verification read, configuration and execution remain independent', async 
   await expect(page.locator('.verification-form')).toHaveCount(0);
   action='configure'; state.calls.length=0;
   await page.reload();
-  await page.getByRole('button',{name:ui.copy_0afb532e6f,exact:true}).click();
-  await page.getByRole('dialog').getByRole('button',{name:'Person B',exact:true}).click();
-  await page.getByRole('dialog').getByRole('button',{name:personnel.confirm,exact:true}).click();
-  await page.getByRole('button',{name:ui.copy_0d4cc3a70e,exact:true}).click();
-  await expect.poll(() => state.calls.filter(row=>row.name==='saveVerificationPermission').length).toBe(1);
-  await expect(page.getByRole('button',{name:ui.copy_0afb532e6f,exact:true})).toBeEnabled();
-  expect(state.calls.filter(row=>row.name==='listVerificationPermissions')).toHaveLength(0);
+  await expect(page.getByText(copy.errors.permissionDenied,{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:ui.copy_0afb532e6f,exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:ui.copy_0d4cc3a70e,exact:true})).toHaveCount(0);
+  expect(state.calls.filter(row=>['listVerificationPermissions','listAuditVerificationCandidates','saveVerificationPermission'].includes(row.name))).toHaveLength(0);
   action='verify';state.calls.length=0;
   await page.reload();
   await expect(page.getByRole('button',{name:copy.verify.verifyAction,exact:true})).toBeVisible();

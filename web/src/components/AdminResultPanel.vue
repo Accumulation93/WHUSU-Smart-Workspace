@@ -74,7 +74,11 @@
       </div>
     </GlassDialog>
     <GlassDialog v-if="exportReport" :title="exportReport[1]" :busy="busy" compact @close="exportReport = null">
-      <div class="stack"><span v-if="exportNotice" class="notice-line" role="alert">{{ exportNotice }}</span><button type="button" class="btn btn-secondary" :disabled="busy" @click="download('csv')">{{ messages.copy_7ffcbc33aa }}</button><button type="button" class="btn btn-secondary" :disabled="busy" @click="download('excel')">{{ messages.copy_5503123f4c }}</button></div>
+      <div class="result-export-formats">
+        <span v-if="exportNotice" class="notice-line" role="alert">{{ exportNotice }}</span>
+        <button type="button" class="btn btn-secondary" :disabled="busy" @click="download('csv')">{{ messages.copy_7ffcbc33aa }}</button>
+        <button type="button" class="btn btn-secondary" :disabled="busy" @click="download('excel')">{{ messages.copy_5503123f4c }}</button>
+      </div>
     </GlassDialog>
   </div>
 </template>
@@ -258,6 +262,9 @@ onBeforeUnmount(() => { disposed = true; for (const channel of Object.keys(seq))
 </script>
 <style scoped>
 .result-summary, .result-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-field-gap); width: 100%; }
+.result-export-formats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-inline-gap); }
+.result-export-formats > .notice-line { grid-column: 1 / -1; }
+.result-export-formats > .btn { min-width: 0; }
 .stat-value { font-size: var(--ui-type-dialog); color: var(--ui-blue-700); }
 .result-scroll { max-height: var(--ui-result-list-max-height); overflow-y: auto; overscroll-behavior: contain; }
 .result-record, .result-board, .result-data-row { width: 100%; font: inherit; color: inherit; text-align: left; cursor: pointer; }

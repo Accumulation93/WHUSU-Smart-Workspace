@@ -4,7 +4,8 @@ const path = require('node:path');
 const test = require('node:test');
 
 const adminRoot = path.resolve(__dirname, '..');
-const pageWxml = fs.readFileSync(path.join(adminRoot, 'admin.wxml'), 'utf8');
+const pageRoot = path.resolve(adminRoot, '../../../workspace/pages/admin');
+const pageWxml = fs.readFileSync(path.join(pageRoot, 'admin.wxml'), 'utf8');
 assert.match(pageWxml, /<include src="[^"]*adminWorkbenchContent\.wxml"\s*\/>/);
 const wxml = pageWxml + fs.readFileSync(path.join(adminRoot, 'adminWorkbenchContent.wxml'), 'utf8');
 const directoryControlsWxml = fs.readFileSync(path.join(adminRoot, 'components', 'hrDirectoryControls', 'hrDirectoryControls.wxml'), 'utf8');
@@ -12,10 +13,10 @@ const deletionDialogWxml = fs.readFileSync(path.join(adminRoot, 'components', 'h
 const hrBehavior = fs.readFileSync(path.join(adminRoot, 'modules', 'hrInfoBehavior.js'), 'utf8');
 const authBehavior = fs.readFileSync(path.join(adminRoot, 'modules', 'authPersonnelBehavior.js'), 'utf8');
 const resultBehavior = fs.readFileSync(path.join(adminRoot, 'modules', 'resultBehavior.js'), 'utf8');
-const adminPageJs = fs.readFileSync(path.join(adminRoot, 'admin.js'), 'utf8');
+const adminPageJs = fs.readFileSync(path.join(pageRoot, 'admin.js'), 'utf8');
 assert.match(adminPageJs, /behaviors: \[adminWorkbenchBehavior\]/);
 const adminJs = adminPageJs + fs.readFileSync(path.join(adminRoot, 'adminWorkbenchBehavior.js'), 'utf8');
-const pageWxss = fs.readFileSync(path.join(adminRoot, 'admin.wxss'), 'utf8');
+const pageWxss = fs.readFileSync(path.join(pageRoot, 'admin.wxss'), 'utf8');
 assert.match(pageWxss, /@import [^;]*adminWorkbenchStyles\.wxss/);
 const adminWxss = pageWxss + fs.readFileSync(path.join(adminRoot, 'adminWorkbenchStyles.wxss'), 'utf8');
 const appJs = fs.readFileSync(path.resolve(adminRoot, '../../../../app.js'), 'utf8');

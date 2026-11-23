@@ -24,7 +24,7 @@ const hrInfoBehavior = readWorkspaceFile('miniprogram/subpackages/scoring/pages/
 const resultBehavior = readWorkspaceFile('miniprogram/subpackages/scoring/pages/admin/modules/resultBehavior.js');
 const sharedApi = readWorkspaceFile('miniprogram/subpackages/scoring/pages/admin/modules/sharedApi.js');
 const adminPage = readWorkspaceFile('miniprogram/subpackages/scoring/pages/admin/adminWorkbenchBehavior.js');
-const adminWxml = require('../../scripts/lib/miniprogramSource').readMarkup(path.resolve(__dirname, '../../miniprogram/subpackages/scoring/pages/admin/admin.wxml'));
+const adminWxml = require('../../scripts/lib/miniprogramSource').readMarkup(path.resolve(__dirname, '../../miniprogram/subpackages/workspace/pages/admin/admin.wxml'));
 
 assertSingleAtomicCall(ruleBehavior, 'applyClausesToSelectedRules', 'batchSaveRateRules');
 assertSingleAtomicCall(publicationBehavior, 'batchSavePubViewRules', 'batchSavePubViewRules');

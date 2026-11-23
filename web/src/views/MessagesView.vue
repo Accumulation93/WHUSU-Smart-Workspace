@@ -8,15 +8,7 @@
       @switch="goWorkRole"
     />
 
-    <section class="card stack">
-      <label class="field">
-        <span class="field-label">{{ copy.messages.organizationScope }}</span>
-        <select v-model="organizationId" class="field-input" @change="changeScope">
-          <option value="">{{ copy.messages.allOrganizations }}</option>
-          <option v-for="org in organizations" :key="org.id" :value="org.id">{{ org.name }}</option>
-        </select>
-      </label>
-      <div class="tabs">
+    <div class="tabs workspace-primary-tabs">
         <button
           v-for="tab in tabs"
           :key="tab.key"
@@ -27,7 +19,16 @@
         >
           {{ tab.label }}
         </button>
-      </div>
+    </div>
+
+    <section class="card stack">
+      <label class="field">
+        <span class="field-label">{{ copy.messages.organizationScope }}</span>
+        <select v-model="organizationId" class="field-input" @change="changeScope">
+          <option value="">{{ copy.messages.allOrganizations }}</option>
+          <option v-for="org in organizations" :key="org.id" :value="org.id">{{ org.name }}</option>
+        </select>
+      </label>
 
       <div class="panel-head">
         <span class="section-title">

@@ -80,16 +80,16 @@
         </section>
         <section class="card stack">
           <h2 class="section-title">{{ !advanced ? ui.stepIdentity : kind === 'scheme' ? ui.schemeCapabilitiesTitle : kind === 'delegation' ? ui.delegationCapabilities : draft.policy.effect === 'deny' ? ui.denyCapabilitiesTitle : ui.allowCapabilitiesTitle }}</h2>
-          <p class="muted">{{ kind === 'scheme' ? ui.unified.schemePickHelp : kind === 'delegation' ? ui.unified.delegationPickHelp : draft.schemeId ? ui.unified.publishedRoleReadOnlyHelp : draft.policy.effect === 'deny' ? ui.unified.customDenyPickHelp : advanced ? ui.unified.customAllowPickHelp : ui.unified.landingRuleHelp }}</p>
+          <p class="muted">{{ kind === 'scheme' ? ui.unified.schemePickHelp : kind === 'delegation' ? ui.unified.delegationPickHelp : compatibilityRole ? ui.unified.temporaryRoleHelp : draft.schemeId ? ui.unified.publishedRoleReadOnlyHelp : state.roleBindingOnly ? ui.unified.landingRuleHelp : draft.policy.effect === 'deny' ? ui.unified.customDenyPickHelp : advanced ? ui.unified.customAllowPickHelp : ui.unified.landingRuleHelp }}</p>
           <div v-if="blockedSchemeCapabilities.length" class="glass-panel stack-tight">
             <strong>{{ ui.unified.schemeBlockedCapabilitiesTitle }}</strong>
             <p class="muted">{{ ui.unified.schemeBlockedCapabilitiesHelp }}</p>
             <div class="row row-wrap"><span v-for="key in blockedSchemeCapabilities" :key="key" class="chip chip-orange">{{ capabilityText(key) }}</span></div>
             <button type="button" class="btn btn-secondary btn-small" :disabled="busy" @click="removeBlockedSchemeCapabilities">{{ ui.unified.removeSchemeBlockedCapabilities }}</button>
           </div>
-          <label v-if="kind === 'rule'" class="field"><span class="field-label">{{ ui.useScheme }}</span><select :value="draft.schemeId" class="field-input" :disabled="busy" @change="selectScheme"><option value="">{{ advanced ? ui.selectOperations : ui.identityPlaceholder }}</option><option v-for="scheme in availableSchemes" :key="scheme.id" :value="scheme.id">{{ scheme.name }}</option></select></label>
+          <label v-if="kind === 'rule'" class="field"><span class="field-label">{{ ui.useScheme }}</span><select :value="draft.schemeId" class="field-input" :disabled="busy" @change="selectScheme"><option value="">{{ advanced && !state.roleBindingOnly ? ui.selectOperations : ui.identityPlaceholder }}</option><option v-for="scheme in availableSchemes" :key="scheme.id" :value="scheme.id">{{ scheme.name }}</option></select></label>
           <div v-if="kind === 'rule' && !availableSchemes.length" class="stack-tight"><p class="muted">{{ delegation ? ui.emptyAssignableSchemes : ui.noSchemes }}</p><button type="button" class="btn btn-secondary" :disabled="busy" @click="router.push({ name: 'authorization', query: { tab: 'schemes' } })">{{ ui.identitySettingsEntry }}</button></div>
-          <template v-if="advanced || draft.schemeId">
+          <template v-if="draft.schemeId || (advanced && (kind !== 'rule' || !state.roleBindingOnly))">
             <section v-if="controlledCapabilities.length && !draft.schemeId" class="stack-tight"><h3 class="field-label">{{ ui.systemControlledTitle }}</h3><p class="muted">{{ ui.systemControlledHelp }}</p><span v-for="item in controlledCapabilities" :key="item.key">{{ capabilityText(item.key) }}</span></section>
             <label class="search-bar"><UiIcon name="search" tone="muted" size-role="row-leading" /><input v-model="operationQuery" type="search" class="search-input" :placeholder="ui.unified.permissionSearchPlaceholder" :aria-label="ui.unified.permissionSearchPlaceholder" /></label>
             <div class="authorization-picker-tools">
@@ -98,9 +98,27 @@
               </div>
               <span class="chip chip-blue" aria-live="polite">{{ ui.selectedOperations(draft.policy.capabilities.length) }}</span>
             </div>
-            <p v-if="!draft.schemeId && operationQuery.trim()" class="muted">{{ ui.unified.permissionSearchBulkHelp }}</p>
-            <p v-else-if="!draft.schemeId && selectedOnly" class="muted">{{ ui.unified.permissionSelectedOnlyHelp }}</p>
-              <p v-if="!capabilityModules.length" class="empty-state">{{ operationQuery.trim() ? ui.unified.permissionNoSearchResults : selectedOnly ? ui.unified.permissionNoSelected : ui.noConfiguredPermissions }}</p>
+            <section v-if="selectedOnly && !draft.schemeId" class="glass-panel stack authorization-selected-permissions">
+              <h3 class="field-label">{{ ui.unified.selectedPermissionsTitle }}</h3>
+              <p v-if="!selectedPermissions.rows.length" class="empty-state">{{ operationQuery.trim() ? ui.unified.permissionNoSearchResults : ui.unified.permissionNoSelected }}</p>
+              <table v-else class="authorization-selected-table" :aria-label="ui.unified.selectedPermissionsTitle">
+                <thead><tr><th scope="col">{{ ui.unified.selectedPermissionColumn }}</th><th scope="col">{{ ui.unified.selectionActionColumn }}</th></tr></thead>
+                <tbody>
+                  <tr v-for="item in selectedPermissions.rows" :key="item.key">
+                    <td>{{ item.label }}</td>
+                    <td><button type="button" class="btn btn-secondary btn-small" :disabled="busy" :aria-label="ui.unified.removeSelectedPermissionLabel(item.label)" @click="removeSelectedPermission(item.key)">{{ ui.unified.removeSelectedPermission }}</button></td>
+                  </tr>
+                </tbody>
+              </table>
+              <div v-if="selectedPermissions.totalPages > 1" class="row row-wrap authorization-selected-pager">
+                <button type="button" class="btn btn-secondary btn-small" :disabled="busy || selectedPermissions.currentPage === 1" @click="selectedPage = selectedPermissions.currentPage - 1">{{ paginationCopy.previousPage }}</button>
+                <span class="muted" aria-live="polite">{{ ui.unified.permissionPage(selectedPermissions.currentPage, selectedPermissions.totalPages) }}</span>
+                <button type="button" class="btn btn-secondary btn-small" :disabled="busy || selectedPermissions.currentPage === selectedPermissions.totalPages" @click="selectedPage = selectedPermissions.currentPage + 1">{{ paginationCopy.nextPage }}</button>
+              </div>
+            </section>
+            <template v-else>
+              <p v-if="!draft.schemeId && operationQuery.trim()" class="muted">{{ ui.unified.permissionSearchBulkHelp }}</p>
+              <p v-if="!capabilityModules.length" class="empty-state">{{ operationQuery.trim() ? ui.unified.permissionNoSearchResults : ui.noConfiguredPermissions }}</p>
             <section v-for="module in capabilityModules" :key="module.key" class="glass-panel authorization-picker-module">
               <div class="authorization-picker-head">
                 <button type="button" class="authorization-disclosure" :aria-expanded="permissionOpen(module)" @click="togglePermissionModule(module)">
@@ -113,19 +131,22 @@
               <div v-if="permissionOpen(module)" class="authorization-picker-groups">
                 <section v-for="group in module.groups" :key="group.key" class="authorization-picker-group stack-tight">
                   <div class="authorization-picker-head">
-                    <h3 class="field-label">{{ group.label }}</h3>
-                    <span class="chip chip-sky">{{ group.summary }}</span>
+                    <button type="button" class="authorization-disclosure" :aria-expanded="permissionGroupOpen(module, group)" @click="togglePermissionSubgroup(module, group)">
+                      <UiIcon class="disclosure-chevron" :class="{ 'authorization-disclosure-open': permissionGroupOpen(module, group) }" name="chevron-right" size-role="row-leading" />
+                      <strong>{{ group.label }}</strong>
+                      <span class="chip chip-sky">{{ group.summary }}</span>
+                    </button>
                     <button v-if="!draft.schemeId" type="button" class="btn btn-secondary btn-small" :disabled="busy" :aria-label="group.batchAriaLabel" @click="togglePermissionGroup(group)">{{ group.batchLabel }}</button>
                   </div>
-                  <div v-if="draft.schemeId" class="row row-wrap"><span v-for="item in group.items" :key="item.key" class="chip chip-sky">{{ item.label }}</span></div>
-                  <div v-else class="choice-grid">
+                  <div v-if="permissionGroupOpen(module, group) && draft.schemeId" class="row row-wrap"><span v-for="item in group.items" :key="item.key" class="chip chip-sky">{{ item.label }}</span></div>
+                  <div v-else-if="permissionGroupOpen(module, group)" class="choice-grid">
                     <button v-for="item in group.items" :key="item.key" type="button" class="choice-card" :class="{ selected: item.selected }" :aria-pressed="item.selected" :disabled="busy" @click="draft = editor.toggleCapability(draft, item.key, state.catalog)">{{ item.label }}</button>
                   </div>
                 </section>
               </div>
             </section>
+            </template>
           </template>
-          <details v-if="sensitiveCapabilities.length" class="glass-panel"><summary>{{ ui.sensitiveOperations }}</summary><div class="stack-tight"><span v-for="item in sensitiveCapabilities" :key="item.key">{{ capabilityText(item.key) }}</span></div></details>
         </section>
         <template v-if="kind !== 'scheme'">
           <section class="card stack">
@@ -178,6 +199,7 @@ import PersonnelPicker from '@/components/PersonnelPicker.vue';
 import AuthorizationPolicySummary from '@/components/AuthorizationPolicySummary.vue';
 import AuthorizationDimensions from '@/components/AuthorizationDimensions.vue';
 import ui from '@/locales/zh-CN/shared/authorization.js';
+import paginationCopy from '@/locales/zh-CN/shared/auditSigning.js';
 import editor from '@/shared/authorizationEditor.js';
 import presentation from '@/shared/authorizationPresentation.js';
 import { callApi, requireSuccess, errorText, createLocalError } from '@/runtime/api.js';
@@ -207,8 +229,6 @@ const assignmentMode = ref('fixed');
 const selectedPostCount = computed(() => new Set(draft.value.policy.subjects
   .filter(item => item.kind === 'assignments').flatMap(item => item.ids)).size);
 const matchedPostCount = computed(() => editor.subjectMatchCount(draft.value, directory.value.assignments));
-const sensitiveCapabilities = computed(() => state.value.catalog.filter(item => draft.value.policy.capabilities.includes(item.key)
-  && (['delete', 'export'].includes(item.action) || item.governance || item.delegation)));
 const ready = ref(false);
 const loading = ref(false);
 const busy = ref(false);
@@ -223,6 +243,7 @@ const requiresDelegation = computed(() => !state.value.isSuper && (kind.value !=
 const delegation = computed(() => delegationOptions.value.find(item => item.id === selectedDelegation.value));
 const formAvailable = computed(() => !requiresDelegation.value || !!delegation.value && (kind.value === 'scheme' || !delegation.value.includesOwnRole));
 const availableSchemes = computed(() => editor.assignableSchemes(state.value.schemes, delegation.value, state.value.catalog, draft.value, unified.value));
+const compatibilityRole = computed(() => state.value.schemes.some(item => item.id === draft.value.schemeId && item.compatibilityOnly));
 const scopedDirectory = computed(() => editor.delegationDirectory(directory.value, delegation.value));
 const activeCatalog = computed(() => state.value.catalog.filter(item => !delegation.value || delegation.value.envelope.capabilities.includes(item.key)));
 const inheritedSubjects = computed(() => delegation.value?.envelope.subjects.filter(item => item.kind === 'assignmentScope') || []);
@@ -230,7 +251,11 @@ const controlledCapabilities = computed(() => state.value.catalog.filter(item =>
 const inheritedPeriods = computed(() => ['startsAt', 'endsAt'].filter(key => delegation.value?.envelope[key]));
 const operationQuery = ref('');
 const selectedOnly = ref(false);
+const selectedPage = ref(1);
 const openPermissionModules = ref({});
+const searchedPermissionModules = ref({});
+const openPermissionGroups = ref({});
+const searchedPermissionGroups = ref({});
 const permissionFilters = [
   { selected: false, label: ui.unified.permissionFilterAll },
   { selected: true, label: ui.unified.permissionFilterSelected }
@@ -257,19 +282,40 @@ const scopeKinds = computed(() => editor.availableScopes(draft.value, state.valu
   .filter(kind => kind !== 'records' && (kind !== 'people' || unified.value && advanced.value)));
 const capabilityModules = computed(() => editor.permissionGroups({
   catalog: draft.value.schemeId ? state.value.catalog : activeCatalog.value, capabilities: draft.value.policy.capabilities,
-  query: operationQuery.value, selectedOnly: selectedOnly.value, copy: ui, unified: unified.value, kind: kind.value,
+  query: operationQuery.value, copy: ui, unified: unified.value, kind: kind.value,
   draft: draft.value, labelFor: capabilityText
 }));
+const selectedPermissions = computed(() => editor.selectedPermissionsPage({ catalog: state.value.catalog,
+  capabilities: draft.value.policy.capabilities, query: operationQuery.value, copy: ui, page: selectedPage.value }));
 function capabilityText(key) { return presentation.capabilityLabel(key, state.value.catalog, ui); }
 function permissionOpen(module) {
-  return openPermissionModules.value[module.key] ?? (Boolean(operationQuery.value.trim()) || selectedOnly.value);
+  const states = operationQuery.value.trim() ? searchedPermissionModules : openPermissionModules;
+  return states.value[module.key] ?? true;
 }
-function togglePermissionModule(module) { openPermissionModules.value[module.key] = !permissionOpen(module); }
+function togglePermissionModule(module) {
+  const states = operationQuery.value.trim() ? searchedPermissionModules : openPermissionModules;
+  states.value[module.key] = !permissionOpen(module);
+}
+function subgroupKey(module, group) { return module.key + '/' + group.key; }
+function permissionGroupOpen(module, group) {
+  const searching = Boolean(operationQuery.value.trim());
+  const states = searching ? searchedPermissionGroups : openPermissionGroups;
+  return states.value[subgroupKey(module, group)] ?? searching;
+}
+function togglePermissionSubgroup(module, group) {
+  const states = operationQuery.value.trim() ? searchedPermissionGroups : openPermissionGroups;
+  states.value[subgroupKey(module, group)] = !permissionGroupOpen(module, group);
+}
 function selectPermissionFilter(value) {
   selectedOnly.value = value;
-  openPermissionModules.value = {};
+  selectedPage.value = 1;
 }
-watch(operationQuery, () => { openPermissionModules.value = {}; });
+watch(operationQuery, () => { selectedPage.value = 1; searchedPermissionModules.value = {}; searchedPermissionGroups.value = {}; });
+function removeSelectedPermission(key) {
+  if (busy.value || !selectedPermissions.value.rows.some(item => item.key === key)) return;
+  draft.value = editor.removeCapability(draft.value, key);
+  selectedPage.value = selectedPermissions.value.currentPage;
+}
 function togglePermissionGroup(group) {
   if (!busy.value) draft.value = editor.toggleCapabilityGroup(draft.value, group.keys, activeCatalog.value);
 }
@@ -344,6 +390,9 @@ function clear() {
   generation++; ready.value = false; busy.value = false; preview.value = null; previewRequest = null; selectedDelegation.value = '';
   originalPolicy.value = null;
   assignmentMode.value = 'fixed';
+  selectedOnly.value = false; selectedPage.value = 1;
+  openPermissionModules.value = {}; openPermissionGroups.value = {};
+  searchedPermissionModules.value = {}; searchedPermissionGroups.value = {};
   picker.value = ''; operationQuery.value = ''; draft.value = editor.createDraft(); state.value = { rules: [], schemes: [], catalog: [] };
   directory.value = { assignments: [], adminGrants: [] }; notice.value = '';
 }
@@ -401,9 +450,12 @@ async function review() {
       if (request !== generation) return;
       requireSuccess(result); showToast(ui.saveSuccess); leave();
     } else {
+      if (kind.value === 'rule' && state.value.roleBindingOnly
+        && (!draft.value.schemeId || compatibilityRole.value)) throw createLocalError(ui.chooseIdentity);
       const prepared = kind.value === 'rule' && !advanced.value ? editor.prepareSimpleDraft(draft.value, availableSchemes.value, ui, delegation.value) : draft.value;
       const payload = kind.value === 'delegation' ? editor.delegationRequest(prepared, state.value.revision, state.value.catalog, unified.value)
         : editor.request(prepared, state.value.revision, state.value.catalog, unified.value);
+      if (kind.value === 'rule' && state.value.roleBindingOnly) payload.bindingModel = 'role';
       if (unified.value && kind.value === 'rule') {
         if (payload.policy.subjects.every(subject => subject.kind === 'assignments')) payload.assignmentMode = 'snapshot';
         else if (payload.policy.subjects.every(subject => subject.kind === 'assignmentScope')) payload.assignmentMode = 'dynamic';
@@ -438,9 +490,17 @@ document.addEventListener('visibilitychange', visibilityChanged);
 onBeforeUnmount(() => { disposed = true; clear(); document.removeEventListener('visibilitychange', visibilityChanged); });
 </script>
 <style scoped>
-.authorization-editor { max-width: var(--ui-permission-page-width); }
 .authorization-editor .panel-head > strong { flex: 1; min-width: 0; }
 .authorization-editor .panel-head > .btn { flex: none; width: auto; min-width: 0; }
+.authorization-selected-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.authorization-selected-table th, .authorization-selected-table td {
+  padding: var(--ui-compact-padding-y) 0;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+.authorization-selected-table td { border-top: var(--ui-field-border); }
+.authorization-selected-table th:last-child, .authorization-selected-table td:last-child { width: 28%; text-align: end; }
+.authorization-selected-pager { justify-content: space-between; }
 .choice-grid, .button-row, .impact-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-inline-gap); }
 .choice-grid { margin-top: var(--ui-list-gap); }
 .impact-columns { grid-template-columns: minmax(0, 1fr); }

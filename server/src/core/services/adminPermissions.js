@@ -201,7 +201,8 @@ mapRoutes('hr.profile_templates.manage', [
 ]);
 mapRoutes('hr.profile_templates.select', [
   '/getHrProfileTemplateSwitchContext', '/previewHrProfileTemplateSwitch',
-  '/applyHrProfileTemplateSwitch', '/saveOrgHrProfileTemplateSettings'
+  '/applyHrProfileTemplateSwitch', '/saveOrgHrProfileTemplateSettings',
+  '/getHrProfileFieldApplicability', '/saveHrProfileFieldApplicability'
 ]);
 mapAny([
   '/getCrossOrgMigrationContext', '/previewCrossOrgMigration', '/applyCrossOrgMigration',

@@ -7,7 +7,7 @@ Page({
   onLoad() {
     this.setData({ navTopPx: getNavigationBarMetrics().totalHeight });
     wx.redirectTo({
-      url: '/subpackages/scoring/pages/admin/admin?subApp=hr&tab=hrInfo',
+      url: '/subpackages/workspace/pages/admin/admin?subApp=hr&tab=hrInfo',
       fail: function() {
         wx.reLaunch({ url: '/subpackages/main/pages/portal/portal' });
       }

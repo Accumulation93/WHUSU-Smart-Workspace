@@ -1,23 +1,23 @@
-const localeCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/hrInfoBehavior');
-const adminCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/admin');
-const accountCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/authPersonnelBehavior');
-const stampCopy = require('../../../package-resources/locales/zh-CN/stampAuthorization');
-const templateSaveCopy = require('../../../package-resources/locales/zh-CN/hrTemplateSave');
-const personnelSwitchCopy = require('../../../package-resources/locales/zh-CN/adminPersonnel');
-const validationCopy = require('../../../package-resources/locales/zh-CN/hrValueValidation');
+const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/hrInfoBehavior');
+const adminCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/admin');
+const accountCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/authPersonnelBehavior');
+const stampCopy = require('../../../../../locales/zh-CN/stampAuthorization');
+const templateSaveCopy = require('../../../../../locales/zh-CN/hrTemplateSave');
+const personnelSwitchCopy = require('../../../../../locales/zh-CN/adminPersonnel');
+const validationCopy = require('../../../../../locales/zh-CN/hrValueValidation');
 const identityRelationCopy = require('../../../../../locales/zh-CN/identityNatureRelations');
-const valueValidation = require('../../../package-resources/utils/hrValueValidation');
-const templateValidationView = require('../../../package-resources/utils/hrTemplateValidationView');
-const { describeProfile } = require('../../../package-resources/utils/hrProfileStatusView');
+const valueValidation = require('../../../../../utils/hrValueValidation');
+const templateValidationView = require('../../../../../utils/hrTemplateValidationView');
+const { describeProfile } = require('../../../../../utils/hrProfileStatusView');
 const homeCopy = require('../../../../../locales/zh-CN/home').text;
-const { format: localeFormat } = require('../../../package-resources/locales/runtime');
+const { format: localeFormat } = require('../../../../../locales/runtime');
 // Behavior: hrInfo tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
-const utils = require('../../../package-resources/subpackages/scoring/pages/admin/modules/adminUtils');
-const personnelViewModel = require('../../../package-resources/subpackages/scoring/pages/admin/modules/personnelViewModel');
-const { buildSwitchSources } = require('../../../package-resources/subpackages/scoring/pages/admin/modules/hrTemplateSwitchDraft');
+const utils = require('./adminUtils');
+const personnelViewModel = require('./personnelViewModel');
+const { buildSwitchSources } = require('./hrTemplateSwitchDraft');
 const { PROFILE_EDIT_MODE_OPTIONS, PROFILE_FIELD_TYPE_OPTIONS, NUMBER_RULE_OPTIONS, emptyHrForm, emptyHrProfileTemplateForm, emptyHrProfileFilters, createEmptyProfileField, normalizeHrProfileFieldForForm, applyHrProfileFilters, buildCsvColumnMapping, refreshCsvMappingOptions, showShortToast, getErrorText, buildHrProfileFilterOptions, validateProfileField, buildFieldHint } = utils;
-const { chooseTableFile, buildCsv, saveAndShareFile } = require('../../../package-resources/utils/tableFile');
+const { chooseTableFile, buildCsv, saveAndShareFile } = require('../../../../../utils/tableFile');
 const orgSession = require('../../../../../utils/orgSession');
 const { createLocalError, createResultError } = require('../../../../../utils/api');
 const { formatListTime, formatDetailTime } = require('../../../../../utils/dateTime');
@@ -28,8 +28,8 @@ const {
   formatDateTimePickerDate,
   formatDateTimePickerTime,
   pickerToUtcIso
-} = require('../../../package-resources/utils/hrProfileDate');
-const fieldMatching = require('../../../package-resources/utils/hrFieldMatching');
+} = require('../../../../../utils/hrProfileDate');
+const fieldMatching = require('../../../../../utils/hrFieldMatching');
 
 const HR_PROFILE_RENDER_BATCH_SIZE = 50;
 // 人事目录列表随页面滚动，页面级触底与容器触底可能几乎同时到达；用短时间窗
@@ -909,6 +909,8 @@ module.exports = Behavior({
     },
 
     async loadHrProfileTemplates() {
+      if (this.data.authorizationEnforced && this.data.canSelectHrProfileTemplate && !this.data.canReadHrProfileTemplates
+        && !this.data.canCreateHrProfileTemplates && !this.data.canUpdateHrProfileTemplates && !this.data.canDeleteHrProfileTemplates) return;
       if (!this.data.canReadHrProfileTemplates && !this.data.canManageHrProfileTemplates && !this.data.canSelectHrProfileTemplate
         && !this.data.isSuperAdmin && !(this.data.user.permissions || {})['hr.profile_templates.manage.delete']) return;
       const request = orgSession.beginRequest(this, 'hrTemplateCatalog');

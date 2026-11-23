@@ -32,7 +32,7 @@ global.wx = {
   }
 };
 
-const { navigateToTrustedRoute, reLaunchTrustedRoute } = require('../miniprogram/utils/trustedNavigation');
+const { navigateToTrustedRoute, reLaunchTrustedRoute, reLaunchPortalThenNavigate } = require('../miniprogram/utils/trustedNavigation');
 
 let successCount = 0;
 navigateToTrustedRoute('/subpackages/main/pages/portal/portal', {
@@ -73,8 +73,32 @@ global.clearTimeout = nativeClearTimeout;
 reLaunchTrustedRoute('/subpackages/scoring/pages/admin/admin?subApp=scoring');
 assert.deepStrictEqual(
   relaunches,
-  ['/subpackages/scoring/pages/admin/admin?subApp=scoring'],
+  ['/subpackages/workspace/pages/admin/admin?subApp=scoring'],
   '切换角色后的可信目标必须使用单次 reLaunch 重建页面栈'
 );
+const oldNoticeTarget = '/subpackages/scoring/pages/admin/admin?subApp=hr&tab=hrInfo';
+reLaunchPortalThenNavigate(oldNoticeTarget);
+assert.equal(decodeURIComponent(relaunches.at(-1).split('?next=')[1]), oldNoticeTarget,
+  '门户读取通知回执时必须看到原始地址');
+let actualTarget;
+wx.navigateTo = request => { actualTarget = request.url; request.success({}); };
+navigateToTrustedRoute(oldNoticeTarget);
+assert.equal(actualTarget, '/subpackages/workspace/pages/admin/admin?subApp=hr&tab=hrInfo');
+
+let legacyPage;
+global.Page = definition => { legacyPage = definition; };
+const redirectAttempts = [];
+wx.redirectTo = request => { redirectAttempts.push(request); };
+wx.setNavigationBarTitle = () => {};
+require('../miniprogram/subpackages/scoring/pages/admin/admin');
+legacyPage.setData = patch => Object.assign(legacyPage.data, patch);
+legacyPage.onLoad({ subApp: 'hr', tab: 'hrInfo', hrId: 'hr-1', copyId: 'copy-2', copyKind: 'hr.directoryRules', next: '/untrusted' });
+assert.equal(redirectAttempts[0].url,
+  '/subpackages/workspace/pages/admin/admin?subApp=hr&tab=hrInfo&hrId=hr-1&copyId=copy-2&copyKind=hr.directoryRules');
+redirectAttempts[0].fail();
+assert.strictEqual(legacyPage.data.failed, true);
+legacyPage.openManagement();
+assert.strictEqual(legacyPage.data.failed, false);
+assert.strictEqual(redirectAttempts[1].url, redirectAttempts[0].url);
 
 console.log('小程序页面单航道跳转兼容测试通过');

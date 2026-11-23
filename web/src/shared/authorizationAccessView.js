@@ -10,7 +10,7 @@ const MANAGEMENT_RESOURCES = Object.freeze({
   identities: ['hr.identities'], assignmentNatures: ['hr.assignmentNatures'], admins: ['system.adminAccounts'], settings: ['system.settings', 'system.organizations'],
   auditTemplates: ['audit.templates'], auditStamps: ['audit.stamps'], auditSubmissions: ['audit.submissions'], auditVerification: ['audit.verification'],
   venue: ['venue.resources', 'venue.approvals', 'venue.bookingRules', 'venue.bookingWindows', 'venue.openRules', 'venue.activityRules'],
-  bookings: ['venue.bookings'], purposes: ['venue.purposes'], calendarRules: ['calendar.rules']
+  bookings: ['venue.bookings'], purposes: ['venue.purposes'], calendarRules: ['calendar.rules'], identityCardSettings: ['identity.cardPolicy']
 });
 const MANAGEMENT_ACTIONS = Object.freeze({
   'scoring.activities': ['read', 'create', 'update', 'delete'], 'scoring.templates': ['read', 'create', 'update', 'delete'],
@@ -27,12 +27,13 @@ const MANAGEMENT_ACTIONS = Object.freeze({
   'hr.assignmentNatures': ['read'],
   'system.adminAccounts': ['read', 'create', 'update', 'delete'], 'system.settings': ['read', 'update'],
   'system.organizations': ['read', 'create', 'update', 'delete'], 'audit.templates': ['read', 'create', 'update', 'delete'],
-  'audit.stamps': ['read', 'create', 'update', 'delete'], 'audit.submissions': ['read', 'delete'], 'audit.verification': ['read', 'configure', 'verify'],
+  'audit.stamps': ['read', 'create', 'update', 'delete'], 'audit.submissions': ['read', 'delete'], 'audit.verification': ['read', 'verify'],
   'venue.resources': ['read', 'create', 'update', 'delete'], 'venue.approvals': ['read', 'create', 'update', 'delete'],
   'venue.bookingRules': ['read', 'create', 'update', 'delete'], 'venue.bookingWindows': ['read', 'create'],
   'venue.openRules': ['read', 'create', 'update', 'delete'], 'venue.activityRules': ['read', 'create', 'update', 'delete'],
   'venue.bookings': ['read', 'create', 'update', 'cancel', 'delete'],
-  'venue.purposes': ['read', 'create', 'update', 'delete'], 'calendar.rules': ['read', 'create', 'update', 'delete']
+  'venue.purposes': ['read', 'create', 'update', 'delete'], 'calendar.rules': ['read', 'create', 'update', 'delete'],
+  'identity.cardPolicy': ['read']
 });
 
 function managementTabAllowed(access, tab) {

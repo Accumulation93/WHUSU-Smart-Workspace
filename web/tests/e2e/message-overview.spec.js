@@ -24,9 +24,10 @@ const notificationCases = [
 ];
 
 test('concise notification cards show each time and matching step only once', async ({page}, info) => {
+  const assignmentLabel = '活动协调与组织联络办公室 · 全校跨部门日程协调与场地工作负责人';
   await installMessages(page, [
     {id:'concise-calendar',type:'calendar_reminder',category:'system',targetUrl:auditUrl,displayFacts:{businessTitle:'Team meeting',startTime,endTime,location:'Room A',venueName:'Room A'}},
-    {id:'concise-progress',type:'submission_progress',category:'audit',targetUrl:auditUrl,displayFacts:{businessTitle:'Budget approval',event:{completedStepOrder:1,completedStepName:'Review',nextStepOrder:2,nextStepName:'Final approval'},current:{stepOrder:2,stepName:'Final approval'}}},
+    {id:'concise-progress',type:'submission_progress',category:'audit',targetUrl:auditUrl,assignmentLabel,displayFacts:{businessTitle:'Budget approval',event:{completedStepOrder:1,completedStepName:'Review',nextStepOrder:2,nextStepName:'Final approval'},current:{stepOrder:2,stepName:'Final approval'}}},
     {id:'concise-unknown',type:'calendar_reminder',category:'system',targetUrl:'',displayFacts:{businessTitle:'Pending schedule'}}
   ]);
   await page.goto('/web/messages?tab=notifications');
@@ -37,6 +38,12 @@ test('concise notification cards show each time and matching step only once', as
   const progress=page.locator('.notification-item').filter({hasText:'Budget approval'});
   expect((await progress.innerText()).match(/Final approval/g)).toHaveLength(1);
   await expect(progress).not.toContainText(copy.currentProgressLabel);
+  const context = progress.locator('.portal-identity-meta');
+  await expect(context).toHaveText(assignmentLabel);
+  expect(await context.evaluate(element => {
+    const style = getComputedStyle(element);
+    return style.whiteSpace === 'normal' && element.scrollWidth <= element.clientWidth + 1;
+  })).toBe(true);
   const unknown=page.locator('.notification-item').filter({hasText:'Pending schedule'});
   await expect(unknown).toContainText(copy.calendarTimeUnavailable);
   await expect(unknown).not.toContainText(copy.calendarTimeUnknown);

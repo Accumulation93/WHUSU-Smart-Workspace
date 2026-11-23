@@ -1,4 +1,5 @@
 @import './styles/list-filters.wxss';
+@import './styles/workspace-tabs.wxss';
 
 /*
  * WHUSU Smart Workspace 前端 UI Kit（2026-08）

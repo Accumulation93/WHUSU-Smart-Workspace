@@ -1,1 +1,36 @@
-/* 组件使用 apply-shared，复用管理页已审计的 Blue Glass 控件样式。 */
+/* 本组件负责工具栏列数和按钮占位，共享样式提供颜色与控件令牌。 */
+.hr-member-tools-actions {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10rpx;
+  min-width: 0;
+}
+
+.hr-member-tools-actions > .compact-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: auto;
+  min-height: var(--ui-compact-height, 52rpx);
+  padding: 6rpx 16rpx;
+  margin: 0;
+  line-height: 1.35;
+}
+
+@media (min-width: 520px) {
+  .hr-member-tools-actions {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .hr-member-tools-actions > .compact-action {
+    min-height: var(--ui-compact-height, 32px);
+    padding: 6px 12px;
+  }
+}

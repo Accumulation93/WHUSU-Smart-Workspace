@@ -20,7 +20,7 @@ function instance(value) {
   for (const name of ['unbindDialogKeyboard', 'releaseDialogScrollLock', 'clearPermissionCheckGuard']) page[name] = () => {};
   return page;
 }
-for (const relative of ['subpackages/scoring/pages/admin/admin', 'subpackages/venue/pages/venueManage/venueManage']) {
+for (const relative of ['subpackages/workspace/pages/admin/admin', 'subpackages/venue/pages/venueManage/venueManage']) {
   require('../miniprogram/' + relative);
   const page = instance(definition);
   page.data.hasPermission = true; page.data.actionCapabilities = { test: true };

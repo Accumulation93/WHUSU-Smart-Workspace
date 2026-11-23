@@ -125,11 +125,12 @@ async function main() {
   f.page.cancelHrProfileTemplateEditor();
   assert.equal(f.calls.length, 0, '展开、收起、编辑和取消均不得持久化');
   assert.equal(f.page.data.hrProfileTemplateList[0].fields[0].type, 'sequence', '草稿不得污染库中预览');
-  const wxml = fs.readFileSync(path.join(path.dirname(file), '../admin.wxml'), 'utf8')
+  const pageRoot = path.resolve(__dirname, '../miniprogram/subpackages/workspace/pages/admin');
+  const wxml = fs.readFileSync(path.join(pageRoot, 'admin.wxml'), 'utf8')
     + fs.readFileSync(path.join(path.dirname(file), '../adminWorkbenchContent.wxml'), 'utf8');
   const editorWxml = fs.readFileSync(path.join(path.dirname(file),
     '../components/hrTemplateEditor/hrTemplateEditor.wxml'), 'utf8');
-  const adminJson = fs.readFileSync(path.join(path.dirname(file), '../admin.json'), 'utf8');
+  const adminJson = fs.readFileSync(path.join(pageRoot, 'admin.json'), 'utf8');
   assert(wxml.includes('<hr-template-editor'), '编辑器必须作为独立组件引入，避免页面模板超限');
   assert(!wxml.includes('hr-template-inline-editor'), '内联模板必须移除');
   assert(adminJson.includes('"hr-template-editor"'));

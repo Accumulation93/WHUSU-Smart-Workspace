@@ -2,6 +2,7 @@
 
 const pool = require('../../config/db');
 const legacy = require('./authorizationLegacyMigration');
+const compatibilityRoles = require('./authorizationCompatibilityRole');
 const { authorizationError } = require('../services/authorizationError');
 const PROTOCOL = 1;
 
@@ -35,6 +36,9 @@ async function activate(release, verifyDeployment) {
     if (await verifyDeployment({ ...release, protocol: PROTOCOL }) !== true) throw authorizationError('authorization_deployment_not_ready');
     const purposes = await require('../../modules/venue/models/venuePurposeStorage').activateInTransaction(
       connection, release.compatibleSha, async () => true);
+    for (const organization of organizations) {
+      await compatibilityRoles.bindOrganization(connection, organization.id, 'migration:20261123120000');
+    }
     await connection.query("UPDATE authorization_organizations SET mode='enforced',revision=revision+1,legacy_migrated_at=UTC_TIMESTAMP(3)");
     await connection.query(`UPDATE authorization_runtime_transition SET phase='enforced',minimum_protocol=?,compatible_sha=?,fallback_sha=?,
       comparison_json=?,activated_at=UTC_TIMESTAMP(3) WHERE id=1`, [PROTOCOL, release.compatibleSha, release.fallbackSha, JSON.stringify(comparison)]);

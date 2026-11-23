@@ -7,19 +7,21 @@
       :organization-name="orgName"
       @switch="goWorkRole"
     />
-    <AuthorizedManagementTabs sub-app="hr" :business-label="homeCopy.hr" :blocked="saving">
-    <div class="tabs" role="tablist"><button class="tab" :class="{ 'tab-active': hrTab === 'profile' }" :disabled="saving" @click="hrTab = 'profile'">{{ directoryCopy.profile }}</button><button class="tab" :class="{ 'tab-active': hrTab === 'directory' }" :disabled="saving" @click="hrTab = 'directory'">{{ directoryCopy.title }}</button></div>
+    <AuthorizedManagementTabs v-slot="{ hasPrimaryTabs }" sub-app="hr" :business-label="homeCopy.hr" :blocked="saving">
+    <div class="tabs" :class="hasPrimaryTabs ? 'workspace-secondary-tabs' : 'workspace-primary-tabs'" role="tablist"><button class="tab" :class="{ 'tab-active': hrTab === 'profile' }" :disabled="saving" @click="hrTab = 'profile'">{{ directoryCopy.profile }}</button><button class="tab" :class="{ 'tab-active': hrTab === 'directory' }" :disabled="saving" @click="hrTab = 'directory'">{{ directoryCopy.title }}</button></div>
     <ContactDirectory v-if="hrTab === 'directory'" :initial-key="String(route.query.contactKey || '')" />
     <form v-else class="card stack" @submit.prevent="save">
       <div class="panel-head">
         <span class="section-title">{{ homeCopy.hr }}</span>
-        <span v-if="profileData && !loadNotice" class="chip chip-sky">{{ profileStatus.modeText || homeCopy.noTemplate }}</span>
+        <span v-if="profileData && !loadNotice && !fieldsNotApplicable" class="chip chip-sky">{{ profileStatus.modeText || homeCopy.noTemplate }}</span>
       </div>
-      <p v-if="profileData?.template?.description" class="muted">{{ profileData.template.description }}</p>
-      <span v-if="profileStatus.statusText && !loadNotice" class="chip chip-sky">{{ profileStatus.statusText }}</span>
-      <span v-if="profileStatus.completenessText && !loadNotice" class="chip chip-sky">{{ profileStatus.completenessText }}</span>
-      <p v-if="profileData?.auditStatus === 'pending' && !loadNotice" class="muted">{{ homeCopy.profilePending }}</p>
-      <p v-if="profileData?.rejectionReason" class="notice-line">{{ homeCopy.rejectionReasonPrefix }}{{ profileData.rejectionReason }}</p>
+      <template v-if="!fieldsNotApplicable">
+        <p v-if="profileData?.template?.description" class="muted">{{ profileData.template.description }}</p>
+        <span v-if="profileStatus.statusText && !loadNotice" class="chip chip-sky">{{ profileStatus.statusText }}</span>
+        <span v-if="profileStatus.completenessText && !loadNotice" class="chip chip-sky">{{ profileStatus.completenessText }}</span>
+        <p v-if="profileData?.auditStatus === 'pending' && !loadNotice" class="muted">{{ homeCopy.profilePending }}</p>
+        <p v-if="profileData?.rejectionReason" class="notice-line">{{ homeCopy.rejectionReasonPrefix }}{{ profileData.rejectionReason }}</p>
+      </template>
       <div v-if="fields.length" class="profile-fields">
         <div v-for="field in fields" :key="field.key" class="list-row" :class="{ 'profile-field-wide': !['name', 'studentId'].includes(field.key) }">
           <div class="list-row-main stack-tight">
@@ -32,7 +34,7 @@
       <div v-if="loading" class="empty-state"><AppLoading :text="homeCopy.loadingProfile" /></div>
       <p v-if="loadNotice" class="notice-line" role="alert">{{ loadNotice }}</p>
       <button v-if="loadNotice" type="button" class="btn btn-secondary" @click="load">{{ homeCopy.reloadProfile }}</button>
-      <div v-if="profileData" class="stack">
+      <div v-if="profileData && !fieldsNotApplicable" class="stack">
       <p v-if="!loading && !loadNotice && !profileData.template?.fields?.length" class="empty-state">{{ homeCopy.noExtraProfile }}</p>
       <div v-for="field in profileData.template?.fields || []" :key="field.id" class="field">
         <label class="field-label" :for="['date', 'datetime'].includes(field.type) ? undefined : 'profile-' + field.id">{{ field.label }} <span v-if="field.required">*</span></label>
@@ -79,6 +81,7 @@ const loading = ref(true);
 const loadNotice = ref('');
 const fields = ref([]);
 const profileData = ref(null);
+const fieldsNotApplicable = computed(() => profileData.value?.profileFieldsNotApplicable === true);
 const values = ref({});
 const saving = ref(false);
 const saveNotice = ref('');
@@ -90,7 +93,7 @@ function inputType(field) {
   return { number: 'number', phone: 'tel', email: 'email' }[field.type] || 'text';
 }
 async function save() {
-  if (saving.value || readonly.value || loading.value || loadNotice.value || !profileData.value) return;
+  if (saving.value || readonly.value || loading.value || loadNotice.value || !profileData.value?.template?.fields?.length) return;
   const request = generation;
   const context = session.context?.contextId;
   saving.value = true;

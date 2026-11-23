@@ -1,4 +1,4 @@
-@import "../admin/admin.wxss";
+@import "../../package-resources/subpackages/scoring/pages/admin/adminWorkbenchStyles.wxss";
 
 .scorer-stats-grid {
   grid-template-columns: 1fr;

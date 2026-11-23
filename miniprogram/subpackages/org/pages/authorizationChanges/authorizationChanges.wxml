@@ -1,6 +1,6 @@
 <page-meta page-style="--ui-navbar-height: {{navTopPx}}px;"></page-meta>
 <ui-navbar title="{{ui.previewChanges}}" />
-<view class="permission-page" style="min-height: calc(100vh - {{navTopPx}}px)">
+<view class="page permission-page" style="min-height: calc(100vh - {{navTopPx}}px)">
   <workspace-hero class="workspace-hero-host" app-name="{{ui.appName}}" page-name="{{ui.previewChanges}}" tone="{{heroTone}}" />
   <app-loading wx:if="{{loading}}" text="{{ui.loading}}" />
   <view wx:if="{{schemeBlocked}}" class="permission-card authorization-toolbar">

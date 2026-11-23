@@ -8,7 +8,7 @@ const source = fs.readFileSync(
   'utf8'
 );
 const adminSource = fs.readFileSync(
-  path.join(root, 'miniprogram', 'subpackages', 'scoring', 'pages', 'admin', 'admin.js'),
+  path.join(root, 'miniprogram', 'subpackages', 'workspace', 'pages', 'admin', 'admin.js'),
   'utf8'
 );
 

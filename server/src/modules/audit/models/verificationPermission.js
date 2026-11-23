@@ -1,8 +1,9 @@
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const authorization = require('./auditManagementAuthorization');
+const { authorizationError } = require('../../../core/services/authorizationError');
 
-async function getAll(connection = pool) {
+async function getAll(connection = pool, unified = false) {
   const orgId = await getCurrentOrgId();
   const [rows] = await connection.query(
     `SELECT p.*, h.name AS grantee_name
@@ -14,7 +15,10 @@ async function getAll(connection = pool) {
          ON om.legacy_hr_id = h.id
         AND om.org_id = h.org_id
         AND om.status = 'active'
-      WHERE p.org_id = ?
+      WHERE p.org_id = ? ${unified ? `AND EXISTS (
+        SELECT 1 FROM authorization_rules r
+         WHERE r.org_id = p.org_id AND r.source_kind = 'legacy_verification' AND r.source_ref = p.id
+      )` : ''}
       ORDER BY p.created_at DESC`,
     [orgId]
   );
@@ -52,11 +56,11 @@ async function checkPermission(hrId) {
 }
 
 async function create(id, data, reference) {
+  if (reference) throw authorizationError('authorization_upgrade_required');
   const { granteeHrId, grantedBy } = data;
   const orgId = await getCurrentOrgId();
   return pool.withTransaction(async (connection) => {
-    const activeSession = await authorization.session(connection, orgId, reference);
-    authorization.check(activeSession, orgId, 'audit.verification', 'configure', orgId);
+    await authorization.session(connection, orgId, null);
     const [granteeRows] = await connection.query(
       `SELECT h.id
          FROM hr_info h
@@ -90,15 +94,15 @@ async function create(id, data, reference) {
 }
 
 async function removeByGrantee(granteeHrId, reference) {
+  if (reference) throw authorizationError('authorization_upgrade_required');
   const orgId = await getCurrentOrgId();
   return pool.withTransaction(async connection => {
-  const activeSession = await authorization.session(connection, orgId, reference);
-  authorization.check(activeSession, orgId, 'audit.verification', 'configure', orgId);
-  const [result] = await connection.query(
-    'DELETE FROM audit_verification_permissions WHERE grantee_hr_id = ? AND org_id = ?',
-    [granteeHrId, orgId]
-  );
-  return Boolean(result && result.affectedRows > 0);
+    await authorization.session(connection, orgId, null);
+    const [result] = await connection.query(
+      'DELETE FROM audit_verification_permissions WHERE grantee_hr_id = ? AND org_id = ?',
+      [granteeHrId, orgId]
+    );
+    return Boolean(result && result.affectedRows > 0);
   });
 }
 

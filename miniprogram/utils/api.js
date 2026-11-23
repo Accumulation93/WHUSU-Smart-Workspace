@@ -115,6 +115,9 @@ function applyResponseSideEffects(result) {
 }
 
 function scheduleResponseSideEffects(result) {
+  if (!result || (result.systemTimezoneOffset === undefined
+    && !(result.config && result.config.timezone !== undefined)
+    && result.status !== 'client_upgrade_required' && result.status !== 'org_context_required')) return;
   // Promise 的续接要等当前 wx.request 回调返回后才会执行，因此不能只把
   // resolve 写在副作用之前；必须把副作用移到下一轮任务，先让登录继续。
   setTimeout(function() {

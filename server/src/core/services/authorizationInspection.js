@@ -79,23 +79,9 @@ async function inspectableCandidates(connection, reference) {
   const actor = await identity.loadActor(connection, reference);
   if (!actor) forbidden();
   const state = await storage.read(connection, actor.organizationId, false, actor.unifiedAuthorization === true);
-  const policies = state.rules.map(rule => rule.policy);
-  const capability = 'authorization.effective.read';
-  if (!actor.isSuper && !policies.some(policy => policy.enabled && policy.capabilities.includes(capability))) {
-    return { assignments: [], adminGrants: [] };
-  }
-  const prepared = preparePolicies(policies, CATALOG);
-  const now = Date.now();
+  const permitted = candidatePermission(actor, state.rules);
+  if (!permitted) return { assignments: [], adminGrants: [] };
   const directory = await candidates.read(connection, actor.organizationId, { includeSuper: true });
-  function permitted(item, role) {
-    const selected = candidateActor(item, actor.organizationId, role);
-    const id = role === 'admin' ? item.adminGrantId : item.assignmentId;
-    const ownSubject = actor.role === 'admin' ? actor.adminGrantId : actor.assignment && actor.assignment.id;
-    if (role === actor.role && id === ownSubject) return false;
-    return evaluate({ actor, resource: { id, type: 'authorization.effective', organizationId: actor.organizationId,
-      ownerPersonId: selected.personId, assignment: selected.assignment }, capability, prepared,
-      catalog: CATALOG, now, businessAllowed: true }).allowed;
-  }
   function minimal(item) {
     const value = Object.assign({}, item);
     delete value.personId;
@@ -105,4 +91,31 @@ async function inspectableCandidates(connection, reference) {
     adminGrants: directory.adminGrants.filter(item => permitted(item, 'admin')).map(minimal) };
 }
 
-module.exports = { inspect, inspectableCandidates };
+async function hasInspectableCandidate(connection, actor, rules) {
+  const permitted = candidatePermission(actor, rules);
+  if (!permitted) return false;
+  const directory = await candidates.read(connection, actor.organizationId, { includeSuper: true });
+  return directory.assignments.some(item => permitted(item, 'user'))
+    || directory.adminGrants.some(item => permitted(item, 'admin'));
+}
+
+function candidatePermission(actor, rules) {
+  const policies = rules.map(rule => rule.policy);
+  const capability = 'authorization.effective.read';
+  if (!actor.isSuper && !policies.some(policy => policy.enabled && policy.capabilities.includes(capability))) {
+    return null;
+  }
+  const prepared = preparePolicies(policies, CATALOG);
+  const now = Date.now();
+  const ownSubject = actor.role === 'admin' ? actor.adminGrantId : actor.assignment && actor.assignment.id;
+  return function permitted(item, role) {
+    const id = role === 'admin' ? item.adminGrantId : item.assignmentId;
+    if (role === actor.role && id === ownSubject) return false;
+    const selected = candidateActor(item, actor.organizationId, role);
+    return evaluate({ actor, resource: { id, type: 'authorization.effective', organizationId: actor.organizationId,
+      ownerPersonId: selected.personId, assignment: selected.assignment }, capability, prepared,
+      catalog: CATALOG, now, businessAllowed: true }).allowed;
+  };
+}
+
+module.exports = { inspect, inspectableCandidates, hasInspectableCandidate };

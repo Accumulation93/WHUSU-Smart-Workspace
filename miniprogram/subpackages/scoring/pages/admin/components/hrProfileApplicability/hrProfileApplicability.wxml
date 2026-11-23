@@ -1,0 +1,37 @@
+<view class="profile-applicability">
+  <button class="secondary-btn ui-motion-button applicability-toggle" disabled="{{loading || saving}}" aria-expanded="{{opened}}" bindtap="toggle" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.title}}</button>
+  <block wx:if="{{opened}}">
+    <app-loading wx:if="{{loading}}" text="{{common.loading}}" />
+    <view wx:if="{{notice}}" class="applicability-note" aria-live="polite">{{notice}}</view>
+    <view wx:if="{{reloadRequired}}" class="applicability-actions">
+      <button class="secondary-btn ui-motion-button applicability-button" disabled="{{saving || loading}}" bindtap="reload" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.reload}}</button>
+      <button wx:if="{{dirty && !savedAwaitingRead}}" class="secondary-btn ui-motion-button applicability-button" disabled="{{saving || loading}}" bindtap="discard" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.discard}}</button>
+    </view>
+    <block wx:if="{{fields.length}}">
+      <view class="applicability-note">{{copy.description}}</view>
+      <view wx:if="{{!canEdit}}" class="applicability-note">{{copy.readonly}}</view>
+      <view class="field">
+        <view class="field-label">{{copy.field}}</view>
+        <picker range="{{fields}}" range-key="label" value="{{fieldIndex}}" disabled="{{saving || loading || reloadRequired}}" bindchange="onFieldChange" class="ui-field-control-host"><view class="picker-value ui-field-control">{{fields[fieldIndex].label}}</view></picker>
+      </view>
+      <view wx:if="{{!groups.length && !reloadRequired}}" class="applicability-note">{{copy.unrestricted}}</view>
+      <view wx:for="{{groups}}" wx:key="index" class="applicability-group">
+        <view class="applicability-actions">
+          <button class="secondary-btn ui-motion-button applicability-button" aria-expanded="{{groupIndex === item.index}}" data-index="{{item.index}}" bindtap="toggleGroup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.text}}</button>
+          <button wx:if="{{canEdit}}" class="secondary-btn ui-motion-button applicability-button" disabled="{{saving || loading || reloadRequired}}" data-index="{{item.index}}" bindtap="removeGroup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.removeGroup}}</button>
+        </view>
+        <block wx:if="{{groupIndex === item.index}}">
+          <picker range="{{dimensions}}" range-key="label" value="{{dimensionIndex}}" bindchange="chooseDimension" class="ui-field-control-host"><view class="picker-value ui-field-control">{{dimensions[dimensionIndex].label}}</view></picker>
+          <view class="applicability-options">
+            <button wx:for="{{options}}" wx:key="id" wx:for-item="option" class="secondary-btn ui-motion-button applicability-button applicability-option {{option.checked ? 'applicability-option-selected' : ''}}" aria-pressed="{{option.checked}}" data-id="{{option.id}}" disabled="{{!canEdit || saving || loading || reloadRequired}}" bindtap="toggleOption" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{option.name}}</button>
+          </view>
+        </block>
+      </view>
+      <view wx:if="{{canEdit}}" class="applicability-actions">
+        <button class="secondary-btn ui-motion-button applicability-button" disabled="{{saving || loading || reloadRequired || groups.length >= 32}}" bindtap="addGroup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.addGroup}}</button>
+        <button class="primary-btn ui-motion-button applicability-button" disabled="{{saving || loading || reloadRequired || !dirty}}" bindtap="save" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.save}}</button>
+      </view>
+    </block>
+    <view wx:elif="{{!loading && !notice}}" class="applicability-note">{{copy.noFields}}</view>
+  </block>
+</view>

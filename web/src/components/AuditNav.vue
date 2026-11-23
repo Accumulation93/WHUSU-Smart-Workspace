@@ -1,5 +1,5 @@
 <template>
-  <div class="tabs">
+  <div class="tabs" :class="secondary ? 'workspace-secondary-tabs' : 'workspace-primary-tabs'">
     <button
       v-for="entry in entries"
       :key="entry.key"
@@ -27,7 +27,8 @@ import { session } from '@/runtime/session.js';
  * 三个去向与小程序审核子应用里的入口一一对应：我的申请、待我审批、审批历史。
  */
 defineProps({
-  active: { type: String, default: '' }
+  active: { type: String, default: '' },
+  secondary: Boolean
 });
 
 const router = useRouter();

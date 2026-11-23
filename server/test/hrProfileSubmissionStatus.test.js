@@ -62,13 +62,17 @@ function createHarness(options) {
     '../models/department': { getAll: async () => [] },
     '../models/identity': { getAll: async () => [] },
     '../models/workGroup': { getAll: async () => [] },
-    '../models/hrProfileTemplate': { getByTemplateKey: async () => ({ id: 'template-a', edit_mode: settings.editMode || 'direct' }) },
+    '../models/hrProfileTemplate': {
+      getByTemplateKey: async () => ({ id: 'template-a', edit_mode: settings.editMode || 'direct' }),
+      getActiveSnapshot: async () => ({ id: 'template-a', edit_mode: settings.editMode || 'direct' })
+    },
     '../models/hrProfileField': {
       getByTemplateId: async () => [
         { id: 'field-required', label: '必填项', type: 'text', required: 1 },
         { id: 'field-optional', label: '选填项', type: 'text', required: 0 }
       ]
     },
+    '../models/hrProfileApplicability': { forMember: async (fields) => fields, applicableFields: (fields) => fields },
     '../models/hrProfileRecord': {
       getByHrId: async () => state.record,
       getAll: async () => [],

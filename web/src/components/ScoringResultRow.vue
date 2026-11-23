@@ -1,6 +1,6 @@
 <template>
   <div :role="interactive ? 'button' : undefined" :tabindex="interactive && !disabled ? 0 : undefined" :aria-disabled="interactive && disabled" class="result-rank-card" :class="`rank-${tone}`" @click="interactive && !disabled && $emit('open')" @keydown.enter.self.prevent="interactive && !disabled && $emit('open')" @keydown.space.self.prevent="interactive && !disabled && $emit('open')">
-    <span class="result-rank-badge">{{ medals[rank - 1] || rank }}</span>
+    <span v-if="mode !== 'grade'" class="result-rank-badge">{{ medals[rank - 1] || rank }}</span>
     <div class="result-member">
       <strong><PersonLink :name="member.name" :assignment-id="member.targetAssignmentId || member.assignmentId" :hr-id="member.targetHrId" /></strong><span>{{ [member.identity, member.department, member.workGroup].filter(Boolean).join(' · ') }}</span>
       <slot />
@@ -15,8 +15,8 @@ const props = defineProps({ member: { type: Object, required: true }, rank: Numb
 defineEmits(['open']);
 const home = homeCopy.text;
 const medals = [home.rankMedalGold, home.rankMedalSilver, home.rankMedalBronze];
-const tone = computed(() => ['gold', 'silver', 'bronze'][props.rank - 1] || 'normal');
-const value = computed(() => props.mode === 'grade' ? props.member.grade || props.member.finalScore || home.unrated
+const tone = computed(() => props.mode === 'grade' ? 'normal' : ['gold', 'silver', 'bronze'][props.rank - 1] || 'normal');
+const value = computed(() => props.mode === 'grade' ? props.member.grade || home.unrated
   : typeof props.member.finalScore === 'number' ? props.member.finalScore.toFixed(3) : props.member.finalScore ?? '0.000');
 </script>
 <style scoped>

@@ -218,6 +218,11 @@ test('小程序角色、自定义规则和委托可按模块或二级组选择�
     assert.ok(venue.groups[0].items[0].label.includes(copy.resources['venue.bookings']));
     assert.equal(page.data.capabilityBusinesses.some(item => item.key === 'system'), false);
     const moduleDisclosure = { currentTarget: { dataset: { key: 'editor:venue' } } };
+    const subgroupDisclosure = { currentTarget: { dataset: { key: 'editor:venue/venueRecords', group: true } } };
+    page.togglePermissionModule(subgroupDisclosure);
+    assert.equal(page.data.expanded['editor:venue/venueRecords'], true);
+    page.togglePermissionModule(subgroupDisclosure);
+    assert.equal(page.data.expanded['editor:venue/venueRecords'], false);
 
     toggle('hr');
     toggle('venue');
@@ -234,15 +239,38 @@ test('小程序角色、自定义规则和委托可按模块或二级组选择�
     toggle('venue');
     assert.deepEqual(choices(), ['hr.departments.read', 'venue.bookingRules.read', 'venue.bookings.read', 'venue.bookings.update']);
     page.searchCapabilities({ detail: { value: '' } });
-    assert.equal(page.data.expanded['editor:venue'], true);
+    assert.equal(page.data.expanded['editor:venue'], false);
     toggle('venue', 'venueRecords');
     page.switchCapabilityFilter({ currentTarget: { dataset: { filter: 'selected' } } });
-    assert.deepEqual(page.data.capabilityBusinesses.find(item => item.key === 'venue').keys, ['venue.bookingRules.read']);
-    toggle('venue');
+    assert.deepEqual(Array.from(page.data.selectedCapabilityRows.map(item => item.key)).sort(), ['hr.departments.read', 'venue.bookingRules.read']);
+    page.removeSelectedCapability({ currentTarget: { dataset: { key: 'venue.bookingRules.read' } } });
     assert.deepEqual(choices(), ['hr.departments.read']);
     page.switchCapabilityFilter({ currentTarget: { dataset: { filter: 'all' } } });
     assert.equal(page.data.capabilityBusinesses.find(item => item.key === 'venue').total, 3);
   }
+});
+
+test('小程序已选明细每页最多八项，移除末页唯一条目回到上一页', async () => {
+  const source = fixture();
+  source.state.unifiedIdentity = true;
+  source.state.catalog = Array.from({ length: 9 }, (_, index) => ({
+    key: 'venue.operation' + index + '.read', resourceType: 'venue.bookings', action: 'read', scopes: ['organization'], fields: []
+  }));
+  const page = pageHarness(source.api, { kind: 'scheme' });
+  await page.load();
+  const tap = dataset => ({ currentTarget: { dataset } });
+  page.toggleCapabilityGroup(tap({ key: 'venue' }));
+  page.switchCapabilityFilter(tap({ filter: 'selected' }));
+  assert.equal(page.data.selectedCapabilityRows.length, 8);
+  assert.equal(page.data.selectedCapabilityPages, 2);
+  page.changeSelectedCapabilityPage(tap({ direction: '1' }));
+  assert.equal(page.data.selectedCapabilityRows.length, 1);
+  const active = page.data.selectedCapabilityRows[0].key;
+  page.removeSelectedCapability(tap({ key: active }));
+  assert.equal(page.data.selectedCapabilityPage, 1);
+  assert.equal(page.data.selectedCapabilityPages, 1);
+  assert.equal(page.data.selectedCapabilityRows.length, 8);
+  assert.equal(page.data.draft.policy.capabilities.includes(active), false);
 });
 
 test('选择已发布角色后批量与单项均保持锁定，首页能单独展开发布及草稿权限', async () => {
@@ -304,9 +332,9 @@ test('特殊权限草稿在角色列表标明问题，编辑移除后必须选�
     return { status: 'success', scheme: role };
   };
   const home = pageHarness(api, { tab: 'schemes' }, 'authorization'); await home.load();
-  assert.equal(home.data.schemes[0].draftRestrictedLabels[0].label, copy.capabilityNames[blockedKey]);
+  assert.equal(home.data.schemes[0].draftRestrictedLabels[0].label, copy.capabilityDisplayNames[blockedKey]);
   const page = pageHarness(api, { kind: 'scheme', id: 'role-restricted' }); await page.load();
-  assert.equal(page.data.schemeRestrictedOperations[0].label, copy.capabilityNames[blockedKey]);
+  assert.equal(page.data.schemeRestrictedOperations[0].label, copy.capabilityDisplayNames[blockedKey]);
   assert.deepEqual(page.data.capabilityBusinesses.flatMap(group => group.keys), ['venue.bookings.read']);
   await page.review();
   assert.equal(page.data.notice, copy.unified.schemePublishBlocked);
@@ -353,7 +381,7 @@ test('草稿发布受限时仍可看历史，恢复受限有专用解释并禁�
   const page = pageHarness(api, { kind: 'publish', id: 'role-restricted' }, 'authorizationChanges'); await page.load();
   assert.equal(page.data.ready, false);
   assert.equal(page.data.notice, copy.unified.schemePublishBlocked);
-  assert.equal(page.data.blockedOperations[0].label, copy.capabilityNames[blockedKey]);
+  assert.equal(page.data.blockedOperations[0].label, copy.capabilityDisplayNames[blockedKey]);
   assert.equal(page.data.versions.length, 3);
   assert.equal(page.data.versions.find(item => item.version === 2).blocked, true);
   await page.confirm(); assert.equal(publications.length, 0);

@@ -42,6 +42,7 @@
 - 同一视觉行的日期/时间选择器、筛选按钮和清除/重置按钮使用 `.ui-inline-control-row` + `.ui-inline-control`，共同高度由 `--ui-inline-control-height` 提供。带标签的并列筛选字段使用 `.ui-inline-field-row` 对齐实际控件底边，并统一 `.compact-picker-value` / `.field-input` 高度；原生输入保持 block。子项上下 margin 必须为零，禁止同名共享样式把某一个按钮单独向下推移。
 - 标题右侧的宫格/列表等二态切换使用 `.ui-compact-segmented` + `.ui-compact-segmented-item`，高度取 `--ui-compact-height`，宽度按内容收缩；它不是主页签，不得复用整行均分和 `--ui-tab-min-height`。
 - 同一管理工作台的顶层页签不允许换行形成孤立的第二行，也不能因换行、裁切或权限刷新让末项看似消失。可见页签不超过五项时必须在同一玻璃分段控件内等宽单行排列，子项允许收缩但文字不得拆字；更多页签必须使用明确的横向滚动方案，并保证当前项自动进入可视区。
+- 一级页签切换同一子应用的主要业务区域，位于 Hero 后并与正文卡片左右对齐。以考核评分首页为准，小程序使用 `tabs-card workspace-primary-tabs` 和 `feature-tab`，网页使用 `tabs workspace-primary-tabs` 和 `tab`。二级页签切换当前区域内的内容，以考核评分管理区为准，两端使用 `tabs workspace-secondary-tabs` 和 `tab`。公共样式维护在小程序 `styles/workspace-tabs.wxss` 与网页 `styles/components.css`。权限模块和权限分组使用折叠控件。列表筛选、日程视图、身份卡码种及签署工具按各自的控件规范。
 - 从详情页返回已有卡片目录时，目录保持可见并以后台刷新更新状态；不得为一次增量刷新重新展示整页加载占位。只有首次进入、筛选口径变化或工作角色切换导致旧数据不再适用时，才使用阻断式首屏加载。
 - `scripts/ui-audit.js --strict` 将裸露标题/分区控件、未迁移的 `list-actions` 和审核模板绝对定位操作视为发布失败。
 

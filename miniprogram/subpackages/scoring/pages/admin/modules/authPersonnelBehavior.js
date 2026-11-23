@@ -1,13 +1,13 @@
-const localeCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/authPersonnelBehavior');
+const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/authPersonnelBehavior');
 const { callFunction, showShortToast, getErrorText, createResultError, formatAuditTime, formatAuditDetailTime } = require('../../../../../utils/api');
 const authContext = require('../../../../../utils/authContext');
 const orgSession = require('../../../../../utils/orgSession');
 const dateTime = require('../../../../../utils/dateTime');
-const { describeProfile } = require('../../../package-resources/utils/hrProfileStatusView');
+const { describeProfile } = require('../../../../../utils/hrProfileStatusView');
 const homeCopy = require('../../../../../locales/zh-CN/home').text;
 const authorizationCopy = require('../../../../../locales/zh-CN/authorization');
 const governanceCopy = authorizationCopy.unified;
-const { buildCsv, saveAndShareFile } = require('../../../package-resources/utils/tableFile');
+const { buildCsv, saveAndShareFile } = require('../../../../../utils/tableFile');
 
 const DIRECTORY_LIMIT = 2000;
 

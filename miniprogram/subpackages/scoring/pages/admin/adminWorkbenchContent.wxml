@@ -13,7 +13,7 @@
   </view>
 
   <view class="admin-workbench" wx:if="{{hasPermission}}">
-    <view class="tabs">
+    <view class="tabs workspace-secondary-tabs">
       <block wx:for="{{visibleTabs}}" wx:key="*this" wx:for-item="tabKey">
         <view class="tab {{activeTab === tabKey ? 'tab-active' : ''}} ui-motion-chip" data-tab="{{tabKey}}" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <block wx:if="{{tabKey === 'activities'}}">{{localeCopy.copy_5aa4cb13ec}}</block>
@@ -830,10 +830,10 @@
     <view class="section-stack" wx:if="{{activeTab === 'hrInfo' || activeTab === 'hrTemplates'}}">
       <view class="section-control-card section-control-card--stacked">
         <view class="section-title">{{activeTab === 'hrTemplates' ? localeCopy.copy_7cab7f5321 : localeCopy.copy_eb65126cfe}}</view>
-        <view class="tabs-card hr-info-mode-tabs" wx:if="{{activeTab === 'hrInfo'}}">
-          <view wx:if="{{canBrowseHrInfo || canReadAuthGovernance || canImportHr || canVerifyIdentity || canRecoverAccounts || canGlobalAccountManage}}" class="feature-tab {{hrInfoMode === 'profiles' ? 'feature-tab-active' : ''}} ui-motion-chip" data-mode="profiles" bindtap="switchHrInfoMode" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_86937eac2b}}</view>
-          <view wx:if="{{canManageDirectory}}" class="feature-tab {{hrInfoMode === 'directory' ? 'feature-tab-active' : ''}} ui-motion-chip" data-mode="directory" bindtap="switchHrInfoMode" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{directoryCopy.title}}</view>
-          <view class="feature-tab {{hrInfoMode === 'policy' ? 'feature-tab-active' : ''}} ui-motion-chip" data-mode="policy" bindtap="switchHrInfoMode" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" wx:if="{{canManageAuthPolicy}}">{{localeCopy.copy_1e4c43d5d1}}</view>
+        <view class="tabs workspace-secondary-tabs hr-info-mode-tabs" wx:if="{{activeTab === 'hrInfo'}}">
+          <view wx:if="{{canBrowseHrInfo || canReadAuthGovernance || canImportHr || canVerifyIdentity || canRecoverAccounts || canGlobalAccountManage}}" class="tab {{hrInfoMode === 'profiles' ? 'tab-active' : ''}} ui-motion-chip" data-mode="profiles" bindtap="switchHrInfoMode" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_86937eac2b}}</view>
+          <view wx:if="{{canManageDirectory}}" class="tab {{hrInfoMode === 'directory' ? 'tab-active' : ''}} ui-motion-chip" data-mode="directory" bindtap="switchHrInfoMode" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{directoryCopy.title}}</view>
+          <view class="tab {{hrInfoMode === 'policy' ? 'tab-active' : ''}} ui-motion-chip" data-mode="policy" bindtap="switchHrInfoMode" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" wx:if="{{canManageAuthPolicy}}">{{localeCopy.copy_1e4c43d5d1}}</view>
         </view>
         <view class="toolbar-row" wx:if="{{activeTab === 'hrInfo' && hrInfoMode === 'profiles'}}">
           <button class="primary-btn ui-motion-button" wx:if="{{canManageHrPeople}}" bindtap="startCreateHr" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_7e9a5945ed}}</button>
@@ -868,15 +868,15 @@
 
 
       <view class="hr-template-workspace" wx:if="{{activeTab === 'hrTemplates'}}">
-        <view class="list-card hr-template-current-card">
+        <view class="list-card hr-template-current-card" wx:if="{{canReadHrProfileTemplates || canReadHrProfileApplicability}}">
           <view class="list-card-header hr-template-library-header">
             <view>
               <view class="list-title">{{localeCopy.copy_3dea97848e}}</view>
             </view>
             <view class="status-chip current-chip" wx:if="{{activeHrProfileSnapshot}}">{{localeCopy.copy_e168d7f67e}}</view>
           </view>
-          <view class="hr-template-empty" wx:if="{{!activeHrProfileSnapshot}}">{{localeCopy.copy_4cd790e423}}</view>
-          <block wx:else>
+          <view class="hr-template-empty" wx:if="{{canReadHrProfileTemplates && !activeHrProfileSnapshot}}">{{localeCopy.copy_4cd790e423}}</view>
+          <block wx:if="{{activeHrProfileSnapshot}}">
             <view class="hr-template-meta">{{activeHrProfileSnapshot.fields.length}} {{localeCopy.copy_cc101256f6}} · {{activeHrProfileSnapshot.editMode === 'audit' ? localeCopy.copy_0994de674c : activeHrProfileSnapshot.editMode === 'readonly' ? localeCopy.copy_a1399ed0a2 : localeCopy.copy_42143afbe4}}</view>
             <view class="hr-snapshot-fields">
               <view class="hr-snapshot-fields-head">
@@ -909,6 +909,7 @@
             </view>
             <button class="primary-btn ui-motion-button" wx:if="{{canSelectHrProfileTemplate}}" disabled="{{loadingMap.saveActiveHrProfileSettings}}" bindtap="saveActiveHrProfileSettings" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{loadingMap.saveActiveHrProfileSettings}}" />{{localeCopy.copy_71446eee47}}</button>
           </block>
+          <hr-profile-applicability wx:if="{{canReadHrProfileApplicability}}" snapshot-id="{{activeHrProfileSnapshot ? activeHrProfileSnapshot.id : ''}}" can-edit="{{canSelectHrProfileTemplate}}" />
         </view>
 
         <view class="list-card">
@@ -957,7 +958,7 @@
         </view>
       </view>
 
-      <hr-directory-controls
+      <hr-directory-controls id="hr-directory-controls"
         visible="{{activeTab === 'hrInfo' && hrInfoMode === 'profiles'}}"
         locale-copy="{{localeCopy}}"
         can-browse-hr-info="{{canBrowseHrInfo}}"
@@ -2183,14 +2184,14 @@
       </view>
       <block wx:else>
 
-      <view class="edit-box" wx:if="{{isSuperAdmin}}">
+      <view class="edit-box" wx:if="{{canReadOrganizations || canRenameOwnOrganization}}">
         <view class="list-title">{{localeCopy.copy_dfe3ef46ab}}</view>
-        <view class="hint-text">{{settingsCopy.systemDefaultOrganizationHelp}}</view>
-        <view class="field" wx:if="{{systemDefaultOrganizationId}}">
+        <view class="hint-text" wx:if="{{isSuperAdmin}}">{{settingsCopy.systemDefaultOrganizationHelp}}</view>
+        <view class="field" wx:if="{{isSuperAdmin && systemDefaultOrganizationId}}">
           <view class="field-label">{{settingsCopy.systemDefaultOrganization}}</view>
           <view class="field-value">{{systemDefaultOrganizationName}}</view>
         </view>
-        <view class="button-row compact-row">
+        <view class="button-row compact-row" wx:if="{{isSuperAdmin}}">
           <button class="secondary-btn ui-motion-button" bindtap="openOrgForm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_6a843c55ad}}</button>
         </view>
         <view class="list-card nested-card" wx:if="{{organizationList.length}}">
@@ -2200,12 +2201,12 @@
               <view class="list-main">
                 <view class="list-name">{{item.name}}</view>
                 <view class="chip-row">
-                  <view class="status-chip current-chip" wx:if="{{item.id === systemDefaultOrganizationId}}">{{localeCopy.copy_e74c96dd07}}</view>
+                  <view class="status-chip current-chip" wx:if="{{isSuperAdmin && item.id === systemDefaultOrganizationId}}">{{localeCopy.copy_e74c96dd07}}</view>
                 </view>
-                <view class="inline-actions list-actions-below card-actions">
-                  <text class="link ui-motion-chip" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="switchOrganization" wx:if="{{item.id !== systemDefaultOrganizationId}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_fda919de66}}</text>
+                <view class="inline-actions list-actions-below card-actions" wx:if="{{isSuperAdmin || (canRenameOwnOrganization && item.id === currentOrganizationId)}}">
+                  <text class="link ui-motion-chip" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="switchOrganization" wx:if="{{isSuperAdmin && item.id !== systemDefaultOrganizationId}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_fda919de66}}</text>
                   <text class="link ui-motion-chip" bindtap="openOrgForm" data-id="{{item.id}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
-                  <text class="link danger ui-motion-chip" data-id="{{item.id}}" bindtap="deleteOrganization" wx:if="{{item.id !== systemDefaultOrganizationId}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
+                  <text class="link danger ui-motion-chip" data-id="{{item.id}}" bindtap="deleteOrganization" wx:if="{{isSuperAdmin && item.id !== systemDefaultOrganizationId}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
                 </view>
               </view>
             </view>
@@ -2957,10 +2958,10 @@
 
     <!-- ══════════════ Audit: Verification ══════════════ -->
     <view class="section-stack audit-verification-section" wx:if="{{activeTab === 'auditVerification'}}">
-      <view class="section-control-card">
+      <view class="section-control-card" wx:if="{{!authorizationEnforced}}">
         <view class="section-title">{{localeCopy.copy_ecfd21fdcd}}</view>
       </view>
-      <view class="edit-box" wx:if="{{!authorizationEnforced || actionCapabilities['audit.verification.configure']}}">
+      <view class="edit-box" wx:if="{{!authorizationEnforced}}">
         <view class="list-title">{{localeCopy.copy_edef2184fb}}</view>
         <view class="field">
           <view class="field-label">{{localeCopy.copy_0afb532e6f}}</view>
@@ -2979,7 +2980,7 @@
           <block wx:else>
           <view class="list-item" wx:for="{{verificationPermissions}}" wx:key="id">
             <view class="list-main"><view class="list-name">{{item.granteeName}}</view></view>
-            <view class="list-actions card-actions card-actions--inline" wx:if="{{!authorizationEnforced || actionCapabilities['audit.verification.configure']}}">
+            <view class="list-actions card-actions card-actions--inline" wx:if="{{!authorizationEnforced}}">
               <text class="link danger-link ui-motion-chip" data-hr-id="{{item.granteeHrId}}" bindtap="revokeVerificationPermission" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_3f75d366b0}}</text>
             </view>
           </view>
@@ -3116,7 +3117,7 @@
   <personnel-picker visible="{{adminCandidatePickerVisible}}" title="{{localeCopy.copy_809f3d3dd3}}" options="{{adminAccountCandidates}}" value="{{adminAccountCandidateValue}}" selectionLevel="person" multiple="{{false}}" loading="{{adminAccountCandidatesLoading}}" errorText="{{adminAccountCandidatesError}}" bindconfirm="confirmAdminCandidatePicker" bindcancel="closeAdminCandidatePicker" bindretry="openAdminCandidatePicker" />
   <personnel-picker visible="{{showDesignationPicker}}" title="{{localeCopy.copy_74b0241999}}" options="{{designationPickerHrList}}" value="{{designationPickerSelectedList}}" selectionLevel="assignment" multiple="{{true}}" confirmLoading="{{loadingMap.saveDesignations}}" bindconfirm="confirmSharedDesignationPicker" bindcancel="closeDesignationPicker" />
   <personnel-picker visible="{{stampGrantVisible}}" title="{{stampCopy.title}}" contextText="{{stampGrantContext}}" options="{{stampGrantOptions}}" value="{{stampGrantValue}}" selectionLevel="assignment" multiple="{{true}}" loading="{{stampGrantLoading}}" errorText="{{stampGrantError}}" confirmLoading="{{stampGrantSaving}}" bindconfirm="confirmStampGrants" bindcancel="closeStampGrants" bindretry="loadStampGrantCandidates" />
-  <viewport-portal wx:if="{{orgFormVisible}}">
+  <viewport-portal wx:if="{{orgFormVisible && (isSuperAdmin || (canRenameOwnOrganization && orgFormData.id === currentOrganizationId))}}">
   <view class="popup-mask ui-overlay" wx:if="{{orgFormVisible}}" bindtap="closeOrgForm">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">
@@ -3131,7 +3132,7 @@
         </view>
         <view class="button-row compact-row ui-dialog-footer">
           <button class="primary-btn ui-motion-button" disabled="{{loadingMap.saveOrganization}}" catchtap="saveOrganization" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.saveOrganization}}" />{{localeCopy.copy_0ee803a476}}</button>
-          <button class="secondary-btn ui-motion-button" wx:if="{{!orgFormData.id}}" disabled="{{loadingMap.switchOrganization}}" catchtap="createAndSwitchOrganization" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.switchOrganization}}" />{{localeCopy.copy_f489226f00}}</button>
+          <button class="secondary-btn ui-motion-button" wx:if="{{isSuperAdmin && !orgFormData.id}}" disabled="{{loadingMap.switchOrganization}}" catchtap="createAndSwitchOrganization" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><app-loading compact="{{true}}" active="{{loadingMap.switchOrganization}}" />{{localeCopy.copy_f489226f00}}</button>
         </view>
       </view>
     </view>

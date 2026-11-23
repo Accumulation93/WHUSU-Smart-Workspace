@@ -6,7 +6,7 @@ const view=require('../../package-resources/utils/calendarView');
 const time=require('../../../../utils/dateTime');
 const timeCopy=require('../../../../locales/zh-CN/time');
 const messageCopy=require('../../../../locales/zh-CN/messageFacts');
-const {callFunction}=require('../../../../utils/api');
+const {callFunction,createResultError,getErrorText}=require('../../../../utils/api');
 const orgSession=require('../../../../utils/orgSession');
 const scopes=['instance','following','series'];
 Page({
@@ -14,18 +14,22 @@ Page({
   onLoad:function(options){this._options=options;this.setData({navTopPx:getNavigationBarMetrics().totalHeight});let canAdd=false;try{const platform=wx.getDeviceInfo().platform;canAdd=['ios','android'].includes(platform)&&wx.canIUse('addPhoneCalendar');}catch(_){}this.setData({canAdd});},
   onResize:function(){this.setData({navTopPx:getNavigationBarMetrics().totalHeight});},
   onShow:function(){const contextChange=orgSession.consume(this);if(contextChange.changed){orgSession.invalidateRequests(this);this.setData({detail:null,participantsExpanded:false});}this._visible=true;this.load();},
-  onHide:function(){this._visible=false;orgSession.invalidateRequests(this);this.setData({detail:null,participantsExpanded:false,confirmation:false,busy:false});},
+  onHide:function(){this._visible=false;orgSession.invalidateRequests(this);this.setData({confirmation:false,busy:false,loading:false});},
   onUnload:function(){this._visible=false;orgSession.invalidateRequests(this);},
   async load(){
     const request=orgSession.beginRequest(this,'detail'),current=()=>this._visible&&orgSession.isRequestCurrent(this,request);this.setData({loading:true,notice:''});
-    try{const config=await callFunction({name:'getCalendarConfiguration',data:{}});if(!current())return;if(config.status!=='success')throw new Error(config.message||copy.operationFailed);
+    try{const config=await callFunction({name:'getCalendarConfiguration',data:{}});if(!current())return;if(config.status!=='success')throw createResultError(config,copy.operationFailed);
       const range=view.period(this._options.selected||this._options.date,this._options.mode||'week',config.timezoneOffset);
-      const result=await callFunction({name:'getCalendar',data:Object.assign({},range,{managed:true,detailId:this._options.id,occurrenceDate:this._options.date})});if(!current())return;if(result.status!=='success')throw new Error(result.message||copy.operationFailed);
-      const detail=result.items.find(item=>item.id===this._options.id&&item.occurrenceDate===this._options.date);if(!detail)throw new Error(copy.unavailable);
+      const result=await callFunction({name:'getCalendar',data:Object.assign({},range,{managed:true,detailId:this._options.id,occurrenceDate:this._options.date})});if(!current())return;if(result.status!=='success')throw createResultError(result,copy.operationFailed);
+      const detail=result.items.find(item=>item.id===this._options.id&&item.occurrenceDate===this._options.date);
+      if(!detail){this.setData({detail:null,participantsExpanded:false,loading:false,notice:copy.unavailable});return;}
       detail.timeText=view.timeText(detail,config.timezoneOffset,time,timeCopy,messageCopy);
       detail.participants=(detail.participants||[]).map(person=>({name:person.name,personReference:person.personReference||'',positions:person.positions.map(position=>[position.identityCategory,position.department,position.workGroup].filter(Boolean).join(' · '))}));
       this.setData({detail,loading:false});
-    }catch(error){if(current())this.setData({loading:false,notice:error.message||copy.operationFailed});}
+    }catch(error){if(current()){
+      const denied=['authorization_forbidden','forbidden','not_found'].includes(error.code||error.status);
+      this.setData({...(denied?{detail:null,participantsExpanded:false}:{}),loading:false,notice:getErrorText(error,copy.operationFailed)});
+    }}
   },
   toggleParticipants:function(){if(this.data.detail)this.setData({participantsExpanded:!this.data.participantsExpanded});},
   edit:function(){const item=this.data.detail;if(item)wx.navigateTo({url:'/subpackages/workspace/pages/calendarEdit/calendarEdit?id='+item.id+'&date='+item.occurrenceDate});},

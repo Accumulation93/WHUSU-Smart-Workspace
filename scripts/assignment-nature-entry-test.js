@@ -12,7 +12,7 @@ for (const keys of [[], ['hr.people.read'], ['hr.assignmentNatures.create'], ['h
 }
 global.Behavior = value => value;
 global.wx = { getStorageSync() {}, getSystemInfoSync: () => ({ windowWidth: 390 }) };
-const filename = path.resolve(__dirname, '../miniprogram/subpackages/scoring/package-resources/subpackages/scoring/pages/admin/adminWorkbenchBehavior.js');
+const filename = path.resolve(__dirname, '../miniprogram/subpackages/workspace/package-resources/subpackages/scoring/pages/admin/adminWorkbenchBehavior.js');
 const localRequire = createRequire(filename);
 const navigations = [];
 const context = { module: { exports: {} }, Behavior: value => value,

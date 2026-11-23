@@ -17,6 +17,7 @@ const identityModel = require('../models/identity');
 const workGroupModel = require('../models/workGroup');
 const profileTemplateModel = require('../models/hrProfileTemplate');
 const profileFieldModel = require('../models/hrProfileField');
+const profileApplicability = require('../models/hrProfileApplicability');
 const profileRecordModel = require('../models/hrProfileRecord');
 const profileValueModel = require('../models/hrProfileValue');
 const profileReviewEventModel = require('../models/hrProfileReviewEvent');
@@ -109,7 +110,9 @@ async function ensureTemplatePermission(req, permissionKeys) {
       '/getHrProfileTemplateSwitchContext': ['hr.profileSelection.read'],
       '/previewHrProfileTemplateSwitch': ['hr.profileSelection.update'],
       '/applyHrProfileTemplateSwitch': ['hr.profileSelection.update'],
-      '/saveOrgHrProfileTemplateSettings': ['hr.profileSelection.update']
+      '/saveOrgHrProfileTemplateSettings': ['hr.profileSelection.update'],
+      '/getHrProfileFieldApplicability': ['hr.profileSelection.read', 'hr.profileSelection.update'],
+      '/saveHrProfileFieldApplicability': ['hr.profileSelection.update']
     };
     const capabilities = actions[req.path] || [];
     const reference = req.unifiedAuthorization.reference;
@@ -248,12 +251,14 @@ router.post('/getUserHrProfile', async (req, res) => {
     const { hr } = subject;
 
     const template = await profileTemplateModel.getByTemplateKey(TEMPLATE_KEY);
+    const templateFields = template?.id ? await profileFieldModel.getByTemplateId(template.id) : [];
+    const activeFields = await profileApplicability.forMember(templateFields, hr.id, subject.organizationId);
     const templateData = template ? {
       description: template.description || '',
       editMode: template.edit_mode || 'direct',
       modeText: MODE_TEXT_MAP[template.edit_mode || 'direct'] || MODE_TEXT_MAP.direct,
       fields: template.id
-        ? (await profileFieldModel.getByTemplateId(template.id)).map((f) => ({
+        ? activeFields.map((f) => ({
             id: f.id, label: f.label, type: f.type, required: !!f.required,
             minLength: f.min_length, maxLength: f.max_length,
             numberRule: f.number_rule, allowDecimal: !!f.allow_decimal,
@@ -288,6 +293,7 @@ router.post('/getUserHrProfile', async (req, res) => {
       status: 'success',
       profile: await enrichHrWithOrg(hr),
       template: templateData,
+      profileFieldsNotApplicable: templateFields.length > 0 && activeFields.length === 0,
       values, pendingValues, auditStatus: displayStatus, reviewStatus: auditStatus, rejectionReason,
       isComplete: completeness.isComplete,
       missingRequiredFieldIds: completeness.missingRequiredFieldIds,
@@ -307,13 +313,21 @@ router.post('/submitUserHrProfile', async (req, res) => {
     if (subject.status !== 'success') return res.json(subject);
     const { hr, personId, organizationId: orgId } = subject;
 
-    const template = await profileTemplateModel.getByTemplateKey(TEMPLATE_KEY);
-    if (!template) return res.json({ status: 'missing_template', message: localeCopy.copy_8e41ad7690 });
+    const result = await pool.withTransaction(async connection => {
+      await unifiedIdentityModel.lockActiveBusinessSubjects(connection, [{ personId, legacyHrId: hr.id, organizationId: orgId }]);
+      const template = await profileTemplateModel.getActiveSnapshot(connection, orgId, true);
+      if (!template) return { status: 'missing_template', message: localeCopy.copy_8e41ad7690 };
 
     const editMode = template.edit_mode || 'direct';
-    if (editMode === 'readonly') return res.json({ status: 'readonly', message: localeCopy.copy_a3d05cdf3f });
+    if (editMode === 'readonly') return { status: 'readonly', message: localeCopy.copy_a3d05cdf3f };
 
-    const fields = template.id ? await profileFieldModel.getByTemplateId(template.id) : [];
+      const templateFields = await profileFieldModel.getByTemplateId(template.id, connection);
+      const fields = await profileApplicability.forMember(templateFields, hr.id, orgId, connection);
+      const applicableIds = new Set(fields.map(field => field.id));
+      if (templateFields.some(field => !applicableIds.has(field.id) && (!fields.length || Object.hasOwn(values, field.id)))) {
+        return { status: 'forbidden', message: localeCopy.copy_f048be09ae };
+      }
+    if (!fields.length) return { status: 'success', mode: editMode };
     const normalizedFields = fields.map((f) => ({
       id: f.id, label: f.label, type: f.type, required: !!f.required,
       minLength: f.min_length, maxLength: f.max_length,
@@ -328,7 +342,7 @@ router.post('/submitUserHrProfile', async (req, res) => {
     for (const field of normalizedFields) {
       const rawValue = values[field.id];
       const err = validateFieldValue(field, rawValue);
-      if (err) return res.json({ status: 'invalid_params', message: err });
+      if (err) return { status: 'invalid_params', message: err };
       normalizedValues[field.id] = rawValue == null ? '' : String(rawValue).trim();
       if (field.type === 'date' && normalizedValues[field.id]) {
         const normalized = normalizeDateValue(normalizedValues[field.id]);
@@ -345,21 +359,20 @@ router.post('/submitUserHrProfile', async (req, res) => {
     const submitStatus = editMode === 'audit'
       ? 'pending'
       : (completeness.isComplete ? 'approved' : 'none');
-    await pool.withTransaction(async (connection) => {
-      await unifiedIdentityModel.lockActiveBusinessSubjects(connection, [{
-        personId,
-        legacyHrId: hr.id,
-        organizationId: orgId
-      }]);
-      const existing = await profileRecordModel.getByHrId(hr.id, connection, orgId);
+      const existing = await profileRecordModel.getByHrId(hr.id, connection, orgId, true);
       const recordId = existing ? existing.id : generateId();
       if (existing) {
+        const pendingOutsideScope = editMode !== 'audit' && existing.audit_status === 'pending'
+          && (await profileValueModel.getByRecordIdAndPending(recordId, 1, connection, orgId, true))
+            .some(value => !applicableIds.has(value.field_id));
         await profileRecordModel.update(existing.id, {
           template_snapshot_id: template.id,
-          audit_status: submitStatus,
-          rejection_reason: '',
-          requested_at: editMode === 'audit' ? nowUtc : existing.requested_at,
-          reviewed_at: submitStatus === 'approved' ? nowUtc : (editMode === 'audit' ? existing.reviewed_at : null),
+          ...(pendingOutsideScope ? {} : {
+            audit_status: submitStatus,
+            rejection_reason: '',
+            requested_at: editMode === 'audit' ? nowUtc : existing.requested_at,
+            reviewed_at: submitStatus === 'approved' ? nowUtc : (editMode === 'audit' ? existing.reviewed_at : null)
+          }),
           updated_at: nowUtc
         }, connection, orgId);
       } else {
@@ -400,15 +413,32 @@ router.post('/submitUserHrProfile', async (req, res) => {
         pendingValues: editMode === 'audit' ? normalizedValues : {},
         organizationId: orgId
       }, connection);
+      return { status: 'success', mode: editMode,
+        message: editMode === 'audit' ? personnelCopy.profileSubmitted : personnelCopy.profileSaved };
     });
-
-    res.json({
-      status: 'success',
-      mode: editMode,
-      message: editMode === 'audit' ? personnelCopy.profileSubmitted : personnelCopy.profileSaved
-    });
+    return result.status === 'forbidden' ? res.status(403).json(result) : res.json(result);
   } catch (e) {
     return sendHrProfileFailure(req, res, e);
+  }
+});
+
+router.post('/getHrProfileFieldApplicability', async (req, res) => {
+  try {
+    const context = await ensureTemplatePermission(req, ['hr.profile_templates.select']);
+    if (!context) return res.status(403).json({ status: 'forbidden' });
+    return res.json(await profileApplicability.list(context.orgId, context.authorize));
+  } catch (error) {
+    return sendHrProfileFailure(req, res, error);
+  }
+});
+
+router.post('/saveHrProfileFieldApplicability', async (req, res) => {
+  try {
+    const context = await ensureTemplatePermission(req, ['hr.profile_templates.select']);
+    if (!context) return res.status(403).json({ status: 'forbidden' });
+    return res.json(await profileApplicability.save(context.orgId, req.body || {}, context.authorize));
+  } catch (error) {
+    return sendHrProfileFailure(req, res, error);
   }
 });
 
@@ -600,7 +630,9 @@ router.post('/listHrProfileAdminData', async (req, res) => {
         return result;
       }, {});
       const auditStatus = safeString(record ? record.audit_status || 'none' : 'none') || 'none';
-      const completeness = profileCompleteness(fieldObjs, currentValues, pendingValues, auditStatus);
+      const applicable = new Set(profileApplicability.applicableFields(fields,
+        assignmentSummaries.get(safeString(item.id))?.assignments || []).map(field => field.id));
+      const completeness = profileCompleteness(fieldObjs.filter(field => applicable.has(field.id)), currentValues, pendingValues, auditStatus);
       const displayStatus = effectiveProfileStatus(auditStatus, completeness);
       const submission = profileSubmissionFields(
         record ? lastSubmissions.get(safeString(record.id)) : null,

@@ -1,9 +1,9 @@
 const orgSession = require('../../../../../utils/orgSession');
-const valueValidation = require('../../../package-resources/utils/hrValueValidation');
-const validationCopy = require('../../../package-resources/locales/zh-CN/hrValueValidation');
+const valueValidation = require('../../../../../utils/hrValueValidation');
+const validationCopy = require('../../../../../locales/zh-CN/hrValueValidation');
 const copy = require('../../../../../locales/zh-CN/hrProfileMigration');
-const { showShortToast, getErrorText } = require('../../../package-resources/subpackages/scoring/pages/admin/modules/adminUtils');
-const { formatDateTextOnly } = require('../../../package-resources/utils/hrProfileDate');
+const { showShortToast, getErrorText } = require('./adminUtils');
+const { formatDateTextOnly } = require('../../../../../utils/hrProfileDate');
 
 function sameNameMatch(source, targetFields) {
   const label = String(source.label || '').trim().toLowerCase();

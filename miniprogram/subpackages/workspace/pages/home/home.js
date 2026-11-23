@@ -441,6 +441,7 @@ Page({
       this._preferredOrgTab = preservedTab;
       this.setData({
         ...emptyPublicationState(),
+        canManageSubApp: false,
         activeTab: preservedTab,
         currentActivity: null,
         publicationActivity: null,
@@ -459,7 +460,8 @@ Page({
         if (firstEntry || organizationChanged || !this.data.currentActivity) {
           this.loadCurrentActivity();
           this.loadLatestPublishedActivity();
-        } else if (this._refreshPublicationOnShow && this.data.publicationActivity) {
+        } else if (this.data.publicationActivity && (this._refreshPublicationOnShow
+          || !this._publicationLoaded && ['results', 'meritList'].includes(this.data.activeTab))) {
           this.checkPublication();
         } else if (this._refreshMeritOnShow && this.data.publicationActivity) {
           this.refreshMeritAfterSave();
@@ -581,7 +583,7 @@ Page({
     this._refreshPublicationOnShow = this.data.publicationAccessLoading;
     this._refreshMeritOnShow = this.data.userDesigSaving || this.data.publicationMeritPending;
     this._meritEditor = null;
-    this.setData({ canManageSubApp: false, managementDialogVisible: false, managementKeyboardHeight: 0,
+    this.setData({ managementDialogVisible: false, managementKeyboardHeight: 0,
       publicationAccessLoading: false, publicationResultsPending: false, publicationMeritPending: false,
       showUserDesigPopup: false, userDesigSaving: false, userDesigHrList: [], userDesigSelectedList: [] });
     deviceMetadataReport.cancel(this);
@@ -680,7 +682,9 @@ Page({
       const profile = authContext.getRuntimeProfile(orgSession.getSnapshot().role);
       allowed = Boolean(access && (access.role === 'user' || profile && profile.identityModel === 'unified')
         && (groups[this._subApp] || []).some(tab => managementTabAllowed(access, tab)));
-    } catch (_) {}
+    } catch (error) {
+      if (!['authorization_forbidden', 'forbidden'].includes(error.code || error.status)) return;
+    }
     if (!this._isPageVisible || generation !== this._managementGeneration) return;
     const patch = { canManageSubApp: allowed };
     if (allowed && (this._restoreManagementTab || this._openManagementArea)) patch.activeTab = 'management';
@@ -929,6 +933,7 @@ Page({
         saving: false,
         loaded: true,
         template: nextTemplate,
+        fieldsNotApplicable: result.profileFieldsNotApplicable === true,
         pendingValues,
         auditStatus: result.auditStatus || 'none',
         statusText: describeProfile(result, copy.text).statusText,
@@ -1371,7 +1376,7 @@ Page({
 
   async checkPublication(retryFailed = false) {
     const activeRole = orgSession.getSnapshot().role || '';
-    if (activeRole !== 'user') return;
+    if (!this._isPageVisible || activeRole !== 'user') return;
     const activityId = this.data.publicationActivity ? this.data.publicationActivity.id : '';
     const request = orgSession.beginRequest(this, 'publication');
     if (!activityId) {
@@ -1385,7 +1390,7 @@ Page({
     this.setData({ publicationAccessLoading: true, publicationResultsPending: loadResults, publicationMeritPending: loadMerit,
       publicationResultsFailed: false, publicationMeritFailed: false });
     this.rebuildUserTabs();
-    const current = () => orgSession.isRequestCurrent(this, request)
+    const current = () => this._isPageVisible && orgSession.isRequestCurrent(this, request)
       && activityId === ((this.data.publicationActivity || {}).id || '');
     // 直接复用请求 Promise，取消或失效的请求也能结束对应的加载状态。
     const readPublication = async (name, extra) => {
@@ -1475,17 +1480,21 @@ Page({
         const groups = res.groups || [];
         const flatResults = res.results || [];
 
-        // Enrich groups with sorting
-        const enrichedGroups = groups.map(group => ({
-          ...group,
-          groupLabel: publicationView.groupTitle(group, copy.text),
-          identityLabel: publicationView.groupIdentity(group),
-          members: (group.members || []).map((m, index) => ({
+        // 分页接口按组内名次输出；续页只转换新到的条目。旧接口仍在本地排序。
+        const previous = res.page && !reset && this._publicationRows
+          ? new Map(this._publicationRows.groups.map(group => [group.clauseId, group.members]))
+          : new Map();
+        const enrichedGroups = groups.map(group => {
+          const retained = previous.get(group.clauseId) || [];
+          const members = retained.concat((group.members || []).slice(retained.length).map((m, index) => ({
             ...publicationView.memberView(m),
-            resultKey: m.assignmentId || m.id || group.clauseId + ':' + index,
+            resultKey: m.assignmentId || m.id || group.clauseId + ':' + (retained.length + index),
             sortScore: typeof m.sortScore === 'number' ? m.sortScore : (parseFloat(m.finalScore) || 0)
-          })).sort((a, b) => (b.sortScore || 0) - (a.sortScore || 0))
-        }));
+          })));
+          if (!res.page && group.displayMode !== 'grade') members.sort((a, b) => (b.sortScore || 0) - (a.sortScore || 0));
+          return { ...group, members, groupLabel: publicationView.groupTitle(group, copy.text),
+            identityLabel: publicationView.groupIdentity(group) };
+        });
 
         // Build flat results from all groups for filtering compatibility
         const allMembers = [];
@@ -1500,13 +1509,10 @@ Page({
             finalScore: isGrade ? '' : (typeof r.finalScore === 'number' ? r.finalScore.toFixed(3) : (r.finalScore || '0.000')),
             sortScore: typeof r.sortScore === 'number' ? r.sortScore : (parseFloat(r.finalScore) || 0)
           }));
-          sorted = [...results].sort((a, b) => (b.sortScore || 0) - (a.sortScore || 0));
+          sorted = isGrade ? results : results.sort((a, b) => (b.sortScore || 0) - (a.sortScore || 0));
         }
         sorted.forEach((item, idx) => { item.rank = idx + 1; });
         const members = enrichedGroups.length ? allMembers : sorted;
-
-        // Flatten all members for stats
-        const allScores = members.map(r => parseFloat(r.finalScore) || 0);
 
         // Grade distribution from all members (for grade filter chips)
         const gradeCountMap = new Map();
@@ -1517,13 +1523,16 @@ Page({
         const gradeDistribution = Array.from(gradeCountMap.entries())
           .map(([grade, count]) => ({ grade, count }));
 
-        const statsData = isGrade || members.some(member => member.grade)
-          ? { count: members.length, maxScore: '--', avgScore: '--' }
-          : {
-              count: members.length,
-              maxScore: allScores.length ? Math.max(...allScores).toFixed(1) : '--',
-              avgScore: allScores.length ? (allScores.reduce((a, b) => a + b, 0) / allScores.length).toFixed(1) : '--'
-            };
+        let fullStats = res.page && res.page.stats;
+        if (!res.page) {
+          const hasGrades = isGrade || enrichedGroups.some(group => group.displayMode === 'grade') || members.some(member => member.grade);
+          const scores = hasGrades ? [] : members.map(r => parseFloat(r.finalScore) || 0);
+          fullStats = {
+            count: members.length,
+            maxScore: scores.length ? Math.max(...scores).toFixed(1) : '--',
+            avgScore: scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : '--'
+          };
+        }
 
         // Extract filter options from all members
         const idSet = new Set(); const deptSet = new Set(); const wgSet = new Set();
@@ -1533,7 +1542,6 @@ Page({
         const resultWorkGroups = Array.from(wgSet).sort();
 
         this._publicationRows = { flat: sorted, groups: enrichedGroups };
-        const fullStats = res.page ? res.page.stats : statsData;
         this.setData({ publicationMemberCount: res.page ? res.page.total : members.length, filteredResults: sorted,
           filteredGroups: enrichedGroups.map(group => publicationView.resultPage(group, this._publicationGroupPages[group.clauseId])),
           hasPublication: true, hasViewPerm: true, statsData: fullStats, filteredStatsData: fullStats,

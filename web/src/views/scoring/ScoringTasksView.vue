@@ -1,8 +1,8 @@
 <template>
   <div class="page stack scoring-directory">
     <WorkspaceHero :page-name="copy.scoring.title" :person-name="displayName" :identity-name="roleLine" :organization-name="orgName" @switch="goWorkRole" />
-    <AuthorizedManagementTabs sub-app="scoring" :business-label="copy.scoring.title">
-    <ScoringPublication>
+    <AuthorizedManagementTabs v-slot="{ hasPrimaryTabs }" sub-app="scoring" :business-label="copy.scoring.title">
+    <ScoringPublication :secondary="hasPrimaryTabs">
     <template #scoring>
     <section class="card stack">
       <span class="section-title">{{ home.currentActivity }}</span>

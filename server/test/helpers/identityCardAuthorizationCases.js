@@ -2,8 +2,11 @@
 
 const assert = require('node:assert/strict');
 const express = require('express');
+const fs = require('node:fs');
+const path = require('node:path');
 
 module.exports = async function identityCardAuthorizationCases(db) {
+  await db.query(fs.readFileSync(path.join(__dirname, '../../db/deploy/20261123120500_identity_card_policy.sql'), 'utf8'));
   const context = (await require('../../src/core/models/unifiedIdentity').listContexts('dir-account', db))
     .find(item => item.assignmentId === 'dir-assignment');
   assert(context);

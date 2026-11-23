@@ -5,12 +5,14 @@ const path = require('node:path');
 const vm = require('node:vm');
 const copy = require('../../shared/locales/zh-CN/identityCard');
 async function main() {
-  let definition, responder, version=0, role='user';
+  let definition, responder, version=0, role='user', canManage=false;
   const timers = new Map();
   const calls=[],writes=[],removed=[];
   const sandbox = { Page(value){definition=value;}, wx:{env:{USER_DATA_PATH:'/private'},getAccountInfoSync:()=>({miniProgram:{envVersion:'develop'}}),getFileSystemManager:()=>({writeFile(options){writes.push(options);options.success();},unlink(options){removed.push(options.filePath);}})},
     require(name){
       if(name.endsWith('/identityCard')) return copy;
+      if(name.endsWith('/authorization')) return require('../../shared/locales/zh-CN/authorization');
+      if(name.endsWith('/authorizationAccess')) return {readCurrentAuthorizationAccess: async()=>({grantedCapabilities:canManage?['identity.cardPolicy.read']:[]})};
       if(name.endsWith('/common')) return {brandName:'brand'};
       if(name.endsWith('/workspace-hero')) return require('../../shared/locales/zh-CN/generated/components/workspace-hero/workspace-hero');
       if(name.endsWith('/eventBus')) return {on(){},off(){}};
@@ -44,6 +46,20 @@ async function main() {
   let release;
   responder=()=>new Promise(resolve=>{release=resolve;});
   const pending=page.load(); page.onHide(); release({status:'success',valid:true,card:{name:'late'}}); await pending; assert.equal(page.data.card,null);
+  page.onLoad({area:'management'}); calls.length=0; canManage=true;
+  responder=async options=>options.name==='getIdentityCardPolicy'
+    ?{status:'success',canUpdate:true,policy:{version:0,issueEnabled:true,publicVerificationEnabled:true}}
+    :{status:'success',canUpdate:true,policy:{version:1,issueEnabled:true,publicVerificationEnabled:false}};
+  await page.load();
+  assert.equal(calls[0].name,'getIdentityCardPolicy');
+  assert.equal(calls.length,1);
+  page.changePolicy({currentTarget:{dataset:{key:'publicVerificationEnabled'}},detail:{value:false}});
+  await page.savePolicy();
+  assert.equal(calls[1].name,'saveIdentityCardPolicy');
+  assert.equal(calls[1].data.expectedVersion,0);
+  assert.equal(calls[1].data.publicVerificationEnabled,false);
+  assert.equal(page.data.policy.version,1);
+  assert.equal(page.data.policyDirty,false);
   page.onUnload();
   console.log('PASS 小程序身份卡匿名核验、开发版参数、JPEG本地成图、离页清图、迟到响应及无浏览器宿主运行');
 }

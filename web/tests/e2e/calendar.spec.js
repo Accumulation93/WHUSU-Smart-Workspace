@@ -21,7 +21,9 @@ test('日程四种视图和空状态可用，页面不横向溢出',async({page}
   expect(Math.abs(actions[0].y-actions[1].y)).toBeLessThan(1);
   expect(Math.abs(actions[0].width-actions[1].width)).toBeLessThan(1);
   expect(Math.abs(actions[0].height-actions[1].height)).toBeLessThan(1);
-  expect(actions[2].width).toBeGreaterThan(actions[0].width*1.9);
+  expect(Math.abs(actions[0].width-actions[2].width)).toBeLessThan(1);
+  if(page.viewportSize().width<390)expect(actions[2].y).toBeGreaterThan(actions[0].y);
+  else expect(Math.abs(actions[0].y-actions[2].y)).toBeLessThan(1);
   const controls=await page.locator('.calendar-navigation').evaluate(element=>Array.from(element.children).map(child=>child.getBoundingClientRect().top));
   expect(Math.max(...controls.slice(0,3))-Math.min(...controls.slice(0,3))).toBeLessThan(2);
   if(page.viewportSize().width<520)expect(controls[3]).toBeGreaterThan(controls[0]);
@@ -139,7 +141,8 @@ test('安排规则复制后编辑保存，批量删除取消不发请求',async(
   await expect(page.getByText('复制后的安排',{exact:true})).toBeVisible();
   expect(writes[0].id).toBeUndefined();expect(writes[0].audience[0].personIds).toEqual(['p']);
   await page.getByRole('checkbox',{name:/办公室安排/}).check();
-  await page.getByRole('button',{name:copy.delete+' · 1',exact:true}).click();
+  await expect(page.getByText('已选 1 项',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:copy.delete,exact:true}).click();
   await expect(page.getByText(copy.deleteRuleConfirm,{exact:true})).toBeVisible();
   await page.getByRole('button',{name:copy.cancel,exact:true}).click();expect(writes).toHaveLength(1);
 });

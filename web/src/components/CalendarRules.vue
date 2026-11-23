@@ -9,7 +9,10 @@
         <div class="card-actions"><button class="btn btn-secondary" :disabled="busy" @click="edit(rule)">{{ copy.edit }}</button><button class="btn btn-secondary" :disabled="busy" @click="edit(rule,true)">{{ copy.duplicate }}</button><button class="btn btn-secondary" :disabled="busy" @click="batch(rule.enabled ? 'disable' : 'enable',[rule])">{{ rule.enabled ? copy.disabled : copy.enabled }}</button></div>
       </article>
       <p v-if="!loading && !metadata.rules?.length" class="empty-state">{{ copy.rulesEmpty }}</p>
-      <button v-if="selected.length" class="btn btn-danger" :disabled="busy" @click="deletion=metadata.rules.filter(rule=>selected.includes(rule.id))">{{ copy.delete }} · {{ selected.length }}</button>
+      <div v-if="selected.length" class="row row-wrap">
+        <span class="muted">{{ controls.selected }} {{ selected.length }} {{ controls.items }}</span>
+        <button type="button" class="btn btn-danger" :disabled="busy" @click="deletion=metadata.rules.filter(rule=>selected.includes(rule.id))">{{ copy.delete }}</button>
+      </div>
     </div>
     <form v-if="draft" ref="editor" class="card stack" @submit.prevent="save">
       <label class="field"><span class="field-label">{{ copy.ruleName }}</span><input v-model="draft.name" class="field-input" :disabled="busy" /></label>
@@ -27,6 +30,7 @@ import {computed,nextTick,onBeforeUnmount,ref,watch} from 'vue';
 import CalendarConditions from './CalendarConditions.vue';
 import GlassDialog from './GlassDialog.vue';
 import copy from '@/locales/zh-CN/shared/calendar.js';
+import controls from '@/locales/zh-CN/shared/controlLayout.js';
 import relations from '@/locales/zh-CN/shared/identityNatureRelations.js';
 import {callApi,requireSuccess,errorText} from '@/runtime/api.js';
 import {session} from '@/runtime/session.js';

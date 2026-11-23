@@ -22,14 +22,15 @@
 import { computed } from 'vue';
 import presentation from '@/shared/authorizationPresentation.js';
 import ui from '@/locales/zh-CN/shared/authorization.js';
-const props = defineProps({ modelValue: { type: Object, required: true }, directory: { type: Object, required: true }, relative: Boolean, disabled: Boolean });
+const props = defineProps({ modelValue: { type: Object, required: true }, directory: { type: Object, required: true }, relative: Boolean, disabled: Boolean, independentNature: Boolean });
 const emit = defineEmits(['update:modelValue']);
 const dimensions = [{ key: 'natureId', label: ui.nature }, { key: 'departmentId', label: ui.department },
   { key: 'identityCategoryId', label: ui.identityCategory }, { key: 'workGroupId', label: ui.workGroup }];
 const indexes = computed(() => presentation.makeIndexes(props.directory));
-const natureMissing = computed(() => props.modelValue.natureId !== 'same'
+const natureMissing = computed(() => !props.independentNature && props.modelValue.natureId !== 'same'
   && !(Array.isArray(props.modelValue.natureId) && props.modelValue.natureId.length));
 function identityAllowed(id) {
+  if (props.independentNature) return true;
   const nature = props.modelValue.natureId;
   const identity = (props.directory.dimensions?.identityCategoryId || []).find(item => item.id === id);
   return !natureMissing.value && identity && Array.isArray(identity.natureIds)

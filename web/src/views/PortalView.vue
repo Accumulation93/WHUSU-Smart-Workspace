@@ -256,17 +256,21 @@ const cards = computed(() => {
 });
 async function loadPortalAccess() {
   const request = ++accessGeneration;
-  portalAccess.value = null;
-  shadowPermissionEntry.value = false;
   try {
     const access = await readCurrentAuthorizationAccess();
     if (disposed || document.hidden || request !== accessGeneration) return;
     portalAccess.value = access;
+    shadowPermissionEntry.value = false;
     if (access?.mode === 'shadow' && session.activeRole === 'admin') {
       const profile = requireSuccess(await callApi('getMyAdminPermissions', {}));
       if (!disposed && !document.hidden && request === accessGeneration) shadowPermissionEntry.value = profile.canAccessPermissionSystem === true;
     }
-  } catch (_) {}
+  } catch (error) {
+    if (disposed || document.hidden || request !== accessGeneration
+      || !['authorization_forbidden', 'forbidden'].includes(error.code || error.status)) return;
+    portalAccess.value = null;
+    shadowPermissionEntry.value = false;
+  }
 }
 
 const filteredCards = computed(() => {
@@ -386,8 +390,13 @@ async function onLogout() {
 }
 
 onMounted(() => { loadPreview(); loadPortalAccess(); });
-useMessageRefresh(() => { loadPortalAccess(); return notificationBusy.value ? undefined : loadPreview(); }, () => { generation++; accessGeneration++; portalAccess.value = null; shadowPermissionEntry.value = false; });
-watch(() => session.context?.contextId, () => { todos.value = []; notifications.value = []; todoTotal.value = 0; unreadCount.value = 0; loadPreview(); loadPortalAccess(); });
+useMessageRefresh(() => { loadPortalAccess(); return notificationBusy.value ? undefined : loadPreview(); }, () => { generation++; accessGeneration++; });
+watch(() => [session.user?.id, session.context?.organizationId, session.context?.contextId], () => {
+  portalAccess.value = null;
+  shadowPermissionEntry.value = false;
+  todos.value = []; notifications.value = []; todoTotal.value = 0; unreadCount.value = 0;
+  loadPreview(); loadPortalAccess();
+});
 onBeforeUnmount(() => { disposed = true; generation++; accessGeneration++; portalAccess.value = null; });
 </script>
 

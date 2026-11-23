@@ -21,10 +21,10 @@
     <view wx:elif="{{!schemePermissions[versionKey].businesses.length}}" class="permission-admin-meta">{{ui.noConfiguredPermissions}}</view>
   </block>
 </template>
-<view class="permission-page authorization-page" style="min-height: calc(100vh - {{navTopPx}}px)">
+<view class="page permission-page authorization-page" style="min-height: calc(100vh - {{navTopPx}}px)">
   <workspace-hero class="workspace-hero-host" app-name="{{ui.appName}}" page-name="{{ui.title}}" tone="{{heroTone}}" />
-  <view class="authorization-tabs">
-    <button wx:for="{{tabs}}" wx:key="*this" class="secondary-btn ui-motion-button authorization-tab {{tab === item ? 'authorization-tab-active' : ''}}" data-tab="{{item}}" bindtap="switchTab" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{unified && ui.unified[item] || ui[item]}}</button>
+  <view class="tabs-card workspace-primary-tabs">
+    <view wx:for="{{tabs}}" wx:key="*this" class="feature-tab {{tab === item ? 'feature-tab-active' : ''}} ui-motion-chip" data-tab="{{item}}" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{unified && ui.unified[item] || ui[item]}}</view>
   </view>
   <view wx:if="{{previewOnly}}" class="permission-empty">{{ui.previewOnly}}</view>
   <app-loading wx:if="{{loading}}" text="{{ui.loading}}" />
@@ -52,13 +52,13 @@
       </block>
     </view>
     <block wx:if="{{tab === 'rules'}}">
-      <view class="permission-card authorization-toolbar">
-        <view class="authorization-disclosure ui-motion-card" bindtap="toggleDelegations" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><view>{{ui.advancedManagement}}</view><ui-icon name="chevron-right" sizeRole="row-leading" /></view>
+      <view wx:if="{{!roleBindingOnly || canManageDelegations}}" class="permission-card authorization-toolbar">
+        <view class="authorization-disclosure ui-motion-card" bindtap="toggleDelegations" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><view>{{roleBindingOnly ? ui.delegations : ui.advancedManagement}}</view><ui-icon name="chevron-right" sizeRole="row-leading" /></view>
         <block wx:if="{{showDelegations}}">
-          <view class="permission-admin-meta">{{canManageDelegations ? ui.advancedManagementHelp : ui.advancedRulesHelp}}</view>
-          <button class="secondary-btn ui-motion-button authorization-compact" data-kind="rule" data-advanced="{{true}}" bindtap="edit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.createCustomRule}}</button>
+          <view wx:if="{{!roleBindingOnly}}" class="permission-admin-meta">{{canManageDelegations ? ui.advancedManagementHelp : ui.advancedRulesHelp}}</view>
+          <button wx:if="{{!roleBindingOnly}}" class="secondary-btn ui-motion-button authorization-compact" data-kind="rule" data-advanced="{{true}}" bindtap="edit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.createCustomRule}}</button>
           <block wx:if="{{canManageDelegations}}">
-            <view class="permission-section-title">{{ui.delegations}}</view>
+            <view wx:if="{{!roleBindingOnly}}" class="permission-section-title">{{ui.delegations}}</view>
             <view class="permission-admin-meta">{{ui.delegationNotice}}</view>
             <button class="secondary-btn ui-motion-button authorization-compact" data-kind="delegation" bindtap="edit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.createDelegation}}</button>
             <view wx:for="{{delegations}}" wx:key="id" class="authorization-group authorization-body">
@@ -123,6 +123,7 @@
       <view wx:for="{{schemes}}" wx:key="id" class="permission-card authorization-body">
         <view class="authorization-disclosure ui-motion-card" data-id="{{'scheme:' + item.id}}" bindtap="toggleDetails" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><view><view class="permission-section-title">{{item.name}}</view><view class="authorization-summary">{{item.countText}}</view><view wx:if="{{item.draftRestrictedLabels.length}}" class="authorization-summary">{{ui.unified.schemeBlockedStatus}}</view></view><text class="authorization-chip">{{item.versionText}}</text><ui-icon name="chevron-right" sizeRole="row-leading" /></view>
         <block wx:if="{{expanded['scheme:' + item.id]}}">
+        <view wx:if="{{item.compatibilityOnly}}" class="permission-admin-meta">{{ui.unified.temporaryRoleHelp}}</view>
         <template wx:if="{{item.publishedVersion}}" is="schemePermissionVersion" data="{{title: ui.schemePublishedTitle, versionKey: 'published:' + item.id, expanded, schemePermissions, ui}}" />
         <template wx:if="{{item.canEdit !== false}}" is="schemePermissionVersion" data="{{title: ui.schemeDraftTitle, versionKey: 'draft:' + item.id, expanded, schemePermissions, ui}}" />
         <view wx:if="{{item.draftRestrictedLabels.length}}" class="authorization-group authorization-body">
@@ -151,7 +152,10 @@
         <app-loading wx:if="{{inspecting || candidateLoading}}" text="{{ui.loading}}" />
       </view>
       <view class="permission-card authorization-toolbar">
-        <view class="authorization-tabs"><button class="secondary-btn ui-motion-button authorization-tab {{effectiveRange === 'granted' ? 'authorization-tab-active' : ''}}" data-range="granted" bindtap="selectEffectiveRange" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.effectiveAssigned}}</button><button class="secondary-btn ui-motion-button authorization-tab {{effectiveRange === 'all' ? 'authorization-tab-active' : ''}}" data-range="all" bindtap="selectEffectiveRange" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.effectiveAll}}</button></view>
+        <view class="tabs workspace-secondary-tabs">
+          <view class="tab {{effectiveRange === 'granted' ? 'tab-active' : ''}} ui-motion-chip" data-range="granted" bindtap="selectEffectiveRange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{ui.effectiveAssigned}}</view>
+          <view class="tab {{effectiveRange === 'all' ? 'tab-active' : ''}} ui-motion-chip" data-range="all" bindtap="selectEffectiveRange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{ui.effectiveAll}}</view>
+        </view>
         <view class="permission-admin-meta">{{effectiveRange === 'all' ? ui.effectiveAllHelp : ui.effectiveAssignedHelp}}</view><view class="permission-admin-meta">{{ui.effectiveHelp}}</view>
         <view class="ui-list-filter-search"><ui-icon name="search" tone="muted" sizeRole="row-leading" /><input class="ui-list-filter-input" value="{{keyword}}" bindinput="search" placeholder="{{ui.searchEffective}}" /></view>
       </view>

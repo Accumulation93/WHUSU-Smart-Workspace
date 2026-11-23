@@ -1,0 +1,4 @@
+{
+  "component": true,
+  "usingComponents": { "app-loading": "/components/app-loading/app-loading" }
+}

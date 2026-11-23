@@ -6,7 +6,7 @@
     <view class="empty-title">{{localeCopy.copy_bd8dff5ca7}}</view>
     <view class="empty-desc">{{localeCopy.copy_0de5656de5}}</view>
   </view>
-  <view class="tabs" wx:if="{{hasPermission}}">
+  <view class="tabs workspace-secondary-tabs" wx:if="{{hasPermission}}">
     <view class="tab {{activeTab === item.key ? 'tab-active' : ''}} ui-motion-chip" wx:for="{{visibleTabs}}" wx:key="key" data-tab="{{item.key}}" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.label}}</view>
   </view>
 
@@ -196,8 +196,8 @@
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid" catchtap="noop">
       <view class="ui-dialog-header">
       <view class="popup-header"><view class="popup-title">{{localeCopy.copy_ea512602ff}} · {{rulesVenueName}}</view><text class="popup-close ui-motion-chip" catchtap="closeRules" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
-      <view class="rules-tabs">
-        <view wx:for="{{ruleTabs}}" wx:key="key" class="rules-tab {{rulesTab === item.key ? 'active' : ''}} ui-motion-chip" data-tab="{{item.key}}" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.label}}</view>
+      <view class="tabs workspace-secondary-tabs">
+        <view wx:for="{{ruleTabs}}" wx:key="key" class="tab {{rulesTab === item.key ? 'tab-active' : ''}} ui-motion-chip" data-tab="{{item.key}}" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.label}}</view>
       </view>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
@@ -849,7 +849,7 @@
         <button class="secondary-btn ui-motion-button" catchtap="onCondMultiPickerSelectAll" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_00c8a8f256}}</button>
         <button class="secondary-btn ui-motion-button" catchtap="onCondMultiPickerDeselectAll" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_961862242a}}</button>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="inner-scroll large-scroll ui-dialog-scroll--pane ui-dialog-selection-options">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-scroll--pane ui-dialog-selection-options">
         <view class="list-item selection-option-card {{condMultiPickerSelectedIds[item.id] ? 'selection-option-card-selected' : ''}} ui-motion-card" wx:for="{{condMultiPickerFilteredList}}" wx:key="id" data-id="{{item.id}}" catchtap="onCondMultiPickerToggle" aria-role="checkbox" aria-checked="{{!!condMultiPickerSelectedIds[item.id]}}" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="list-main">
             <view class="list-name">{{item.name}}</view>

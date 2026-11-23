@@ -1,1 +1,1 @@
-@import '../../package-resources/subpackages/scoring/pages/admin/adminWorkbenchStyles.wxss';
+/* 兼容跳转页使用全局页面与加载样式。 */

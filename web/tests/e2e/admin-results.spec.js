@@ -97,6 +97,30 @@ test('fine permissions independently hide export and revoke actions', async ({ p
   const state = await setup(page); delete state.permissions['scoring.results_export']; delete state.permissions['scoring.results_revoke']; await open(page); await expect(page.getByRole('button', { name: ui.copy_03f903662b })).toHaveCount(0); await detail(page); await expect(recordDialog(page).getByRole('button', { name: ui.copy_96380cec9a })).toHaveCount(0); expect(state.writes).toHaveLength(0);
 });
 
+test('CSV and Excel export choices stay on one row after an export rejection', async ({ page }) => {
+  const state = await setup(page);
+  await page.setViewportSize({ width: 320, height: 720 });
+  await open(page);
+  await page.getByRole('button', { name: ui.copy_03f903662b, exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  const csv = dialog.getByRole('button', { name: messages.copy_7ffcbc33aa });
+  const excel = dialog.getByRole('button', { name: messages.copy_5503123f4c });
+  async function verifyRow() {
+    const first = await csv.boundingBox();
+    const second = await excel.boundingBox();
+    expect(first).toBeTruthy();
+    expect(second).toBeTruthy();
+    expect(Math.abs(first.y - second.y)).toBeLessThan(1);
+    expect(second.x).toBeGreaterThan(first.x + first.width);
+    expect(second.x + second.width).toBeLessThan(320);
+  }
+  await verifyRow();
+  state.reject = true;
+  await csv.click();
+  await expect(dialog.getByRole('alert')).toHaveText(feedback.writeResultUnknown);
+  await verifyRow();
+});
+
 test('result read and detail failures are retriable without false empty state or stale record actions', async ({ page }) => {
   const state = await setup(page); state.fail = 'overview'; await page.goto('/web/admin?subApp=scoring&tab=results'); await expect(page.getByText(feedback.forbidden)).toBeVisible();await expect(page.getByText('Result read failed')).toHaveCount(0); await expect(page.getByText(ui.copy_8a479a4213)).toHaveCount(0); state.fail = ''; await refresh(page).click(); await expect(page.locator('.result-rank-card').first()).toBeEnabled();
   state.fail = 'recordDetail'; await page.locator('.result-rank-card').filter({ hasText: 'Zed' }).click(); await page.getByRole('button').filter({ hasText: 'Scorer One' }).click(); await expect(recordDialog(page).getByText(feedback.forbidden)).toBeVisible(); await expect(recordDialog(page).getByRole('button', { name: ui.copy_96380cec9a })).toHaveCount(0); state.fail = ''; await recordDialog(page).getByRole('button', { name: personnel.dictionaryRetry }).click(); await expect(recordDialog(page).getByText('Question 1', { exact: true })).toBeVisible();

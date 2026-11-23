@@ -1,7 +1,7 @@
 'use strict';
 
-const personnelCopy = require('../../../package-resources/locales/zh-CN/adminPersonnel');
-const { normalizeUsageItems } = require('../../../package-resources/subpackages/scoring/pages/admin/modules/dictionaryFeedbackView');
+const personnelCopy = require('../../../../../locales/zh-CN/adminPersonnel');
+const { normalizeUsageItems } = require('./dictionaryFeedbackView');
 
 module.exports = Behavior({
   data: {

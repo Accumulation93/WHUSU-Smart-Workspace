@@ -1,10 +1,10 @@
 const pool = require('../../config/db');
 const { getCurrentOrgId } = require('../../utils/orgContext');
 
-async function getActiveSnapshot(connection = pool) {
-  const orgId = await getCurrentOrgId();
+async function getActiveSnapshot(connection = pool, organizationId = '', lock = false) {
+  const orgId = organizationId || await getCurrentOrgId();
   const [rows] = await connection.query(
-    'SELECT * FROM org_hr_profile_template_snapshots WHERE org_id = ? LIMIT 1',
+    'SELECT * FROM org_hr_profile_template_snapshots WHERE org_id = ? LIMIT 1' + (lock ? ' FOR SHARE' : ''),
     [orgId]
   );
   return rows[0] || null;

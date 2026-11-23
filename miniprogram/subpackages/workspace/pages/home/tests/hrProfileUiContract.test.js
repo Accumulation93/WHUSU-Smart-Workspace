@@ -42,3 +42,12 @@ test('只读资料和失败状态冻结所有资料输入控件', () => {
   assert.match(templateSource, /item\.type === 'datetime'[\s\S]*?data-part="date"[\s\S]*?data-part="time"/);
   assert.match(pageSource, /Array\.from\(value\)\.length/);
 });
+
+test('无适用补充资料时隐藏补充表单的说明和状态，仍可查看基本资料', () => {
+  assert.match(pageSource, /fieldsNotApplicable:\s*result\.profileFieldsNotApplicable === true/);
+  assert.match(templateSource, /class="profile-banner" wx:if="[^\"]*!hrProfile\.fieldsNotApplicable/);
+  assert.match(templateSource, /class="profile-status" wx:if="[^\"]*!hrProfile\.fieldsNotApplicable/);
+  assert.match(templateSource, /class="empty-card profile-empty" wx:if="[^\"]*!hrProfile\.fieldsNotApplicable/);
+  assert.match(templateSource, /class="profile-form" wx:if="[^\"]*hrProfile\.template\.fields\.length/);
+  assert.match(templateSource, /class="field-grid">[\s\S]*?<view class="info-value">\{\{user\.name\}\}/);
+});

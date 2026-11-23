@@ -73,6 +73,11 @@ test('ordinary scoring work role manages activities in the same application tab 
   await expect(page.locator('.activity-row')).toContainText('Embedded activity');
   await expect(page.locator('.activity-row button')).toHaveCount(0);
   await expect(page).toHaveURL(/\/web\/scoring\/tasks$/);
+  await page.locator('.workspace-context-card').click();
+  await expect(page).not.toHaveURL(/\/web\/scoring\/tasks$/);
+  await page.goBack();
+  await expect(page.getByRole('tab', { name: authorizationCopy.businessManagement, exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.activity-row')).toContainText('Embedded activity');
 });
 
 test('activity saves native parameters, rereads results and keeps an unfinished draft across tabs', async ({ page }) => {

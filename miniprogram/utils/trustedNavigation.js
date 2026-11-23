@@ -1,4 +1,6 @@
 const localeCopy = require('../locales/zh-CN/generated/utils/trustedNavigation');
+const LEGACY_ADMIN_ROUTE = '/subpackages/scoring/pages/admin/admin';
+const ADMIN_ROUTE = '/subpackages/workspace/pages/admin/admin';
 const TRUSTED_ROUTES = {
   '/subpackages/workspace/pages/calendar/calendar': true,
   '/subpackages/workspace/pages/calendarEdit/calendarEdit': true,
@@ -11,7 +13,8 @@ const TRUSTED_ROUTES = {
   '/subpackages/message/pages/messageCenter/messageCenter': true,
   '/subpackages/workspace/pages/home/home': true,
   '/subpackages/scoring/pages/score/score': true,
-  '/subpackages/scoring/pages/admin/admin': true,
+  [LEGACY_ADMIN_ROUTE]: true,
+  [ADMIN_ROUTE]: true,
   '/subpackages/scoring/pages/hrImport/hrImport': true,
   '/subpackages/scoring/pages/scorerTasks/scorerTasks': true,
   '/subpackages/audit/pages/mySubmissions/mySubmissions': true,
@@ -54,15 +57,16 @@ function isTrustedRoute(rawUrl) {
   return TRUSTED_ROUTES[pathname] === true && (!query || /^[A-Za-z0-9_.~%=&+-]+$/.test(query));
 }
 
-function routePath(url) {
-  return String(url || '').split('?')[0].replace(/^\//, '');
+function currentRouteUrl(url) {
+  const pathname = url.split('?')[0];
+  return pathname === LEGACY_ADMIN_ROUTE ? ADMIN_ROUTE + url.slice(pathname.length) : url;
 }
 
 function isCurrentRoute(url) {
   if (typeof getCurrentPages !== 'function') return false;
   const pages = getCurrentPages();
   const current = pages && pages[pages.length - 1];
-  return !!current && current.route === routePath(url);
+  return !!current && current.route === currentRouteUrl(String(url || '')).split('?')[0].replace(/^\//, '');
 }
 
 function navigateToTrustedRoute(rawUrl, handlers) {
@@ -106,7 +110,7 @@ function navigateToTrustedRoute(rawUrl, handlers) {
     return false;
   }
   wx.navigateTo({
-    url: url,
+    url: currentRouteUrl(url),
     success: finishSuccess,
     fail: finishFailure
   });
@@ -126,7 +130,7 @@ function reLaunchTrustedRoute(rawUrl, handlers) {
     return false;
   }
   wx.reLaunch({
-    url,
+    url: currentRouteUrl(url),
     success: callbacks.success,
     fail: callbacks.fail || function() {
       wx.showToast({ title: localeCopy.copy_4becb061c6, icon: 'none' });

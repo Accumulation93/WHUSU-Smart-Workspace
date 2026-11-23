@@ -1,13 +1,13 @@
-const localeCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/publicationBehavior');
-const { format: localeFormat } = require('../../../package-resources/locales/runtime');
+const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/publicationBehavior');
+const { format: localeFormat } = require('../../../../../locales/runtime');
 // Behavior: publication tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
-const utils = require('../../../package-resources/subpackages/scoring/pages/admin/modules/adminUtils');
-const { saveAndShareFile } = require('../../../package-resources/utils/tableFile');
+const utils = require('./adminUtils');
+const { saveAndShareFile } = require('../../../../../utils/tableFile');
 const orgSession = require('../../../../../utils/orgSession');
 const { createResultError, getErrorText } = require('../../../../../utils/api');
-const designationCandidateView = require('../../../package-resources/subpackages/scoring/pages/admin/modules/designationCandidateView');
-const adminCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/admin');
+const designationCandidateView = require('./designationCandidateView');
+const adminCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/admin');
 const homeCopy = require('../../../../../locales/zh-CN/home').text;
 const natureCopy = require('../../../../../locales/zh-CN/identityNatureRelations');
 function natureFields(page, form) {

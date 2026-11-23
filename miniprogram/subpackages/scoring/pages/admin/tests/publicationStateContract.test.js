@@ -10,7 +10,7 @@ assert.match(publicationWxml, /class="section-stack publication-relations" wx:if
 assert.match(publicationWxss, /\.publication-relations \.selection-options-grid\s*\{[^}]*display:\s*grid/);
 assert.match(publicationWxss, /\.publication-relations \.selection-options-grid \.selection-option-card\s*\{[^}]*min-height:\s*var\(--ui-field-control-height\)[^}]*border-radius:\s*var\(--ui-field-radius\)/);
 
-const page = fs.readFileSync(path.resolve(__dirname, '../admin.js'), 'utf8');
+const page = fs.readFileSync(path.resolve(__dirname, '../../../../workspace/pages/admin/admin.js'), 'utf8');
 assert.match(page, /behaviors: \[adminWorkbenchBehavior\]/);
 const source = fs.readFileSync(path.resolve(__dirname, '../adminWorkbenchBehavior.js'), 'utf8');
 const organizationReset = source.slice(

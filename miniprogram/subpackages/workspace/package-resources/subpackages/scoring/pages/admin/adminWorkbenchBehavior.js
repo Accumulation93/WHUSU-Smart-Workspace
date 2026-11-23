@@ -99,6 +99,7 @@ module.exports = Behavior({
     canBrowseHrInfo: false,
     canManageHrProfileTemplates: false,
     canSelectHrProfileTemplate: false,
+    canReadHrProfileApplicability: false,
     canVerifyIdentity: false,
     canReadAuthGovernance: false,
     canEditAuthPolicy: false,
@@ -113,6 +114,8 @@ module.exports = Behavior({
     subAppLabel: '',
     loadingMap: {},
     organizationList: [],
+    canReadOrganizations: false,
+    canRenameOwnOrganization: false,
     currentOrganizationId: null,
     currentOrganizationName: '',
     systemDefaultOrganizationId: null,
@@ -539,7 +542,7 @@ module.exports = Behavior({
 
   workbenchShow() {
     this._pageVisible = true;
-    this.setData({ permissionNotice: '' });
+    this.setData({ permissionNotice: '', permissionChecked: this.data.hasPermission });
     this.bindDialogKeyboard();
     const consumed = orgSession.consume(this);
     const organizationChanged = consumed.changed;
@@ -657,6 +660,7 @@ module.exports = Behavior({
         csvRows: [],
         csvColumnMappings: [],
         hrImportPreview: null,
+        organizationList: [],
         orgFormVisible: false,
         auditTemplateStepEditorVisible: false,
         auditStepConditionEditorVisible: false,
@@ -940,6 +944,7 @@ module.exports = Behavior({
       if (!this._pageVisible || authorizationGeneration !== this._authorizationReadGeneration || this.sessionIdentityChanged(activeSession)) return;
       this.clearPermissionCheckGuard();
       this.setData({ user: null, hasPermission: false, permissionChecked: true, isSuperAdmin: false,
+        canReadOrganizations: false, canRenameOwnOrganization: false, organizationList: [], orgFormVisible: false,
         canManageAdmins: false, canReadAdmins: false, canWriteAdmins: false, permissionNotice: authorizationCopy.operationFailed });
       return;
     }
@@ -1062,6 +1067,8 @@ module.exports = Behavior({
       canManageAdmins: canWriteAdmins,
       canReadAdmins,
       canWriteAdmins,
+      canReadOrganizations: isSuperAdmin || (access.mode === 'enforced' && actionCapabilities['system.organizations.read'] === true),
+      canRenameOwnOrganization: access.mode === 'enforced' && actionCapabilities['system.organizations.update'] === true,
       canExportScoreResults: allowed(['scoring.results_export'], ['scoring.results.export']),
       canExportScoreTasks: allowed(['scoring.results_export'], ['scoring.tasks.export']),
       canReadScoreResults: allowed(['scoring.results'], ['scoring.results.read']),
@@ -1085,6 +1092,7 @@ module.exports = Behavior({
       canUpdateHrProfileTemplates: allowed(['hr.profile_templates.manage'], ['hr.profileTemplates.update']),
       canDeleteHrProfileTemplates: allowed(['hr.profile_templates.manage.delete'], ['hr.profileTemplates.delete']),
       canSelectHrProfileTemplate: allowed(['hr.profile_templates.select'], ['hr.profileSelection.update']),
+      canReadHrProfileApplicability: allowed(['hr.profile_templates.select'], ['hr.profileSelection.read', 'hr.profileSelection.update']),
       canReadProfileMigration: allowed(['hr.people', 'hr.profile_review'], ['hr.profileMigration.read']),
       canRequestProfileMigration: allowed(['hr.people', 'hr.profile_review'], ['hr.profileMigration.request']),
       canApproveProfileMigration: allowed(['hr.people', 'hr.profile_review'], ['hr.profileMigration.approve']),

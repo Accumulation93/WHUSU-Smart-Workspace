@@ -1,7 +1,7 @@
-const localeCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/activityBehavior');
+const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/activityBehavior');
 // Behavior: activity tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
-const utils = require('../../../package-resources/subpackages/scoring/pages/admin/modules/adminUtils');
+const utils = require('./adminUtils');
 const orgSession = require('../../../../../utils/orgSession');
 const { createResultError } = require('../../../../../utils/api');
 const { emptyActivityForm } = utils;

@@ -1,7 +1,7 @@
 <ui-navbar title="{{navigationTitle}}" />
 <view class="page page-narrow" style="min-height: calc(100vh - {{navTopPx}}px)">
-  <workspace-hero app-name="{{common.brandName}}" page-name="{{publicView ? copy.verifyTitle : copy.title}}" tone="{{heroTone || 'blue'}}" />
-  <view class="identity-card {{publicView ? 'identity-verification' : ''}}">
+  <workspace-hero app-name="{{common.brandName}}" page-name="{{publicView ? copy.verifyTitle : managementOnly ? copy.management.title : copy.title}}" tone="{{heroTone || 'blue'}}" />
+  <view wx:if="{{!managementOnly}}" class="identity-card {{publicView ? 'identity-verification' : ''}}">
     <view wx:if="{{publicView && valid && card && !loading}}" class="identity-card-header">
       <view class="identity-card-heading"><ui-icon name="shield" tone="primary" sizeRole="feature-leading" /><view class="identity-card-title">{{copy.verifyTitle}}</view></view>
       <view wx:if="{{card}}" class="identity-card-name">{{card.name}}</view>
@@ -32,11 +32,37 @@
           </view>
           <image wx:if="{{image}}" class="identity-qr-image" src="{{image}}" mode="aspectFit" />
           <view wx:if="{{image}}" class="identity-card-label">{{copy.scanHint}}</view>
-          <button wx:if="{{image}}" class="secondary-btn identity-card-refresh ui-motion-button" bindtap="showOriginal" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.originalImage}}</button>
         </view>
       </block>
       <view wx:if="{{notice}}" class="identity-card-label">{{notice}}</view>
-      <button class="secondary-btn identity-card-refresh ui-motion-button" disabled="{{loading || qrLoading}}" bindtap="load" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{publicView ? (valid ? copy.refreshVerification : copy.retry) : copy.refresh}}</button>
+      <view wx:if="{{!publicView && image}}" class="identity-card-actions">
+        <button class="secondary-btn identity-card-refresh ui-motion-button" bindtap="showOriginal" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.originalImage}}</button>
+        <button class="secondary-btn identity-card-refresh ui-motion-button" disabled="{{loading || qrLoading || policySaving}}" bindtap="load" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.refresh}}</button>
+      </view>
+      <button wx:else class="secondary-btn identity-card-refresh ui-motion-button" disabled="{{loading || qrLoading || policySaving}}" bindtap="load" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{publicView ? (valid ? copy.refreshVerification : copy.retry) : copy.refresh}}</button>
+    </view>
+  </view>
+  <view wx:if="{{!publicView && (policyAllowed || managementOnly)}}" class="identity-card identity-policy-card">
+    <view class="identity-card-body">
+      <view wx:if="{{!managementOnly}}" class="identity-card-title">{{copy.management.title}}</view>
+      <app-loading wx:if="{{policyLoading}}" text="{{copy.loading}}" />
+      <block wx:elif="{{policy}}">
+        <view class="identity-policy-row">
+          <view class="identity-card-value">{{copy.management.issue}}</view>
+          <switch aria-label="{{copy.management.issue}}" color="#3b82f6" checked="{{policy.issueEnabled}}" disabled="{{!canUpdatePolicy || policySaving}}" data-key="issueEnabled" bindchange="changePolicy" />
+        </view>
+        <view class="identity-policy-row">
+          <view><view class="identity-card-value">{{copy.management.publicVerification}}</view><view class="identity-card-label">{{copy.management.publicVerificationHelp}}</view></view>
+          <switch aria-label="{{copy.management.publicVerification}}" color="#3b82f6" checked="{{policy.publicVerificationEnabled}}" disabled="{{!canUpdatePolicy || policySaving}}" data-key="publicVerificationEnabled" bindchange="changePolicy" />
+        </view>
+        <button wx:if="{{canUpdatePolicy}}" class="primary-btn identity-card-refresh ui-motion-button" disabled="{{!policyDirty || policySaving}}" bindtap="savePolicy" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading compact="{{true}}" active="{{policySaving}}" />{{saveLabel}}</button>
+        <view wx:else class="identity-card-label">{{copy.management.readOnly}}</view>
+      </block>
+      <block wx:else>
+        <view wx:if="{{!policyAllowed && !policyNotice}}" class="identity-card-label">{{notice || policyDeniedLabel}}</view>
+        <button class="secondary-btn identity-card-refresh ui-motion-button" bindtap="loadPolicy" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.retry}}</button>
+      </block>
+      <view wx:if="{{policyNotice}}" aria-live="polite" class="identity-card-label">{{policyNotice}}</view>
     </view>
   </view>
 </view>

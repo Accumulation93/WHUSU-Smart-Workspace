@@ -19,15 +19,23 @@ Page({
     selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '', unified: false, basicCapabilities: [], basicBusy: false, schemePermissions: {} },
   onLoad: function(options) { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight, tab: options && options.tab === 'schemes' ? 'schemes' : 'rules' }); },
   onResize: function() { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight }); },
-  onShow: function() { this._active = true; orgSession.consume(this); this.setData({ heroTone: orgSession.getSnapshot().role === 'admin' ? 'admin' : 'blue' }); this.load(); },
-  onHide: function() { this.clear(); },
+  onShow: function() {
+    const state = orgSession.consume(this);
+    if (state.changed) this.clear();
+    this._active = true;
+    this.setData({ heroTone: state.snapshot.role === 'admin' ? 'admin' : 'blue' });
+    this.load();
+  },
+  onHide: function() { this.clear(true); },
   onUnload: function() { this.clear(); },
-  clear: function() {
+  clear: function(preserveNavigation) {
     this._active = false; orgSession.invalidateRequests(this); this._state = null; this._directory = null;
     this._inspectionTarget = null;
     this.setData({ recipientCards: [], showRules: false, selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '', unified: false, basicCapabilities: [], basicBusy: false,
       inspectionLabel: ui.ownRole, picker: '', pickerOptions: [], pickerValue: [], candidateLoading: false, inspectionLoaded: false, inspectionUnavailable: false, inspectingOther: false, controlledEffective: [],
-      ready: false, canCopy: false, keyword: '', cards: [], schemes: [], schemePermissions: {}, dynamicRules: [], effective: [], effectiveGroups: [], effectiveRange: 'granted', effectiveExpanded: {}, expanded: {}, inspecting: false, isSuper: false, delegations: [], showDelegations: false });
+      ready: false, canCopy: false, keyword: preserveNavigation ? this.data.keyword : '',
+      cards: [], schemes: [], schemePermissions: {}, dynamicRules: [], effective: [], effectiveGroups: [],
+      effectiveRange: preserveNavigation ? this.data.effectiveRange : 'granted', effectiveExpanded: {}, expanded: {}, inspecting: false, isSuper: false, delegations: [], showDelegations: false });
   },
   load: async function() {
     const request = orgSession.beginRequest(this, 'authorization');
@@ -50,6 +58,7 @@ Page({
         tab: management.canManage === false ? 'effective' : this.data.tab });
       this.setData({ ready: true, previewOnly: results[0].mode === 'shadow', isSuper: !!results[0].isSuper,
         unified: management.unifiedIdentity === true,
+        roleBindingOnly: management.roleBindingOnly === true,
         basicCapabilities: (management.basicCapabilities || []).map(item => Object.assign({}, item, {
           label: presentation.capabilityLabel(item.key, management.catalog, ui)
         })),
@@ -86,11 +95,11 @@ Page({
     if (!this._state) return;
     const keyword = this.data.keyword.trim().toLowerCase();
     const dates = item => Object.assign({}, item, { startsAtText: item.policy.startsAt ? formatDetailTime(item.policy.startsAt) : '', endsAtText: item.policy.endsAt ? formatDetailTime(item.policy.endsAt) : '' });
-    this.setData({ hasPublishedSchemes: this._state.schemes.some(item => item.publishedVersion), recipientCards: presentation.recipientCards(this._state.rules, this._state.schemes, this._directory, this._state.catalog, ui, keyword).map(item => Object.assign({}, item, { grants: item.grants.map(dates) })),
+    this.setData({ hasPublishedSchemes: this._state.schemes.some(item => item.publishedVersion && !item.compatibilityOnly), recipientCards: presentation.recipientCards(this._state.rules, this._state.schemes, this._directory, this._state.catalog, ui, keyword).map(item => Object.assign({}, item, { grants: item.grants.map(dates) })),
       dynamicRules: presentation.ruleCards(this._state.rules, this._directory, this._state.catalog, ui, keyword).filter(item => item.policy.subjects.some(subject => subject.kind === 'assignmentScope')).map(dates),
       cards: presentation.ruleCards(this._state.rules, this._directory, this._state.catalog, ui, keyword).map(item => Object.assign({}, item, { summaryLabels: item.capabilityLabels.slice(0, 3), capabilityCountText: ui.effectiveCount(item.capabilityLabels.length) })),
       schemes: this._state.schemes.filter(item => item.name.toLowerCase().includes(keyword)).map(item => Object.assign({}, item, {
-        versionText: item.publishedVersion ? ui.schemeVersion(item.publishedVersion) : ui.draft,
+        versionText: item.compatibilityOnly ? ui.unified.temporaryRoleLabel : item.publishedVersion ? ui.schemeVersion(item.publishedVersion) : ui.draft,
         countText: ui.effectiveCount((item.publishedVersion ? item.publishedCapabilities : item.capabilities).length),
         draftRestrictedLabels: (item.draftRestrictedCapabilities || []).map(key => ({ key, label: presentation.capabilityLabel(key, this._state.catalog, ui) })) })) });
   },

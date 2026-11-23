@@ -19,6 +19,8 @@ async function main() {
     await admin.query(fs.readFileSync(path.join(__dirname,'../db/init.sql'),'utf8'));
     const migration = fs.readFileSync(path.join(__dirname,'../db/deploy/20261019120000_identity_cards.sql'),'utf8');
     await admin.query(migration); await admin.query(migration);
+    const policyMigration = fs.readFileSync(path.join(__dirname, '../db/deploy/20261123120500_identity_card_policy.sql'), 'utf8');
+    await admin.query(policyMigration); await admin.query(policyMigration);
     Object.assign(process.env,{DB_HOST:host,DB_PORT:String(port),DB_NAME:database,DB_USER:username,DB_PASSWORD:password,AUTH_IDENTITY_SECRET:crypto.randomBytes(32).toString('hex')});
     pool = require('../src/config/db');
     const model = require('../src/core/models/identityCard'), identity = require('../src/core/models/unifiedIdentity');
@@ -40,7 +42,8 @@ async function main() {
     const codes = require('../src/core/services/identityCardCode');
     codes.createImage = async value => { token = value; return 'data:image/png;base64,test'; };
     const app = require('express')(); app.use(require('express').json());
-    app.use((req,res,next) => { if (req.headers['x-test-auth'] === 'yes') { req.authAccount={id:'account',personId:'person'}; req.authContext=actor; } next(); });
+    let session;
+    app.use((req,res,next) => { if (req.headers['x-test-auth'] === 'yes') { req.authAccount={id:'account',personId:'person'}; req.authContext=actor; req.authSession=session; } next(); });
     app.use('/api',require('../src/core/routes/identityCard'));
     server = await new Promise(resolve => { const listener=app.listen(0,'127.0.0.1',()=>resolve(listener)); });
     const post = (name,body={},authenticated=false) => fetch('http://127.0.0.1:'+server.address().port+'/api/'+name,{method:'POST',headers:{'Content-Type':'application/json',...(authenticated?{'X-Test-Auth':'yes'}:{})},body:JSON.stringify(body)});
@@ -81,9 +84,66 @@ async function main() {
     assert.equal(unassignedCard.valid, true);
     for (const field of ['department', 'identityCategory', 'workGroup']) assert.equal(unassignedCard.card.positionFacts[field], '');
     await admin.query("UPDATE membership_assignments SET status='active' WHERE id='job'");
+
+    for (const filename of ['20261102193000_authorization_runtime_transition.sql', '20261122153000_unified_identity_assignment_links.sql',
+      '20261122170000_authorization_grant_sources.sql']) {
+      await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy', filename), 'utf8'));
+    }
+    await admin.query("UPDATE authorization_runtime_transition SET phase='enforced', minimum_protocol=3 WHERE id=1");
+    await admin.query("UPDATE authorization_organizations SET mode='enforced' WHERE org_id='org'");
+    session = { id: 'card-policy-session' };
+    await admin.query(`INSERT INTO auth_sessions (id, account_id, openid_hash, context_id, context_type, context_subject_id,
+      organization_id, role, token_version, expires_at) VALUES (?, 'account', '', ?, 'assignment', 'job', 'org', 'user', 1,
+      DATE_ADD(UTC_TIMESTAMP(3), INTERVAL 1 HOUR))`, [session.id, actor.contextId]);
+    const readPolicy = () => post('getIdentityCardPolicy', {}, true);
+    const savePolicy = (expectedVersion, issueEnabled, publicVerificationEnabled) => post('saveIdentityCardPolicy', {
+      expectedVersion, issueEnabled, publicVerificationEnabled, organizationId: 'other'
+    }, true);
+    async function grantPolicy(capabilities) {
+      const policy = { id: 'policy-management', organizationId: 'org', effect: 'allow', enabled: true,
+        subjects: [{ kind: 'assignments', ids: ['job'] }], capabilities, scopes: [{ kind: 'organization' }], fields: null };
+      await admin.query(`INSERT INTO authorization_rules (id, org_id, name, policy_json) VALUES (?, 'org', ?, ?)
+        ON DUPLICATE KEY UPDATE policy_json=VALUES(policy_json)`, [policy.id, policy.id, JSON.stringify(policy)]);
+    }
+    assert.equal((await post('getIdentityCardPolicy')).status, 401);
+    assert.equal((await readPolicy()).status, 403);
+    await grantPolicy(['identity.cardPolicy.read']);
+    assert.deepEqual(await (await readPolicy()).json(), {
+      status: 'success', policy: { version: 0, issueEnabled: true, publicVerificationEnabled: true }, canUpdate: false
+    });
+    assert.equal((await savePolicy(0, false, true)).status, 403);
+    await grantPolicy(['identity.cardPolicy.read', 'identity.cardPolicy.update']);
+    assert.equal((await savePolicy(0, 'false', true)).status, 400);
+    assert.deepEqual((await (await savePolicy(0, false, true)).json()).policy,
+      { version: 1, issueEnabled: false, publicVerificationEnabled: true });
+    assert.equal((await savePolicy(0, true, true)).status, 409);
+    assert.equal((await (await readPolicy()).json()).policy.version, 1);
+    const ownCardWithIssuingPaused = await (await post('getMyIdentityCard', {}, true)).json();
+    assert.equal(ownCardWithIssuingPaused.valid, true);
+    assert.equal(ownCardWithIssuingPaused.codeDisabledByPolicy, true);
+    assert.equal((await (await post('createMyIdentityCardCode', {}, true)).json()).valid, false);
+    assert.equal((await model.verify(token)).valid, true, '关闭成码不影响此前已签发且未到期的卡');
+    assert.equal((await savePolicy(1, true, false)).status, 200);
+    assert.equal((await model.verify(token)).valid, false);
+    assert.equal((await (await post('createMyIdentityCardCode', {}, true)).json()).valid, false);
+    assert.equal((await savePolicy(2, true, true)).status, 200);
+    assert.equal((await (await post('getMyIdentityCard', {}, true)).json()).codeDisabledByPolicy, false);
+    assert.equal((await model.verify(token)).valid, true);
+    const [policyRows] = await admin.query('SELECT org_id FROM identity_card_policies');
+    assert.deepEqual(policyRows.map(row => row.org_id), ['org']);
+    await admin.query("INSERT INTO authorization_basic_role_exclusions (org_id, capability_key) VALUES ('org', 'identity.cards.verify')");
+    assert.equal((await model.verify(token)).valid, false, '公开核验也遵守当前持有岗位的组织基础权限限制');
+    await grantPolicy(['identity.cards.verify']);
+    assert.equal((await model.verify(token)).valid, true, '正式业务授权可恢复组织基础能力默认限制');
+    await admin.query(`INSERT INTO authorization_grant_sources (org_id, object_kind, object_id, parent_delegation_id, issuer_assignment_id)
+      VALUES ('org', 'rule', 'policy-management', 'revoked-delegation', 'job')`);
+    assert.equal((await model.verify(token)).valid, false, '公开核验不得继续使用上级委托失效的规则');
+    await admin.query('DELETE FROM authorization_basic_role_exclusions');
+    assert.equal((await model.verify(token)).valid, true);
     await admin.query('UPDATE identity_cards SET expires_at=DATE_SUB(UTC_TIMESTAMP(3),INTERVAL 1 SECOND)');
     assert.equal((await model.verify(token)).valid,false);
     console.log('PASS 身份卡双次迁移、真实生成参数保存回读、公开列白名单、跨组织、篡改、过期、冻结、岗位撤销和图片失败不写入');
+    console.log('PASS 身份卡设置覆盖默认值、独立读写资格、真实HTTP保存回读、版本冲突、成码与核验开关、组织隔离、基础权限撤销');
   } finally {
     if (server) await new Promise(resolve=>server.close(resolve));
     if (pool) await pool.end();

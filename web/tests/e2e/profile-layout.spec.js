@@ -34,3 +34,24 @@ test('profile follows native field grid and keeps the submitted values when rere
   await page.getByRole('button', { name: ui.reloadProfile, exact: true }).click();
   await expect(page.getByLabel('Email')).toHaveValue('saved@example.com');
 });
+
+test('members with no applicable supplemental fields still see their profile and directory', async ({ page }) => {
+  await mockApi(page);
+  await page.route('**/api/getUserHrProfile', route => route.fulfill({ json: {
+    status: 'success',
+    profile: { name: 'Profile owner', studentId: 'TEST12345', department: 'My department', identity: 'Member' },
+    profileFieldsNotApplicable: true,
+    template: { description: 'Supplement instructions', editMode: 'audit', fields: [] },
+    auditStatus: 'pending',
+    values: {}, pendingValues: {}
+  } }));
+  await page.goto('/web/hr/profile');
+  await expect(page.getByText('TEST12345', { exact: true })).toBeVisible();
+  await expect(page.getByText('Supplement instructions', { exact: true })).toHaveCount(0);
+  await expect(page.getByText(ui.noExtraProfile, { exact: true })).toHaveCount(0);
+  await expect(page.getByText(ui.profilePending, { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: ui.submitReview, exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: ui.saveProfile, exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: '通讯录', exact: true }).click();
+  await expect(page.getByText('TEST12345', { exact: true })).toHaveCount(0);
+});

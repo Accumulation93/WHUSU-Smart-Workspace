@@ -1,5 +1,7 @@
 'use strict';
 
+const presentation = require('./authorizationPresentation');
+
 // 编辑草稿只保存选择值；最终权限、引用有效性与委托范围由服务端复核。
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
 
@@ -65,6 +67,13 @@ function toggleCapability(draft, key, catalog) {
   const values = next.policy.capabilities;
   next.policy.capabilities = values.includes(key) ? values.filter(value => value !== key) : values.concat(key);
   // 不自动删除其他条件；不兼容的字段、范围须由用户确认修改，不能悄悄扩大授权。
+  return next;
+}
+
+function removeCapability(draft, key) {
+  if (draft.schemeId || !draft.policy.capabilities.includes(key)) return draft;
+  const next = clone(draft);
+  next.policy.capabilities = next.policy.capabilities.filter(value => value !== key);
   return next;
 }
 
@@ -134,7 +143,7 @@ function permissionSection(definition, moduleKey) {
 
 function permissionGroups({ catalog, capabilities, query, selectedOnly, copy, unified, kind, draft, readOnly, labelFor }) {
   const selected = new Set(capabilities);
-  const keyword = String(query || '').trim().toLowerCase();
+  const keyword = presentation.permissionSearchText(query);
   const restrictedLegacySubject = draft && (draft.policy.subjects.some(subject => subject.kind !== 'adminGrants')
     || (draft.audience || []).some(subject => subject.kind === 'assignments'));
   const roleBound = readOnly || Boolean(draft && draft.schemeId);
@@ -148,11 +157,10 @@ function permissionGroups({ catalog, capabilities, query, selectedOnly, copy, un
     const moduleLabel = copy.businessGroups[moduleKey] || copy.unknownCapability;
     const resourceLabel = copy.resources[definition.resourceType] || copy.unknownCapability;
     const groupLabel = copy.unified.permissionSections[groupKey] || moduleLabel;
-    const label = labelFor ? labelFor(definition.key) : (copy.capabilityNames || {})[definition.key]
-      || copy.capabilityLabel(resourceLabel, copy.actions[definition.action] || copy.unknownCapability);
+    const label = labelFor ? labelFor(definition.key) : presentation.capabilityLabel(definition.key, catalog, copy);
     const checked = selected.has(definition.key);
     if (selectedOnly && !checked) continue;
-    if (keyword && ![moduleLabel, groupLabel, resourceLabel, label].some(text => text.toLowerCase().includes(keyword))) continue;
+    if (keyword && ![moduleLabel, groupLabel, resourceLabel, label].some(text => presentation.permissionSearchText(text).includes(keyword))) continue;
     if (!modules.has(moduleKey)) modules.set(moduleKey, { key: moduleKey, label: moduleLabel, resources: new Map() });
     const resources = modules.get(moduleKey).resources;
     if (!resources.has(groupKey)) resources.set(groupKey, { key: groupKey, label: groupLabel, items: [] });
@@ -174,6 +182,17 @@ function permissionGroups({ catalog, capabilities, query, selectedOnly, copy, un
       - (order.has(right.key) ? order.get(right.key) : order.size));
     return Object.assign({ key, label, groups }, summarize(groups.flatMap(group => group.items), label));
   });
+}
+
+function selectedPermissionsPage({ catalog, capabilities, query, copy, page = 1 }) {
+  const groups = permissionGroups({ catalog, capabilities, query, copy, readOnly: true });
+  const rows = [];
+  for (const module of groups) for (const group of module.groups) rows.push(...group.items);
+  const pageSize = 8;
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const currentPage = Math.min(Math.max(1, page), totalPages);
+  const offset = (currentPage - 1) * pageSize;
+  return { currentPage, totalPages, rows: rows.slice(offset, offset + pageSize) };
 }
 
 function assignmentMethod(draft) {
@@ -337,7 +356,7 @@ function delegationDirectory(directory, option) {
 }
 
 function assignableSchemes(schemes, option, catalog = [], draft, unified = false) {
-  return schemes.filter(item => item.publishedVersion && (!option
+  return schemes.filter(item => item.publishedVersion && (!item.compatibilityOnly || draft && draft.id && draft.schemeId === item.id) && (!option
     || item.publishedCapabilities.every(key => option.envelope.capabilities.includes(key)))
     && (draft && draft.schemeId === item.id || item.publishedCapabilities.every(key => {
       const definition = catalog.find(row => row.key === key);
@@ -370,6 +389,6 @@ function canUseIdentityFlow(draft, option) {
   return canSimplify(copy) && withinDelegation(draft, option);
 }
 
-module.exports = { createDraft, copyDraft, createDelegationDraft, setDelegationRecipients, setPersonnel, toggleCapability, toggleCapabilityGroup, permissionGroups, assignmentMethod, subjectMatchCount,
+module.exports = { createDraft, copyDraft, createDelegationDraft, setDelegationRecipients, setPersonnel, toggleCapability, removeCapability, toggleCapabilityGroup, permissionGroups, selectedPermissionsPage, assignmentMethod, subjectMatchCount,
   availableFields, availableScopes, toggleField, allFields, canSimplify, prepareSimpleDraft, validation, request, delegationRequest,
   withinDelegation, selectDelegation, delegationDirectory, assignableSchemes, toggleScope, setPeopleScope, canUseIdentityFlow };

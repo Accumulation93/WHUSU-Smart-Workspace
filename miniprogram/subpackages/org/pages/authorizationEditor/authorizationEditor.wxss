@@ -13,6 +13,22 @@
 .permission-page .authorization-actions { margin-top: 0; margin-bottom: 0; gap: var(--ui-field-gap); }
 .authorization-permission-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ui-inline-gap); }
 .authorization-permission-filters > .authorization-chip { margin-left: auto; }
+.authorization-selected-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--ui-inline-gap);
+  align-items: center;
+  padding: var(--ui-compact-padding-y) 0;
+}
+.authorization-selected-line + .authorization-selected-line { border-top: 1rpx solid rgba(219, 229, 241, .9); }
+.authorization-selected-name { overflow-wrap: anywhere; line-height: var(--ui-leading-control); }
+.authorization-selected-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--ui-inline-gap);
+}
 .permission-page .authorization-permission-options > button {
   width: 100%;
   white-space: normal;

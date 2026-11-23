@@ -102,7 +102,8 @@ function serializeField(field) {
     minValue: field.min_value == null ? null : Number(field.min_value),
     maxValue: field.max_value == null ? null : Number(field.max_value),
     options: parseOptions(field.options_json),
-    hint: safeString(field.hint)
+    hint: safeString(field.hint),
+    applicabilityRules: field.applicability_json == null ? [] : parseOptions(field.applicability_json)
   };
 }
 
@@ -686,6 +687,10 @@ async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, con
       if (action.action === 'map') {
         targetSnapshotFieldId = snapshotFieldIds.get(action.targetTemplateFieldId);
         const target = targetMap.get(action.targetTemplateFieldId);
+        if (source.applicabilityRules?.length) {
+          await connection.query('UPDATE org_hr_profile_template_snapshot_fields SET applicability_json = ? WHERE id = ? AND snapshot_id = ?',
+            [JSON.stringify(source.applicabilityRules), targetSnapshotFieldId, snapshotId]);
+        }
         const [values] = await connection.query(
           'SELECT id, field_value FROM hr_profile_record_values WHERE org_id = ? AND field_id = ? FOR UPDATE',
           [orgId, action.sourceSnapshotFieldId]

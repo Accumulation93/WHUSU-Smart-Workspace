@@ -1,14 +1,14 @@
-const localeCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/adminUtils');
-const { format: localeFormat } = require('../../../package-resources/locales/runtime');
-const fieldMatching = require('../../../package-resources/utils/hrFieldMatching');
-const { describeProfile } = require('../../../package-resources/utils/hrProfileStatusView');
+const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/adminUtils');
+const { format: localeFormat } = require('../../../../../locales/runtime');
+const fieldMatching = require('../../../../../utils/hrFieldMatching');
+const { describeProfile } = require('../../../../../utils/hrProfileStatusView');
 const homeCopy = require('../../../../../locales/zh-CN/home').text;
 const { getErrorText: getApiErrorText } = require('../../../../../utils/api');
 const {
   normalizeDateLiteral,
   normalizeDateTimeInstant,
   detectColumnDateType
-} = require('../../../package-resources/utils/hrProfileDate');
+} = require('../../../../../utils/hrProfileDate');
 // Auto-extracted pure utilities and constants from admin.js
 // These functions have NO Page 'this' context — they are pure data transforms.
 // All constants and factories used by admin.js and behaviors are here.

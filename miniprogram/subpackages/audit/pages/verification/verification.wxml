@@ -4,8 +4,6 @@
 
   <view class="section-stack">
     <view class="card verification-form-card">
-      <view class="section-title">{{localeCopy.copy_2592864779}}</view>
-
       <!-- Verification mode picker -->
       <view class="field">
         <view class="field-label">{{localeCopy.copy_2592864779}}</view>

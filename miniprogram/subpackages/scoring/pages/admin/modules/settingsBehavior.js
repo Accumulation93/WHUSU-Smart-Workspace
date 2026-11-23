@@ -1,10 +1,14 @@
-const localeCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/settingsBehavior');
+const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/settingsBehavior');
 // Behavior: settings tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
-const utils = require('../../../package-resources/subpackages/scoring/pages/admin/modules/adminUtils');
+const utils = require('./adminUtils');
 const orgSession = require('../../../../../utils/orgSession');
 const dateTime = require('../../../../../utils/dateTime');
 const { createResultError, getErrorText } = require('../../../../../utils/api');
+
+function canRenameOrganization(page, id) {
+  return page.data.isSuperAdmin || Boolean(id && id === page.data.currentOrganizationId && page.data.canRenameOwnOrganization);
+}
 
 module.exports = Behavior({
   data: { settingsCopy: localeCopy },
@@ -17,6 +21,8 @@ module.exports = Behavior({
     },
 
     async loadSystemConfig() {
+      if (this.data.authorizationEnforced && !this.data.isSuperAdmin
+        && (orgSession.getSnapshot().role !== 'admin' || !this.data.actionCapabilities['system.settings.read'])) return;
       const request = orgSession.beginRequest(this, 'systemConfig');
       this.setLoading('settings', true);
       try {
@@ -80,13 +86,20 @@ module.exports = Behavior({
     },
 
     async loadOrganizations() {
-      if (!this.data.isSuperAdmin) return;
+      if (!this.data.canReadOrganizations) {
+        const id = this.data.currentOrganizationId;
+        const own = this.data.organizationList.find(organization => organization.id === id);
+        this.setData({ organizationList: this.data.canRenameOwnOrganization && id
+          ? [own || { id, name: this.data.currentOrganizationName }] : [] });
+        return;
+      }
       const request = orgSession.beginRequest(this, 'organizationList');
       try {
         const result = await this.callCloud('listOrganizations');
         if (!orgSession.isRequestCurrent(this, request)) return;
-        if (result.status === 'success') {
-          this.setData({ organizationList: result.list || [] });
+        if (result.status === 'success' && this.data.canReadOrganizations) {
+          const list = result.list || [];
+          this.setData({ organizationList: this.data.isSuperAdmin ? list : list.filter(item => item.id === this.data.currentOrganizationId) });
           this.resolveCurrentOrganizationName();
         }
       } catch (e) {
@@ -106,9 +119,11 @@ module.exports = Behavior({
 
     openOrgForm(e) {
       const id = e && e.currentTarget && e.currentTarget.dataset.id;
+      if (!canRenameOrganization(this, id)) return;
       if (id) {
         const org = this.data.organizationList.find(function (o) { return o.id === id; });
-        this.setData({ orgFormVisible: true, orgFormData: { id, name: org ? org.name : '' } });
+        if (!org) return;
+        this.setData({ orgFormVisible: true, orgFormData: { id, name: org.name } });
       } else {
         this.setData({ orgFormVisible: true, orgFormData: { name: '' } });
       }
@@ -125,14 +140,21 @@ module.exports = Behavior({
     },
 
     async saveOrganization() {
+      if (!canRenameOrganization(this, this.data.orgFormData.id) || this.data.loadingMap.saveOrganization) return;
       if (!this.data.orgFormData.name) {
         wx.showToast({ title: localeCopy.copy_a032183564, icon: 'none' });
         return;
       }
+      const request = orgSession.beginRequest(this, 'saveOrganization');
+      const data = this.data.orgFormData;
       this.setLoading('saveOrganization', true);
       try {
-        const result = await this.callCloud('saveOrganization', this.data.orgFormData);
+        const result = await this.callCloud('saveOrganization', data);
+        if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status === 'success') {
+          if (!this.data.canReadOrganizations && result.organization && result.organization.id === data.id && typeof result.organization.name === 'string') {
+            this.setData({ organizationList: [result.organization] });
+          }
           wx.showToast({ title: localeCopy.copy_d41345ef29, icon: 'success' });
           this.closeOrgForm();
           await this.loadOrganizations();
@@ -140,12 +162,14 @@ module.exports = Behavior({
           wx.showToast({ title: result.message || localeCopy.copy_215e3c57da, icon: 'none' });
         }
       } catch (e) {
-        wx.showToast({ title: localeCopy.copy_215e3c57da, icon: 'none' });
+        if (orgSession.isRequestCurrent(this, request)) wx.showToast({ title: localeCopy.copy_215e3c57da, icon: 'none' });
+      } finally {
+        if (orgSession.isRequestCurrent(this, request)) this.setLoading('saveOrganization', false);
       }
-      this.setLoading('saveOrganization', false);
     },
 
     async deleteOrganization(e) {
+      if (!this.data.isSuperAdmin) return;
       const organizationId = e.currentTarget.dataset.id;
       if (!organizationId) return;
       const confirm = await new Promise(function (resolve) {
@@ -176,6 +200,7 @@ module.exports = Behavior({
     },
 
     async switchOrganization(e) {
+      if (!this.data.isSuperAdmin) return;
       const { id, name } = e.currentTarget.dataset;
       if (!id || !name) return;
       const confirm = await new Promise(function (resolve) {
@@ -211,6 +236,7 @@ module.exports = Behavior({
     },
 
     async createAndSwitchOrganization() {
+      if (!this.data.isSuperAdmin) return;
       if (!this.data.orgFormData.name) {
         wx.showToast({ title: localeCopy.copy_a032183564, icon: 'none' });
         return;

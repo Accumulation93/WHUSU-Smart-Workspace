@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const pool = require('../../config/db');
 const identity = require('./unifiedIdentity');
 const authorization = require('./identityCardAuthorization');
+const identityCardPolicy = require('./identityCardPolicy');
 const copy = require('../../locales/zh-CN/identityCard');
 const digest = token => crypto.createHash('sha256').update(token).digest('hex');
 function present(context) {
@@ -26,7 +27,13 @@ async function mine(accountId, actor, reference, actions = ['read']) {
   return pool.withTransaction(async connection => {
     if (!await authorization.current(connection, reference, actor, actions)) return { valid: false };
     const context = await current(connection, accountId, actor.contextId, actor.organizationId);
-    return context ? { valid: true, card: present(context) } : { valid: false };
+    if (!context) return { valid: false };
+    const result = { valid: true, card: present(context) };
+    if (actions.length === 1) {
+      const settings = await identityCardPolicy.read(connection, actor.organizationId);
+      result.codeDisabledByPolicy = !settings.issueEnabled || !settings.publicVerificationEnabled;
+    }
+    return result;
   });
 }
 async function issue(accountId, actor, createImage, reference) {

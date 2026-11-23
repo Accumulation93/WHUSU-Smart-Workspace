@@ -1,8 +1,8 @@
-const generatedLocaleCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/admin');
-const personnelLocaleCopy = require('../../package-resources/locales/zh-CN/adminPersonnel');
-const controlLayoutCopy = require('../../package-resources/locales/zh-CN/controlLayout');
+const generatedLocaleCopy = require('../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/admin');
+const personnelLocaleCopy = require('../../../../locales/zh-CN/adminPersonnel');
+const controlLayoutCopy = require('../../../../locales/zh-CN/controlLayout');
 const localeCopy = Object.freeze(Object.assign({}, generatedLocaleCopy, personnelLocaleCopy));
-const { format: localeFormat } = require('../../package-resources/locales/runtime');
+const { format: localeFormat } = require('../../../../locales/runtime');
 // 认证码有效期由管理员手动选择，最小 1 天（24 小时）、最大 7 天（168 小时），
 // 与服务端的取值范围一致；默认 2 天（48 小时）。
 const VERIFICATION_CODE_VALIDITY_DAYS = [1, 2, 3, 4, 5, 6, 7];
@@ -11,7 +11,7 @@ const verificationCodeValidityOptions = Object.freeze(
   VERIFICATION_CODE_VALIDITY_DAYS.map((days) => localeFormat(localeCopy.verificationCodeValidityDays, [days]))
 );
 const { callFunction } = require('../../../../utils/api');
-const { chooseTableFile, buildCsv, buildExcelXml, saveAndShareFile } = require('../../package-resources/utils/tableFile');
+const { chooseTableFile, buildCsv, buildExcelXml, saveAndShareFile } = require('../../../../utils/tableFile');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
 const authContext = require('../../../../utils/authContext');
@@ -19,29 +19,29 @@ const adminPermissions = require('../../../../utils/adminPermissions');
 const authorizationCopy = require('../../../../locales/zh-CN/authorization');
 const { readCurrentAuthorizationAccess } = require('../../../../utils/authorizationAccess');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
-const utils = require('../../package-resources/subpackages/scoring/pages/admin/modules/adminUtils');
+const utils = require('./modules/adminUtils');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const { TAB_LIST, TIMEZONE_OPTIONS, RULE_SCOPE_OPTIONS, VIEW_SCOPE_OPTIONS, VIEW_SCOPE_LABEL_MAP, RULE_SCOPE_LABEL_MAP, PROFILE_EDIT_MODE_OPTIONS, PROFILE_FIELD_TYPE_OPTIONS, NUMBER_RULE_OPTIONS, emptyActivityForm, emptyTemplateForm, emptyRuleForm, emptyHrForm, emptyDepartmentForm, emptyWorkGroupForm, emptyIdentityForm, emptyAdminForm, emptyHrProfileTemplateForm, emptyRuleFilters, emptyHrProfileFilters, emptyHrProfileFilterOptions, emptyResultFilters, buildRuleListItem, buildRuleFilterOptions, filterRuleList, getScopeLabel, normalizeRuleFilters, createSelectedRuleIdMap, markSelectedRules, getProgressColor, buildProgressFillStyle, toNumber, clampNumber, formatScoreFixed3, applyHrProfileFilters } = utils;
 
-const sharedApi = require('../../package-resources/subpackages/scoring/pages/admin/modules/sharedApi');
-const activityBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/activityBehavior');
-const templateBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/templateBehavior');
-const ruleBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/ruleBehavior');
-const resultBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/resultBehavior');
-const hrInfoBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/hrInfoBehavior');
-const departmentBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/departmentBehavior');
-const workGroupBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/workGroupBehavior');
-const identityBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/identityBehavior');
-const adminManagementBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/adminManagementBehavior');
-const settingsBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/settingsBehavior');
-const publicationBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/publicationBehavior');
-const auditBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/auditBehavior');
-const stampGrantBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/stampGrantBehavior');
-const authPersonnelBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/authPersonnelBehavior');
-const dictionaryFeedbackBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/dictionaryFeedbackBehavior');
-const hrProfileMigrationBehavior = require('../../package-resources/subpackages/scoring/pages/admin/modules/hrProfileMigrationBehavior');
+const sharedApi = require('./modules/sharedApi');
+const activityBehavior = require('./modules/activityBehavior');
+const templateBehavior = require('./modules/templateBehavior');
+const ruleBehavior = require('./modules/ruleBehavior');
+const resultBehavior = require('./modules/resultBehavior');
+const hrInfoBehavior = require('./modules/hrInfoBehavior');
+const departmentBehavior = require('./modules/departmentBehavior');
+const workGroupBehavior = require('./modules/workGroupBehavior');
+const identityBehavior = require('./modules/identityBehavior');
+const adminManagementBehavior = require('./modules/adminManagementBehavior');
+const settingsBehavior = require('./modules/settingsBehavior');
+const publicationBehavior = require('./modules/publicationBehavior');
+const auditBehavior = require('./modules/auditBehavior');
+const stampGrantBehavior = require('./modules/stampGrantBehavior');
+const authPersonnelBehavior = require('./modules/authPersonnelBehavior');
+const dictionaryFeedbackBehavior = require('./modules/dictionaryFeedbackBehavior');
+const hrProfileMigrationBehavior = require('./modules/hrProfileMigrationBehavior');
 const migrationCopy = require('../../../../locales/zh-CN/hrProfileMigration');
-const { dialogKeyboardBehavior } = require('../../package-resources/utils/dialogKeyboard');
+const { dialogKeyboardBehavior } = require('../../../../utils/dialogKeyboard');
 
 module.exports = Behavior({
   behaviors: [
@@ -99,6 +99,7 @@ module.exports = Behavior({
     canBrowseHrInfo: false,
     canManageHrProfileTemplates: false,
     canSelectHrProfileTemplate: false,
+    canReadHrProfileApplicability: false,
     canVerifyIdentity: false,
     canReadAuthGovernance: false,
     canEditAuthPolicy: false,
@@ -113,6 +114,8 @@ module.exports = Behavior({
     subAppLabel: '',
     loadingMap: {},
     organizationList: [],
+    canReadOrganizations: false,
+    canRenameOwnOrganization: false,
     currentOrganizationId: null,
     currentOrganizationName: '',
     systemDefaultOrganizationId: null,
@@ -539,7 +542,7 @@ module.exports = Behavior({
 
   workbenchShow() {
     this._pageVisible = true;
-    this.setData({ permissionNotice: '' });
+    this.setData({ permissionNotice: '', permissionChecked: this.data.hasPermission });
     this.bindDialogKeyboard();
     const consumed = orgSession.consume(this);
     const organizationChanged = consumed.changed;
@@ -657,6 +660,7 @@ module.exports = Behavior({
         csvRows: [],
         csvColumnMappings: [],
         hrImportPreview: null,
+        organizationList: [],
         orgFormVisible: false,
         auditTemplateStepEditorVisible: false,
         auditStepConditionEditorVisible: false,
@@ -940,6 +944,7 @@ module.exports = Behavior({
       if (!this._pageVisible || authorizationGeneration !== this._authorizationReadGeneration || this.sessionIdentityChanged(activeSession)) return;
       this.clearPermissionCheckGuard();
       this.setData({ user: null, hasPermission: false, permissionChecked: true, isSuperAdmin: false,
+        canReadOrganizations: false, canRenameOwnOrganization: false, organizationList: [], orgFormVisible: false,
         canManageAdmins: false, canReadAdmins: false, canWriteAdmins: false, permissionNotice: authorizationCopy.operationFailed });
       return;
     }
@@ -1062,6 +1067,8 @@ module.exports = Behavior({
       canManageAdmins: canWriteAdmins,
       canReadAdmins,
       canWriteAdmins,
+      canReadOrganizations: isSuperAdmin || (access.mode === 'enforced' && actionCapabilities['system.organizations.read'] === true),
+      canRenameOwnOrganization: access.mode === 'enforced' && actionCapabilities['system.organizations.update'] === true,
       canExportScoreResults: allowed(['scoring.results_export'], ['scoring.results.export']),
       canExportScoreTasks: allowed(['scoring.results_export'], ['scoring.tasks.export']),
       canReadScoreResults: allowed(['scoring.results'], ['scoring.results.read']),
@@ -1085,6 +1092,7 @@ module.exports = Behavior({
       canUpdateHrProfileTemplates: allowed(['hr.profile_templates.manage'], ['hr.profileTemplates.update']),
       canDeleteHrProfileTemplates: allowed(['hr.profile_templates.manage.delete'], ['hr.profileTemplates.delete']),
       canSelectHrProfileTemplate: allowed(['hr.profile_templates.select'], ['hr.profileSelection.update']),
+      canReadHrProfileApplicability: allowed(['hr.profile_templates.select'], ['hr.profileSelection.read', 'hr.profileSelection.update']),
       canReadProfileMigration: allowed(['hr.people', 'hr.profile_review'], ['hr.profileMigration.read']),
       canRequestProfileMigration: allowed(['hr.people', 'hr.profile_review'], ['hr.profileMigration.request']),
       canApproveProfileMigration: allowed(['hr.people', 'hr.profile_review'], ['hr.profileMigration.approve']),

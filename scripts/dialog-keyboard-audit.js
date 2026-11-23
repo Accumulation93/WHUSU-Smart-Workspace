@@ -15,6 +15,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { requires } = require('./miniprogram-package-resources');
 
 const ROOT = path.resolve(__dirname, '..', 'miniprogram');
 const INPUT_TAGS = new Set(['input', 'textarea']);
@@ -128,7 +129,20 @@ for (const wxmlFile of wxmlFiles) {
   const relative = path.relative(path.resolve(__dirname, '..'), wxmlFile).replace(/\\/g, '/');
   const expression = pageMetaExpression(source);
   const pageDir = path.dirname(wxmlFile);
-  const jsSource = walk(pageDir, '.js').map((file) => fs.readFileSync(file, 'utf8')).join('\n');
+  const directories = new Set([pageDir]);
+  const entryJs = wxmlFile.replace(/\.wxml$/, '.js');
+  if (expression && fs.existsSync(entryJs)) {
+    for (const reference of requires(fs.readFileSync(entryJs, 'utf8'))) {
+      if (reference.value.startsWith('.') && /Behavior(?:\.js)?$/.test(reference.value)) {
+        const behavior = path.resolve(pageDir, reference.value);
+        if (fs.existsSync(behavior.endsWith('.js') ? behavior : behavior + '.js')) {
+          directories.add(path.dirname(behavior));
+        }
+      }
+    }
+  }
+  const jsSource = [...directories].flatMap(dir => walk(dir, '.js'))
+    .map((file) => fs.readFileSync(file, 'utf8')).join('\n');
   if (expression) {
     lockFlagsOf(expression).forEach((flag) => {
       if (!hasReset(jsSource, flag)) {

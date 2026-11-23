@@ -113,6 +113,26 @@ async function setup(page, ordinary = false) {
   return { state, calls };
 }
 
+test('new assignments only offer reusable published roles, while temporary roles remain visible', async ({ page }) => {
+  const { state } = await setup(page);
+  Object.assign(state, { mode: 'enforced', unifiedIdentity: true, roleBindingOnly: true });
+  state.schemes = [
+    { id: 'normal-role', name: 'Venue operations', publishedVersion: 1, capabilities: [capability.key], publishedCapabilities: [capability.key] },
+    { id: 'compat-rule-fixture', name: 'Previous assignment', publishedVersion: 1, capabilities: [capability.key],
+      publishedCapabilities: [capability.key], compatibilityOnly: true, canEdit: false, canPublish: false }
+  ];
+  await page.goto('/web/admin/authorization?tab=schemes');
+  const oldRole = page.locator('.authorization-scheme').filter({ hasText: 'Previous assignment' });
+  await expect(oldRole.getByText(ui.unified.temporaryRoleLabel, { exact: true })).toBeVisible();
+  await oldRole.locator(':scope > summary').click();
+  await expect(oldRole.getByText(ui.unified.temporaryRoleHelp)).toBeVisible();
+  await expect(oldRole.getByRole('button', { name: ui.publish, exact: true })).toHaveCount(0);
+  await page.goto('/web/admin/authorization/edit?kind=rule&advanced=1');
+  const picker = page.getByRole('combobox', { name: ui.useScheme });
+  await expect(picker.locator('option')).toHaveText([ui.identityPlaceholder, 'Venue operations']);
+  await expect(page.getByRole('searchbox', { name: ui.unified.permissionSearchPlaceholder })).toHaveCount(0);
+});
+
 test('permission groups select an entire task and keep unrelated selections when searching', async ({ page }) => {
   const { state } = await setup(page);
   state.unifiedIdentity = true;
@@ -137,11 +157,14 @@ test('permission groups select an entire task and keep unrelated selections when
   const selectedFilter = await page.getByRole('button', { name: ui.unified.permissionFilterSelected, exact: true }).boundingBox();
   expect(Math.abs(allFilter.y - selectedFilter.y)).toBeLessThan(2);
   const module = page.locator('.authorization-picker-module').filter({ hasText: ui.businessGroups.venue });
-  await expect(module.locator('.authorization-picker-group')).toHaveCount(0);
-  await module.locator('.authorization-disclosure').click();
-  const booking = module.locator('.authorization-picker-group').filter({ has: page.getByRole('heading', { name: ui.unified.permissionSections.venueBooking, exact: true }) });
-  const review = module.locator('.authorization-picker-group').filter({ has: page.getByRole('heading', { name: ui.unified.permissionSections.venueRecords, exact: true }) });
-  const removal = module.locator('.authorization-picker-group').filter({ has: page.getByRole('heading', { name: ui.unified.permissionSections.removeOrRevoke, exact: true }) });
+  await expect(module.locator('.authorization-picker-group')).toHaveCount(3);
+  const booking = module.locator('.authorization-picker-group').filter({ has: page.locator('.authorization-disclosure strong').filter({ hasText: ui.unified.permissionSections.venueBooking }) });
+  const review = module.locator('.authorization-picker-group').filter({ has: page.locator('.authorization-disclosure strong').filter({ hasText: ui.unified.permissionSections.venueRecords }) });
+  const removal = module.locator('.authorization-picker-group').filter({ has: page.locator('.authorization-disclosure strong').filter({ hasText: ui.unified.permissionSections.removeOrRevoke }) });
+  await expect(module.locator('.choice-card')).toHaveCount(0);
+  await booking.locator('.authorization-disclosure').click();
+  await review.locator('.authorization-disclosure').click();
+  await removal.locator('.authorization-disclosure').click();
   await expect(booking.locator('.choice-card')).toHaveCount(2);
   await expect(review.locator('.choice-card')).toHaveCount(1);
   await expect(removal.locator('.choice-card')).toHaveCount(1);
@@ -155,17 +178,34 @@ test('permission groups select an entire task and keep unrelated selections when
   await expect(page.getByText(ui.selectedOperations(3), { exact: true })).toBeVisible();
   await page.getByLabel(ui.unified.permissionSearchPlaceholder).clear();
   await page.getByRole('button', { name: ui.unified.permissionFilterSelected, exact: true }).click();
-  await expect(booking.locator('.choice-card[aria-pressed=true]')).toHaveCount(2);
-  await expect(review.locator('.choice-card[aria-pressed=true]')).toHaveCount(1);
-  await expect(removal).toHaveCount(0);
+  await expect(page.getByRole('table', { name: ui.unified.selectedPermissionsTitle }).locator('tbody tr')).toHaveCount(3);
+  await expect(module).toHaveCount(0);
   await page.getByLabel(ui.schemeName, { exact: true }).fill('Grouped venue role');
   await page.getByRole('button', { name: ui.saveDraft, exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/authorization\?tab=schemes$/);
   expect(new Set(saved.capabilities)).toEqual(new Set(['venue.schedule.read', 'venue.bookings.create', 'venue.bookings.approve']));
   await page.goto('/web/admin/authorization/edit?kind=scheme&id=grouped-role');
   await expect(page.getByText(ui.selectedOperations(3), { exact: true })).toBeVisible();
-  await module.locator('.authorization-disclosure').click();
+  await removal.locator('.authorization-disclosure').click();
   await expect(removal.locator('.choice-card[aria-pressed=false]')).toHaveCount(1);
+});
+
+test('selected role permissions paginate and removing the only final row updates the draft', async ({ page }) => {
+  const { state } = await setup(page);
+  state.unifiedIdentity = true;
+  state.catalog = Array.from({ length: 9 }, (_, index) => ({ ...capability, key: 'venue.operation' + index + '.read', classification: 'general' }));
+  state.schemes = [{ id: 'role', name: 'Paged role', version: 1, capabilities: state.catalog.map(item => item.key) }];
+  await page.goto('/web/admin/authorization/edit?kind=scheme&id=role');
+  await page.getByRole('button', { name: ui.unified.permissionFilterSelected, exact: true }).click();
+  const rows = page.getByRole('table', { name: ui.unified.selectedPermissionsTitle }).locator('tbody tr');
+  await expect(rows).toHaveCount(8);
+  await page.locator('.authorization-selected-pager > button').last().click();
+  await expect(rows).toHaveCount(1);
+  await expect(page.getByText(ui.unified.permissionPage(2, 2), { exact: true })).toBeVisible();
+  await rows.getByRole('button').click();
+  await expect(rows).toHaveCount(8);
+  await expect(page.locator('.authorization-selected-pager')).toHaveCount(0);
+  await expect(page.getByText(ui.selectedOperations(8), { exact: true })).toBeVisible();
 });
 
 test('unified authorization confirms the exact list of selected posts before saving', async ({ page }) => {
@@ -351,6 +391,22 @@ test('authorization cards and grouped editor keep controls visible and preserve 
   } }];
   await page.goto('/web/admin/authorization');
   await expect(page.locator('.tab-active')).toHaveText(ui.rules);
+  const layers = page.locator('.authorization-page > .workspace-hero, .authorization-page > .workspace-primary-tabs, .authorization-page > .card');
+  await expect.poll(() => layers.evaluateAll(elements => {
+    if (elements.length < 3) return false;
+    const [hero, primaryTabs] = elements;
+    const heroRect = hero.getBoundingClientRect();
+    const tabsRect = primaryTabs.getBoundingClientRect();
+    return tabsRect.top >= heroRect.bottom &&
+      elements.every(element => {
+        const bounds = element.getBoundingClientRect();
+        return Math.abs(bounds.left - heroRect.left) < 1 && Math.abs(bounds.right - heroRect.right) < 1;
+      }) &&
+      [...primaryTabs.children].every(tab => {
+        const bounds = tab.getBoundingClientRect();
+        return bounds.left >= tabsRect.left && bounds.right <= tabsRect.right && bounds.top < tabsRect.bottom;
+      });
+  })).toBe(true);
   await page.getByRole('button', { name: ui.advancedRules, exact: true }).click();
   const actions = page.locator('.authorization-rule-actions');
   await expect(actions.getByRole('button')).toHaveCount(3);
@@ -375,7 +431,8 @@ test('authorization cards and grouped editor keep controls visible and preserve 
   await expect(page.getByRole('button', { name: ui.deny, exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: ui.allow, exact: true }).click();
   const readBooking = presentation.capabilityLabel(capability.key, state.catalog, ui);
-  await expect(page.locator('.authorization-disclosure')).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('.authorization-picker-module > .authorization-picker-head .authorization-disclosure')).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('.authorization-picker-group .authorization-disclosure')).toHaveAttribute('aria-expanded', 'false');
   await page.getByLabel(ui.unified.permissionSearchPlaceholder, { exact: true }).fill(readBooking);
   await expect(page.getByRole('button', { name: readBooking, exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.getByLabel(ui.unified.permissionSearchPlaceholder, { exact: true }).fill('no matching operation');
@@ -432,7 +489,7 @@ test('rule editor selects an assignment, previews, saves and rereads the rule wi
   await page.getByRole('button', { name: ui.selectRecipientAssignment, exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: /Example member/ }).click();
   await page.getByRole('dialog').locator('footer button').last().click();
-  await page.locator('.authorization-disclosure').filter({ hasText: ui.businessGroups.venue }).click();
+  await page.locator('.authorization-picker-group .authorization-disclosure').filter({ hasText: ui.unified.permissionSections.venueRecords }).click();
   await page.getByRole('button', { name: presentation.capabilityLabel(capability.key, state.catalog, ui), exact: true }).click();
   await page.getByRole('button', { name: ui.ownRecords, exact: true }).click();
   await page.getByLabel(ui.startsAt, { exact: true }).fill('2026-11-13T10:15');
@@ -601,7 +658,7 @@ test('delegation recipients stay separate from eligible assignees through save, 
   await page.locator('section').filter({ has: page.getByRole('heading', { name: ui.delegationSubjects, exact: true }) }).getByRole('button', { name: ui.selectRecipientAssignment, exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: /Example member/ }).click();
   await page.getByRole('dialog').locator('footer button').last().click();
-  await page.locator('.authorization-disclosure').filter({ hasText: ui.businessGroups.venue }).click();
+  await page.locator('.authorization-picker-group .authorization-disclosure').filter({ hasText: ui.unified.permissionSections.venueRecords }).click();
   await page.getByRole('button', { name: presentation.capabilityLabel(capability.key, state.catalog, ui), exact: true }).click();
   await page.getByRole('button', { name: ui.ownRecords, exact: true }).click();
   await page.getByRole('button', { name: ui.previewChanges, exact: true }).click();

@@ -59,7 +59,7 @@ function createHarness() {
     require: (id) => {
       if (id.indexOf('locales/zh-CN/generated') >= 0) return require(path.resolve(moduleDir, id));
       if (id === '../../../../../locales/zh-CN/home' || id === '../../../../../locales/zh-CN/authorization'
-        || id === '../../../package-resources/utils/hrProfileStatusView') return require(path.resolve(moduleDir, id));
+        || id === '../../../../../utils/hrProfileStatusView') return require(path.resolve(moduleDir, id));
       if (/utils\/api$/.test(id)) {
         return {
           callFunction: () => Promise.reject(new Error('未预期的 callFunction')),
@@ -220,7 +220,7 @@ test('没有号码时不打开格式选择也不生成文件', async () => {
 });
 
 test('号码弹窗不再走剪贴板，且每个发放流程都标记号码种类', () => {
-  const pageWxml = fs.readFileSync(path.join(adminRoot, 'admin.wxml'), 'utf8');
+  const pageWxml = fs.readFileSync(path.resolve(adminRoot, '../../../workspace/pages/admin/admin.wxml'), 'utf8');
   assert.match(pageWxml, /<include src="[^\"]*adminWorkbenchContent\.wxml"\s*\/>/);
   const wxml = pageWxml + fs.readFileSync(path.join(adminRoot, 'adminWorkbenchContent.wxml'), 'utf8');
   const behavior = fs.readFileSync(behaviorPath, 'utf8');

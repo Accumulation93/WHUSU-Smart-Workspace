@@ -1,9 +1,6 @@
 @import "../adminPermissions/adminPermissions.wxss";
-.authorization-tabs, .authorization-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-inline-gap); margin-bottom: var(--ui-action-gap); }
-.authorization-tabs { grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: minmax(0, 1fr); padding: var(--ui-label-gap); border: 1rpx solid rgba(255,255,255,.8); border-radius: var(--ui-tab-shell-radius); background: linear-gradient(135deg,rgba(255,255,255,.85),rgba(239,246,255,.7)); }
-.authorization-tabs > button, .authorization-actions > button { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; margin: 0; white-space: normal; word-break: normal; overflow-wrap: break-word; }
-.authorization-tab { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: var(--ui-tab-min-height); padding: var(--ui-tab-padding-y) var(--ui-tab-padding-x); border-radius: var(--ui-tab-radius); font-size: var(--ui-type-control); line-height: var(--ui-leading-control); text-align: center; color: #2563eb; background: linear-gradient(135deg, rgba(255,255,255,.96), rgba(246,249,255,.88)); }
-.secondary-btn.authorization-tab-active { color: #fff; background: linear-gradient(135deg, #2563eb, #3b82f6); border-color: rgba(59,130,246,.65); }
+.authorization-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-inline-gap); margin-bottom: var(--ui-action-gap); }
+.authorization-actions > button { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; margin: 0; white-space: normal; word-break: normal; overflow-wrap: break-word; }
 .authorization-chips { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 16rpx; }
 .authorization-chip { padding: 6rpx 12rpx; border-radius: var(--ui-compact-radius); color: #2563eb; background: linear-gradient(135deg, rgba(219,234,254,.76), rgba(224,242,254,.76)); border: 1rpx solid rgba(147,197,253,.64); font-size: var(--ui-type-meta); line-height: 1.5; }
 .authorization-details { margin: 16rpx 0; }
@@ -99,9 +96,9 @@
 @media (min-width: 900px) {
   .authorization-permission-options { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
-.permission-page > .permission-card { margin-top: var(--ui-card-gap); margin-bottom: var(--ui-card-gap); }
+.permission-page > .permission-card { margin: 0 0 var(--ui-card-gap); }
 .permission-page .authorization-disclosure { box-sizing: border-box; border-radius: var(--ui-field-radius); }
 .permission-page .authorization-actions, .permission-page .authorization-footer, .permission-page .authorization-row-actions { gap: var(--ui-field-gap); }
 @media (min-width: 520px) { .authorization-comparison { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media (min-width: 520px) { .authorization-page .selection-option-card { padding: 12px; } }
-@media (min-width: 520px) { .authorization-tabs, .authorization-actions { gap: 10px; margin-bottom: 14px; } .authorization-chips { gap: 8px; margin-bottom: 10px; } .authorization-chip { padding: 3px 8px; } .authorization-details { margin: 10px 0; } .authorization-label { margin-top: 10px; } .authorization-actions { margin-top: 10px; margin-bottom: 0; } }
+@media (min-width: 520px) { .authorization-chips { gap: 8px; margin-bottom: 10px; } .authorization-chip { padding: 3px 8px; } .authorization-details { margin: 10px 0; } .authorization-label { margin-top: 10px; } .authorization-actions { gap: 10px; margin-top: 10px; margin-bottom: 0; } }

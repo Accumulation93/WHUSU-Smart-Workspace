@@ -3,6 +3,10 @@
     <WorkspaceHero :page-name="text.title" :tone="session.context?.role === 'admin' ? 'admin' : 'blue'"
       :person-name="session.context?.name || session.user?.name || ''" :identity-name="roleLabelOf(session.context)"
       :organization-name="session.context?.organizationName || ''" @switch="router.push({ name: 'workRole' })" />
+    <nav class="tabs workspace-primary-tabs" :aria-label="text.title">
+      <button v-for="value in tabs" :key="value" type="button" class="tab" :class="{ 'tab-active': tab === value }"
+        :disabled="busy" :aria-current="tab === value ? 'page' : undefined" @click="changeTab(value)">{{ text[value] }}</button>
+    </nav>
     <section class="card stack">
       <h2 class="section-title">{{ text.title }}</h2>
       <label class="field">{{ text.kind }}
@@ -10,10 +14,6 @@
           <option v-for="value in availableKinds" :key="value" :value="value">{{ ui.resources[value] }}</option>
         </select>
       </label>
-      <nav class="tabs" :aria-label="text.title">
-        <button v-for="value in tabs" :key="value" type="button" class="tab" :class="{ 'tab-active': tab === value }"
-          :disabled="busy" :aria-current="tab === value ? 'page' : undefined" @click="changeTab(value)">{{ text[value] }}</button>
-      </nav>
       <p class="muted">{{ text.tabHelp[tab] }}</p>
     </section>
     <AppLoading v-if="loading || busy" :text="busy ? text.processing : text.loading" />
@@ -252,9 +252,6 @@ onBeforeRouteLeave(() => !busy.value);
 onBeforeUnmount(() => { disposed = true; clear(); document.removeEventListener('visibilitychange', visibility); });
 </script>
 <style scoped>
-.copy-page { max-width: var(--ui-permission-page-width); }
-.copy-page .tabs { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-@media (min-width: 520px) { .copy-page .tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .button-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-inline-gap); }
 .field { display: grid; gap: var(--ui-label-gap); min-width: 0; }
 .panel-head { flex-wrap: wrap; }

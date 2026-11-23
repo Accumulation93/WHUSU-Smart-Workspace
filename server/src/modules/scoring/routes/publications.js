@@ -24,7 +24,7 @@ const pool = require('../../../config/db');
 const { withTransaction } = pool;
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const publicationSummary = require('../services/publicationSummary');
-const { pageOf } = require('../services/publicationPage');
+const { pageOf, presentMembers } = require('../services/publicationPage');
 const { resolveCurrentActor } = require('../../../core/services/currentActor');
 const participantService = require('../services/participants');
 const publicationAssignments = require('../services/publicationAssignments');
@@ -1201,9 +1201,6 @@ router.post('/getPublicResults', async (req, res) => {
 
       if (!members.length) continue;
 
-      // Sort members by score descending
-      members.sort((a, b) => (b.sortScore || 0) - (a.sortScore || 0));
-
       groups.push({
         clauseId: clause.id,
         displayMode: clauseDisplayMode,
@@ -1211,7 +1208,7 @@ router.post('/getPublicResults', async (req, res) => {
         targetIdentityName,
         groupLabel,
         memberCount: members.length,
-        members
+        members: presentMembers(members, clauseDisplayMode)
       });
     }
 
@@ -1583,78 +1580,6 @@ router.post('/batchSavePubViewRules', async (req, res) => {
 // ─── listPubViewRules ───
 router.post('/listPubViewRules', async (req, res) => {
   return rejectRetiredEndpoint(res);
-  /* istanbul ignore next -- 仅保留一轮源代码兼容上下文，后续版本物理删除。 */
-  try {
-    const admin = await resolveAdmin(req);
-    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
-    const publicationId = safeString(req.body.publicationId);
-    if (!publicationId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_db10aa8501 });
-    const orgId = await getCurrentOrgId();
-    const [rules] = await pool.query('SELECT * FROM pub_view_rules WHERE publication_id=? AND org_id=?', [publicationId, orgId]);
-
-    const ruleIds = rules.map((rule) => rule.id);
-    let allClauses = [];
-    if (ruleIds.length) {
-      const placeholders = ruleIds.map(() => '?').join(',');
-      [allClauses] = await pool.query(
-        `SELECT * FROM pub_view_rule_clauses
-          WHERE rule_id IN (${placeholders}) AND org_id = ?
-          ORDER BY rule_id, sort_order`,
-        [...ruleIds, orgId]
-      );
-    }
-
-    // Load grade bands for all clauses in one batch (per-clause level)
-    const gradeBandsByClause = new Map();
-    if (allClauses.length > 0) {
-      const clauseIds = allClauses.map(c => c.id);
-      const ph = clauseIds.map(() => '?').join(',');
-      try {
-        const [allGradeBands] = await pool.query(
-          `SELECT * FROM pub_grade_bands WHERE clause_id IN (${ph}) AND org_id = ? ORDER BY clause_id, sort_order ASC`,
-          [...clauseIds, orgId]
-        );
-        allGradeBands.forEach(gb => {
-          if (!gradeBandsByClause.has(gb.clause_id)) gradeBandsByClause.set(gb.clause_id, []);
-          gradeBandsByClause.get(gb.clause_id).push({
-            id: gb.id, clauseId: gb.clause_id,
-            minScore: Number(gb.min_score), maxScore: Number(gb.max_score),
-            gradeName: safeString(gb.grade_name), sortOrder: gb.sort_order
-          });
-        });
-      } catch (e) {
-        // Table may not exist yet — grade bands will be empty
-      }
-    }
-
-    // Build clause map by rule_id
-    const clausesByRule = new Map();
-    for (const c of allClauses) {
-      if (!clausesByRule.has(c.rule_id)) clausesByRule.set(c.rule_id, []);
-      clausesByRule.get(c.rule_id).push(c);
-    }
-
-    const lookups = await fetchOrgLookups();
-    const result = [];
-    for (const r of rules) {
-      const clauses = (clausesByRule.get(r.id) || []).map(c => ({
-        id: c.id, scopeType: c.scope_type, targetIdentityId: c.target_identity_id || '',
-        natureIds: natureRulePolicy.normalize(c.nature_ids),
-        targetIdentity: lookups.identitiesById.get(safeString(c.target_identity_id || '')) || '',
-        displayMode: safeString(c.display_mode) || 'score',
-        gradeBands: gradeBandsByClause.get(c.id) || [],
-        sortOrder: c.sort_order
-      }));
-      result.push({
-        id: r.id, publicationId: r.publication_id,
-        natureIds: natureRulePolicy.normalize(r.nature_ids),
-        granteeDepartmentId: r.grantee_department_id, granteeDepartment: lookups.departmentsById.get(safeString(r.grantee_department_id)) || '',
-        granteeIdentityId: r.grantee_identity_id, granteeIdentity: lookups.identitiesById.get(safeString(r.grantee_identity_id)) || '',
-        clauseCount: clauses.length, clauses
-      });
-    }
-    respondScoringResponse(res, { status: 'success', rules: result });
-  } catch (e) { respondScoringResponse(res, { status: 'error', message: safeString(e.message) }); }
 });
 
 // ─── deletePubViewRule ───
@@ -1738,45 +1663,6 @@ router.post('/batchSavePubMeritRules', async (req, res) => {
 // ─── listPubMeritRules ───
 router.post('/listPubMeritRules', async (req, res) => {
   return rejectRetiredEndpoint(res);
-  /* istanbul ignore next -- 仅保留一轮源代码兼容上下文，后续版本物理删除。 */
-  try {
-    const admin = await resolveAdmin(req);
-    if (!admin) return respondScoringResponse(res, { status: 'forbidden', message: localeCopy.copy_f048be09ae });
-    const publicationId = safeString(req.body.publicationId);
-    if (!publicationId) return respondScoringResponse(res, { status: 'invalid_params', message: localeCopy.copy_db10aa8501 });
-    const orgId = await getCurrentOrgId();
-    const [rules] = await pool.query('SELECT * FROM pub_merit_rules WHERE publication_id=? AND org_id=?', [publicationId, orgId]);
-    const lookups = await fetchOrgLookups();
-    const ruleIds = rules.map((rule) => rule.id);
-    let allClauses = [];
-    if (ruleIds.length) {
-      const placeholders = ruleIds.map(() => '?').join(',');
-      [allClauses] = await pool.query(
-        `SELECT * FROM pub_merit_rule_clauses
-          WHERE rule_id IN (${placeholders}) AND org_id = ?
-          ORDER BY rule_id, sort_order`,
-        [...ruleIds, orgId]
-      );
-    }
-    const clausesByRule = new Map();
-    allClauses.forEach((clause) => {
-      if (!clausesByRule.has(clause.rule_id)) clausesByRule.set(clause.rule_id, []);
-      clausesByRule.get(clause.rule_id).push(clause);
-    });
-    const result = [];
-    for (const r of rules) {
-      const clauses = clausesByRule.get(r.id) || [];
-      result.push({
-        id: r.id, publicationId: r.publication_id,
-        natureIds: natureRulePolicy.normalize(r.nature_ids),
-        granteeDepartmentId: r.grantee_department_id, granteeDepartment: lookups.departmentsById.get(safeString(r.grantee_department_id)) || '',
-        granteeIdentityId: r.grantee_identity_id, granteeIdentity: lookups.identitiesById.get(safeString(r.grantee_identity_id)) || '',
-        clauseCount: clauses.length,
-        clauses: clauses.map(c => ({ id: c.id, natureIds: natureRulePolicy.normalize(c.nature_ids), scopeType: c.scope_type, targetIdentityId: c.target_identity_id || '', targetIdentity: lookups.identitiesById.get(safeString(c.target_identity_id || '')) || '', quotaLimit: c.quota_limit || 0, requireExactQuota: (c.require_exact_quota === 1), sortOrder: c.sort_order }))
-      });
-    }
-    respondScoringResponse(res, { status: 'success', rules: result });
-  } catch (e) { respondScoringResponse(res, { status: 'error', message: safeString(e.message) }); }
 });
 
 // ─── deletePubMeritRule ───

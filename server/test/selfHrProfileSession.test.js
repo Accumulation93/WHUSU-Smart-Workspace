@@ -23,6 +23,9 @@ async function run() {
   let templateEnabled = true;
   let record = null;
   let barrierError = false;
+  let assignments = [];
+  let templateFields = [{ id: 'field-a', label: 'fixture', type: 'text', required: 1 }];
+  let storedValues = null;
   const events = [];
   const connection = {};
   const orgContext = { getCurrentOrgId: async () => currentOrg };
@@ -37,8 +40,9 @@ async function run() {
     '../models/hrInfo': hrModel, '../../utils/orgContext': orgContext
   });
   const forbiddenLegacy = new Proxy({}, { get() { throw new Error('不得重新查询微信绑定'); } });
-  const templateModel = { getByTemplateKey: async () => templateEnabled ? { id: 'template-a', edit_mode: mode } : null };
-  const fieldModel = { getByTemplateId: async () => [{ id: 'field-a', label: 'fixture', type: 'text', required: 1 }] };
+  const getTemplate = async () => templateEnabled ? { id: 'template-a', edit_mode: mode } : null;
+  const templateModel = { getByTemplateKey: getTemplate, getActiveSnapshot: getTemplate };
+  const fieldModel = { getByTemplateId: async () => templateFields };
   const recordModel = {
     getByHrId: async (id) => { events.push(['record-read', id]); return record; },
     getAll: async () => [],
@@ -46,14 +50,25 @@ async function run() {
       assert.strictEqual(conn, connection);
       events.push(['create', data.hrId, orgId]);
     },
-    update: async (id, data) => events.push(['update', id, data.audit_status])
+    update: async (id, data) => {
+      events.push(['update', id, data.audit_status]);
+      if (storedValues) record = Object.assign({}, record, data);
+    }
   };
   const valueModel = {
-    getByRecordIdAndPending: async (id, pending) => [{ field_id: 'field-a', field_value: pending ? 'pending' : 'effective' }],
-    removeByRecordIdAndPendingFields: async (id, pending) => events.push(['remove-values', pending]),
+    getByRecordIdAndPending: async (id, pending) => storedValues
+      ? [...storedValues[pending]].map(([field_id, field_value]) => ({ field_id, field_value }))
+      : [{ field_id: 'field-a', field_value: pending ? 'pending' : 'effective' }],
+    removeByRecordIdAndPendingFields: async (id, pending, fieldIds) => {
+      events.push(['remove-values', pending]);
+      if (storedValues) fieldIds.forEach(fieldId => storedValues[pending].delete(fieldId));
+    },
     create: async (id, recordId, pending, fieldId, value) => events.push(['value', pending, fieldId, value]),
     createMany: async (rows) => {
-      rows.forEach((row) => events.push(['value', row.isPending ? 1 : 0, row.fieldId, row.fieldValue]));
+      rows.forEach((row) => {
+        events.push(['value', row.isPending ? 1 : 0, row.fieldId, row.fieldValue]);
+        if (storedValues) storedValues[Number(row.isPending)].set(row.fieldId, row.fieldValue);
+      });
       return rows.length;
     }
   };
@@ -64,8 +79,19 @@ async function run() {
       events.push(['barrier']);
       if (barrierError) throw new Error('成员并发离任');
     },
-    listDirectoryAssignmentSummaries: async () => new Map()
+    listDirectoryAssignmentSummaries: async () => new Map(),
+    async listMembershipAssignmentSummaries(ids, orgId) {
+      assert.deepStrictEqual(ids, ['hr-a']);
+      assert.strictEqual(orgId, 'org-a');
+      return new Map([['hr-a', { assignments }]]);
+    }
   };
+  const profileApplicability = loadIsolated('../src/core/models/hrProfileApplicability.js', {
+    '../../config/db': connection,
+    './hrProfileField': fieldModel,
+    './unifiedIdentity': unifiedIdentity,
+    './authorizationCandidates': {}
+  });
   const adminContext = loadIsolated('../src/core/services/adminRequestContext.js', { '../models/adminInfo': forbiddenLegacy });
   const router = loadIsolated('../src/core/routes/hrProfile.js', {
     '../services/selfHrProfileSubject': selfSubject,
@@ -78,6 +104,7 @@ async function run() {
     '../models/workGroup': { getAll: async () => [] },
     '../models/hrProfileTemplate': templateModel,
     '../models/hrProfileField': fieldModel,
+    '../models/hrProfileApplicability': profileApplicability,
     '../models/hrProfileRecord': recordModel,
     '../models/hrProfileValue': valueModel,
     '../models/hrProfileReviewEvent': {
@@ -169,6 +196,45 @@ async function run() {
   templateEnabled = false;
   assert.strictEqual((await request('getUserHrProfile')).status, 'success');
   assert.strictEqual((await request('submitUserHrProfile')).status, 'missing_template');
+  templateEnabled = true;
+  const b = { assignmentId: 'job-b', departmentId: 'dept-b', identityCategoryId: 'identity-b', configurationStatus: 'ready' };
+  const c = { assignmentId: 'job-c', departmentId: 'dept-c', identityCategoryId: 'identity-c', configurationStatus: 'ready' };
+  assignments = [b, c, { ...c, departmentId: 'former', historical: true }, { ...c, departmentId: 'pending', configurationStatus: 'pending' }];
+  templateFields = [
+    ['phone', { departmentId: ['dept-b', 'dept-c'] }], ['email', { departmentId: ['dept-b'] }],
+    ['qq', { departmentId: ['dept-c'] }], ['split', { departmentId: ['dept-b'], identityCategoryId: ['identity-c'] }],
+    ['former', { departmentId: ['former'] }], ['pending', { departmentId: ['pending'] }]
+  ].map(([id, rule]) => ({ id, label: id, type: 'text', applicability_json: JSON.stringify([rule]) }));
+  record = { id: 'record-a', audit_status: 'approved' };
+  storedValues = [new Map([['former', 'effective-old']]), new Map()];
+  const data = { phone: '123', email: 'mail', qq: 'qq-value' };
+  for (const assignmentId of ['job-b', 'job-c']) {
+    const result = await request('getUserHrProfile', { authContext: { ...baseRequest.authContext, assignmentId } });
+    assert.deepStrictEqual(result.template.fields.map(field => field.id), ['phone', 'email', 'qq']);
+    assert.strictEqual(result.profileFieldsNotApplicable, false);
+  }
+  assert.strictEqual((await request('submitUserHrProfile', { body: { values: data } })).status, 'success');
+  assert.deepStrictEqual((await request('getUserHrProfile')).values, data);
+  assert.strictEqual(storedValues[0].get('former'), 'effective-old');
+
+  assignments = [b];
+  assert.strictEqual((await request('submitUserHrProfile', { body: { values: data } })).status, 'forbidden');
+  assert(!events.some(event => ['create', 'update', 'remove-values', 'value', 'review-event'].includes(event[0])));
+  record.audit_status = 'pending';
+  storedValues[1].set('qq', 'pending-old');
+  assert.strictEqual((await request('submitUserHrProfile', { body: { values: { phone: '456', email: 'edited' } } })).status, 'success');
+  assert.strictEqual(record.audit_status, 'pending');
+  assert.strictEqual(storedValues[1].get('qq'), 'pending-old');
+  assert.strictEqual(storedValues[0].get('qq'), data.qq);
+
+  assignments = [];
+  const zeroProfile = await request('getUserHrProfile');
+  assert.strictEqual(zeroProfile.profile.id, 'hr-a');
+  assert.strictEqual(zeroProfile.profileFieldsNotApplicable, true);
+  assert.deepStrictEqual(zeroProfile.template.fields, []);
+  assert.deepStrictEqual(zeroProfile.values, {});
+  assert.strictEqual((await request('submitUserHrProfile', { body: { values: {} } })).status, 'forbidden');
+  assert(!events.some(event => ['create', 'update', 'remove-values', 'value', 'review-event'].includes(event[0])));
   assert.strictEqual((await request('getHrPersonDetail')).status, 'forbidden');
   // 当前管理员无旧 admin_info 也能通过认证，随后仍执行成员参数与范围校验。
   const adminReq = { authContext: { role: 'admin', contextId: 'context-admin', personId: 'person-a', organizationId: 'org-a', adminLevel: 'admin', adminGrantId: 'grant-a' }, body: {} };

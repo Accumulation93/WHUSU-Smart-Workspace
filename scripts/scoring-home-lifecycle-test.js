@@ -6,6 +6,7 @@ const calls = [];
 const toasts = [];
 let pendingTargets = null;
 let failPublication = false;
+let publicationResponse = null;
 let designatedRows = [];
 let designationOptions = [];
 let rejectedDesignation;
@@ -69,6 +70,7 @@ require.cache[apiPath] = {
         return respond(options, { status: 'success', activity: { id: 'activity-1', name: '年度考核' } });
       }
       if (options.name === 'getPublicResults') {
+        if (publicationResponse) return publicationResponse(options.data);
         if (failPublication) {
           if (typeof options.fail === 'function') options.fail(new Error('temporary'));
           return undefined;
@@ -170,7 +172,47 @@ async function flush() {
   await Promise.resolve();
 }
 
+async function checkBatchWorkStopsOffPage() {
+  const page = createPage();
+  page._isPageVisible = true;
+  page.setData({ publicationActivity: { id: 'activity-1' } });
+  const stats = { count: 3, maxScore: '10', avgScore: '9' };
+  const batch = (offset, next, members) => ({
+    status: 'success', groups: [{ clauseId: 'group', memberCount: 3, members }],
+    page: { offset, next, total: 3, stats }
+  });
+  const first = batch(0, 'two', [{ id: 'first', sortScore: 10 }]);
+  const second = batch(1, 'three', [{ id: 'second', sortScore: 9 }]);
+  let release;
+  const cursors = [];
+  publicationResponse = data => {
+    cursors.push(data.cursor || '');
+    return data.cursor ? new Promise(resolve => { release = resolve; }) : Promise.resolve(first);
+  };
+  try {
+    const request = page.checkPublication();
+    await flush();
+    await flush();
+    assert.deepEqual(cursors, ['', 'two']);
+    const oldRow = page._publicationRows.groups[0].members[0];
+    page.onHide();
+    release(second);
+    await request;
+    assert.deepEqual(cursors, ['', 'two']);
+    assert.equal(page._publicationRows.groups[0].members.length, 1);
+
+    const view = require(path.join(root, 'shared/scoringPublicationView.js'));
+    page.showResultBatch(view.appendResultBatch(first, second), false);
+    assert.equal(page._publicationRows.groups[0].members[0], oldRow);
+    assert.deepEqual(page.data.filteredGroups[0].members.map(row => [row.id, row.rank]), [['first', 1], ['second', 2]]);
+    assert.deepEqual(page.data.statsData, stats);
+  } finally {
+    publicationResponse = null;
+  }
+}
+
 (async function run() {
+  await checkBatchWorkStopsOffPage();
   const page = createPage();
   page.onLoad({ subApp: 'scoring' });
   page.onShow();

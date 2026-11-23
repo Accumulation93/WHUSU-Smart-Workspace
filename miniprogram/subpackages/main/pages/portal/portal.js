@@ -294,10 +294,11 @@ Page({
         appSearchKeyword: ''
       });
     }
-    // 恢复已保存的视图偏好
-    const savedView = wx.getStorageSync('appViewMode');
-    if (savedView && (savedView === 'grid' || savedView === 'list')) {
-      this.setData({ appViewMode: savedView });
+    // 视图偏好只有本页写入，返回同一页面时直接沿用。
+    if (!this._appViewLoaded) {
+      this._appViewLoaded = true;
+      const savedView = wx.getStorageSync('appViewMode');
+      if (savedView === 'list') this.setData({ appViewMode: savedView });
     }
     const currentUserState = this.refreshCurrentUser();
     this.refreshAuthorizationEntry();
@@ -348,9 +349,6 @@ Page({
   onHide() {
     deviceMetadataReport.cancel(this);
     this._isPageVisible = false;
-    this._authorizationEntryAllowed = false;
-    this._copyEntryAllowed = false;
-    this.refreshCurrentUser();
     orgSession.invalidateRequests(this);
     this._messageOverviewLoading = false;
     passwordBindingOffer.cancel(this);
@@ -423,9 +421,9 @@ Page({
       heroInitial: user && user.name ? user.name.charAt(0) : 'R',
       userDepartment: user ? (user.department || '') : '',
       userWorkGroup: user ? (user.workGroup || '') : '',
-      portalCards: portalCards
+      portalCards,
+      filteredPortalCards: this.filterAppCards(portalCards, this.data.appSearchKeyword)
     });
-    this._applyAppFilter(portalCards);
     return { user, activeRole, isAdminRole, hasUser: !!user, portalCards };
   },
 
@@ -447,9 +445,8 @@ Page({
         this.retryPendingNotificationReads();
         this.loadMessageOverview();
       }
-    } catch (error) {
-      if (orgSession.isCurrent(expectedSession)) {
-      }
+    } catch (_) {
+      // 目录暂时无法读取时保留当前可用的本地资料。
     }
   },
 
@@ -464,10 +461,6 @@ Page({
   },
 
   async refreshAuthorizationEntry() {
-    this._authorizationEntryAllowed = false;
-    this._copyEntryAllowed = false;
-    this._modernAccess = null;
-    this.refreshCurrentUser();
     const request = orgSession.beginRequest(this, 'portalAuthorization');
     try {
       const access = await readCurrentAuthorizationAccess();
@@ -476,7 +469,14 @@ Page({
       this._modernAccess = access;
       this._authorizationEntryAllowed = canOpenAuthorization(access);
       this.refreshCurrentUser();
-    } catch (_) {}
+    } catch (error) {
+      if (!this._isPageVisible || !orgSession.isRequestCurrent(this, request)
+        || !['authorization_forbidden', 'forbidden'].includes(error.code || error.status)) return;
+      this._authorizationEntryAllowed = false;
+      this._copyEntryAllowed = false;
+      this._modernAccess = null;
+      this.refreshCurrentUser();
+    }
   },
 
   loadOrganizationName() {
@@ -599,24 +599,17 @@ Page({
   },
 
   onAppSearchInput(e) {
-    this.setData({ appSearchKeyword: e.detail.value });
-    this._applyAppFilter();
+    const value = e.detail.value;
+    this.setData({ appSearchKeyword: value, filteredPortalCards: this.filterAppCards(this.data.portalCards, value) });
   },
 
   clearAppSearch() {
-    this.setData({ appSearchKeyword: '' });
-    this._applyAppFilter();
+    this.setData({ appSearchKeyword: '', filteredPortalCards: this.data.portalCards });
   },
 
-  _applyAppFilter(sourceCards) {
-    const keyword = (this.data.appSearchKeyword || '').trim().toLowerCase();
-    const cards = Array.isArray(sourceCards) ? sourceCards : (this.data.portalCards || []);
-    if (!keyword) {
-      this.setData({ filteredPortalCards: cards });
-      return;
-    }
-    const filtered = cards.filter(card => cardMatches(card, keyword));
-    this.setData({ filteredPortalCards: filtered });
+  filterAppCards(cards, value) {
+    const keyword = (value || '').trim().toLowerCase();
+    return keyword ? cards.filter(card => cardMatches(card, keyword)) : cards;
   },
 
   // ── 统一消息中心 ──
@@ -627,11 +620,18 @@ Page({
         createdAtText: formatAuditTime(item.createdAt, item.createdAtReviewStatus),
         workContextName: item.workContextName || item.contextLabel || item.assignmentLabel || item.identityName || ''
       };
-      if (isNotification) Object.assign(extra, { _showDelete: false, _swipeX: 0 });
-      return Object.assign({}, item, extra, describeMessage(item, messageFactsCopy, {
+      const interaction = isNotification ? { _showDelete: false, _swipeX: 0 } : {};
+      return Object.assign(interaction, item, extra, describeMessage(item, messageFactsCopy, {
         notification: isNotification === true, canOpen: isTrustedRoute(item.targetUrl), formatDateTime: (value, reviewStatus) => formatDisplayTime(value, { reviewStatus }), formatRange: formatTimeRange, formatDate: formatDateOnly
       }));
     });
+  },
+
+  onSystemTimezoneChanged() {
+    const patch = {};
+    if (this.data.todos.length) patch.todos = this.formatMessageItems(this.data.todos, false);
+    if (this.data.notifications.length) patch.notifications = this.formatMessageItems(this.data.notifications, true);
+    if (patch.todos || patch.notifications) this.setData(patch);
   },
 
   async loadMessageOverview(refresh) {

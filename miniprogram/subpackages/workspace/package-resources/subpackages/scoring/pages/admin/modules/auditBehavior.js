@@ -1794,7 +1794,7 @@ module.exports = Behavior({
     },
 
     async grantVerificationPermission() {
-      if (this.data.authorizationEnforced && !this.data.actionCapabilities['audit.verification.configure']) return;
+      if (this.data.authorizationEnforced) return;
       const hrId = this.data.verificationGrantHrId;
       if (!hrId) { showShortToast(localeCopy.copy_e5d78a79f7); return; }
       try {
@@ -1815,14 +1815,14 @@ module.exports = Behavior({
     },
 
     async revokeVerificationPermission(e) {
-      if (this.data.authorizationEnforced && !this.data.actionCapabilities['audit.verification.configure']) return;
+      if (this.data.authorizationEnforced) return;
       const hrId = e.currentTarget.dataset.hrId;
       const that = this;
       wx.showModal({
         title: localeCopy.copy_d6c748ac95,
         content: localeCopy.copy_c73a8aa49d,
         success: async function (modalRes) {
-          if (!modalRes.confirm) return;
+          if (!modalRes.confirm || that.data.authorizationEnforced) return;
           try {
             const res = await that.callCloud('saveVerificationPermission', {
               granteeHrId: hrId,
@@ -1956,11 +1956,12 @@ module.exports = Behavior({
       const label = e.currentTarget.dataset.label || localeCopy.copy_f262abee38;
       let candidates = this._hrList || [];
       if (target === 'grantHrId') {
-        if (this.data.authorizationEnforced && !this.data.actionCapabilities['audit.verification.configure']) return;
+        if (this.data.authorizationEnforced) return;
         if (this.data.loadingMap.auditVerificationCandidates) return;
         this.setLoading('auditVerificationCandidates', true);
         try {
           const result = await this.callCloud('listAuditVerificationCandidates', {});
+          if (this.data.authorizationEnforced) return;
           if (result.status !== 'success') throw createResultError(result, localeCopy.copy_b791913c7a);
           candidates = result.candidates || [];
         } catch (error) {

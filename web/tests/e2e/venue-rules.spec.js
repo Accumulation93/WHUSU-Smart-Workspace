@@ -26,7 +26,7 @@ async function setup(page, canApprove = true) {
   await page.goto('/web/portal'); await page.getByRole('button', { name: copy.portal.venueManage, exact: true }).click(); await page.getByRole('button', { name: ui.copy_f10a13b6e1, exact: true }).click();
   return state;
 }
-const ruleTab = (page, label) => page.locator('.rule-tabs').getByRole('button', { name: label, exact: true });
+const ruleTab = (page, label) => page.getByRole('dialog').getByRole('navigation').getByRole('button', { name: label, exact: true });
 const save = page => page.getByRole('dialog').last().getByRole('button', { name: ui.copy_f7597cecf5, exact: true }).last();
 
 for (const type of ['datetime_range', 'repeat']) {
@@ -141,7 +141,7 @@ test('specified approver picker saves the chosen assignment and reopens the save
 
 test('open rules use native cycle fields and preserve rejection before save and reread', async ({ page }) => {
   const state = await setup(page, false); let saves = 0;
-  await expect(page.locator('.rule-tabs button')).toHaveText([ui.rulesTabOpen, ui.rulesTabActivity]);
+  await expect(page.getByRole('dialog').getByRole('navigation').getByRole('button')).toHaveText([ui.rulesTabOpen, ui.rulesTabActivity]);
   await page.route('**/api/saveVenueOpenRule', route => {
     saves++; const body = route.request().postDataJSON();
     expect(body).toEqual({ id: '', venueId: 'v1', name: 'Office hours', cycleType: 'weekly', cycleValues: [1, 3], timeStart: '09:00', timeEnd: '18:00' });
@@ -217,8 +217,14 @@ test('flow steps and specific conditions write back only after confirmation and 
     state.flows = [{ id: 'f1', name: body.flowName, steps: [{ name: 'Review', approval_mode: 'hr_rule', rules: [{ department_scope: 'specific', specific_department_id: 'd1', work_group_scope: 'all', specific_work_group_id: '', identity_scope: 'all', specific_identity_id: '' }] }] }]; return route.fulfill({ json: { status: 'success' } });
   });
   await ruleTab(page, ui.rulesTabApproval).click(); await page.getByRole('button', { name: '+ ' + ui.copy_1aba371667, exact: true }).click();
-  await page.getByRole('button', { name: '+ ' + ui.copy_7963fb24a5, exact: true }).click(); await page.getByLabel(ui.copy_c5dd070c37).fill('Review');
-  await page.getByRole('button', { name: '+ ' + ui.copy_e36c6c6875, exact: true }).click(); await expect(page.getByLabel(ui.copy_c5dd070c37)).toHaveCount(0);
+  const addStep = page.getByRole('button', { name: '+ ' + ui.copy_7963fb24a5, exact: true });
+  await expect(addStep).toBeVisible();
+  expect((await addStep.boundingBox()).width).toBeLessThan((await page.getByRole('dialog').last().locator('.dialog-body').boundingBox()).width * 0.8);
+  await addStep.click(); await page.getByLabel(ui.copy_c5dd070c37).fill('Review');
+  const addCondition = page.getByRole('button', { name: '+ ' + ui.copy_e36c6c6875, exact: true });
+  await expect(addCondition).toBeVisible();
+  expect((await addCondition.boundingBox()).width).toBeLessThan((await page.getByRole('dialog').last().locator('.step-card').last().boundingBox()).width * 0.8);
+  await addCondition.click(); await expect(page.getByLabel(ui.copy_c5dd070c37)).toHaveCount(0);
   await page.getByRole('button',{name:'Staff',exact:true}).click();
   await page.getByLabel(ui.copy_02419589be, { exact: true }).selectOption('specific'); await page.getByRole('button', { name: ui.copy_42c145fb7a, exact: true }).click();
   await page.getByRole('button', { name: 'Long department name', exact: true }).click(); await page.getByRole('dialog').last().getByRole('button', { name: controls.confirmSelection, exact: true }).click();
@@ -261,7 +267,8 @@ test('pending rule save freezes editor and navigation while narrow tabs and foot
   await setup(page); let release;
   await page.route('**/api/saveVenueOpenRule', async route => { await new Promise(resolve => { release = resolve; }); await route.fulfill({ json: { status: 'success' } }); });
   const viewport = page.viewportSize(); await page.setViewportSize({ width: 310, height: 844 });
-  const geometry = await page.locator('.rule-tabs button').evaluateAll(elements => elements.map(element => { const box = element.getBoundingClientRect(), style = getComputedStyle(element), range = document.createRange(); range.selectNodeContents(element); return { width: box.width, text: range.getBoundingClientRect().width, padding: parseFloat(style.paddingLeft) + parseFloat(style.paddingRight), lines: range.getClientRects().length }; }));
+  await expect(page.getByRole('dialog').getByRole('navigation').getByRole('button')).toHaveCount(4);
+  const geometry = await page.getByRole('dialog').getByRole('navigation').getByRole('button').evaluateAll(elements => elements.map(element => { const box = element.getBoundingClientRect(), style = getComputedStyle(element), range = document.createRange(); range.selectNodeContents(element); return { width: box.width, text: range.getBoundingClientRect().width, padding: parseFloat(style.paddingLeft) + parseFloat(style.paddingRight), lines: range.getClientRects().length }; }));
   for (const item of geometry) { expect(item.lines).toBe(1); expect(item.text + item.padding).toBeLessThanOrEqual(item.width); }
   await page.setViewportSize(viewport);
   await page.getByRole('button', { name: ui.copy_61960b0ff3, exact: true }).click(); await page.getByLabel(ui.copy_70ae057f15).fill('Pending rule'); await save(page).click(); await expect(page.getByLabel(ui.copy_70ae057f15)).toBeDisabled();

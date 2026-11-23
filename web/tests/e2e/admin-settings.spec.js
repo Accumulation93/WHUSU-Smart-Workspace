@@ -23,6 +23,66 @@ async function open(page){await page.goto('/web/admin?subApp=system&tab=settings
 const orgCard=(page,name)=>page.locator('.organization-row').filter({hasText:name});
 const saveButton=page=>page.getByRole('button',{name:ui.copy_71db23a36b,exact:true});
 
+async function scopedOrganization(page, permissions) {
+  await mockApi(page);
+  const state = { name: 'Scoped organization', reads: 0, systemReads: 0, writes: [] };
+  await page.route('**/api/getCurrentAuthorizationAccess', route => route.fulfill({ json: {
+    status: 'success', mode: 'enforced', revision: 1, organizationId: 'org-1', contextId: 'ctx-assignment', role: 'user',
+    capabilities: permissions, grantedCapabilities: permissions
+  } }));
+  await page.route('**/api/listOrganizations', route => {
+    state.reads++;
+    return route.fulfill({ json: { status: 'success', list: [{ id: 'org-1', name: state.name }, { id: 'org-2', name: 'Foreign organization' }] } });
+  });
+  await page.route('**/api/getSystemConfig', route => {
+    state.systemReads++;
+    return route.fulfill({ status: 403, json: { status: 'forbidden' } });
+  });
+  await page.route('**/api/saveOrganization', route => {
+    const body = route.request().postDataJSON();
+    state.writes.push(body);
+    state.name = body.name;
+    return route.fulfill({ json: { status: 'success', organization: { id: body.id, name: state.name } } });
+  });
+  await page.goto('/web/admin?subApp=system&tab=settings');
+  return state;
+}
+
+test('own-organization read and rename expose only allowed actions and reread', async ({ page }) => {
+  const permissions = ['system.organizations.read'];
+  const state = await scopedOrganization(page, permissions);
+  await expect(orgCard(page, 'Scoped organization')).toBeVisible();
+  await expect(orgCard(page, 'Foreign organization')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: ui.copy_e040ae3016, exact: true })).toHaveCount(0);
+  permissions.push('system.organizations.update');
+  await page.reload();
+  await orgCard(page, 'Scoped organization').getByRole('button', { name: ui.copy_e040ae3016, exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('button', { name: ui.copy_f489226f00, exact: true })).toHaveCount(0);
+  await dialog.getByLabel(ui.copy_2deb5cbfc9).fill('Renamed own organization');
+  await dialog.getByRole('button', { name: ui.copy_0ee803a476, exact: true }).click();
+  await expect(orgCard(page, 'Renamed own organization')).toBeVisible();
+  expect(state.writes).toEqual([{ id: 'org-1', name: 'Renamed own organization' }]);
+  expect(state.reads).toBe(3);
+  expect(state.systemReads).toBe(0);
+  for (const label of [ui.copy_6a843c55ad, ui.copy_acc985cabc, ui.copy_fda919de66]) {
+    await expect(page.getByRole('button', { name: label, exact: true })).toHaveCount(0);
+  }
+});
+
+test('own-organization rename without list permission uses the current role name', async ({ page }) => {
+  const state = await scopedOrganization(page, ['system.organizations.update']);
+  await page.locator('.organization-row').getByRole('button', { name: ui.copy_e040ae3016, exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByLabel(ui.copy_2deb5cbfc9)).not.toHaveValue('');
+  await dialog.getByLabel(ui.copy_2deb5cbfc9).fill('Renamed without directory access');
+  await dialog.getByRole('button', { name: ui.copy_0ee803a476, exact: true }).click();
+  await expect(orgCard(page, 'Renamed without directory access')).toBeVisible();
+  expect(state.writes).toEqual([{ id: 'org-1', name: 'Renamed without directory access' }]);
+  expect(state.reads).toBe(0);
+  expect(state.systemReads).toBe(0);
+});
+
 test('settings timezone uses the native options and payload, preserves rejection and rereads without changing role',async({page})=>{
   const {state,api}=await setup(page);await open(page);const picker=page.getByLabel(ui.copy_bed2e70b8f,{exact:true});
   await expect(picker.locator('option')).toHaveCount(25);await picker.selectOption('-12');state.reject=true;await saveButton(page).click();await expect(page.getByText(feedback.forbidden)).toBeVisible();await expect(page.getByText('Settings rejected')).toHaveCount(0);await expect(picker).toHaveValue('-12');

@@ -395,7 +395,6 @@ Page({
 
   onShow() {
     this._isPageVisible = true;
-    this.refreshManagementAccess();
     const organizationState = orgSession.consume(this);
     if (organizationState.changed) {
       this._clearApprovalSyncTimer();
@@ -406,9 +405,11 @@ Page({
         scheduleVisible: false, bookingDetailVisible: false, bookingDetail: null,
         activityDetailVisible: false, activityDetail: null,
         bookingVisible: false, approvalVisible: false, approvalTarget: null,
-        expandedNodeKey: '', loading: false
+        expandedNodeKey: '', loading: false, managementAvailable: false,
+        activeTab: this.data.activeTab === 'management' ? 'browse' : this.data.activeTab
       });
     }
+    this.refreshManagementAccess();
     this._loadUserInfo();
     this._loadWorkContextState();
     this._initWeekStart();
@@ -427,8 +428,8 @@ Page({
   onHide() {
     this._isPageVisible = false;
     this._managementAccessGeneration = (this._managementAccessGeneration || 0) + 1;
-    this.setData({ managementAvailable: false, managementDialogVisible: false,
-      activeTab: this.data.activeTab === 'management' ? 'browse' : this.data.activeTab });
+    orgSession.invalidateRequests(this);
+    this.setData({ managementDialogVisible: false, loading: false });
     this._clearApprovalSyncTimer();
     this.stopPolling();
     if (this._boundVenueChanged) {
@@ -480,7 +481,7 @@ Page({
   async refreshManagementAccess() {
     const generation = (this._managementAccessGeneration || 0) + 1;
     this._managementAccessGeneration = generation;
-    this.setData({ managementAvailable: false, authorizationCopy });
+    this.setData({ authorizationCopy });
     try {
       const access = await readCurrentAuthorizationAccess();
       if (!this._isPageVisible || generation !== this._managementAccessGeneration) return;
@@ -490,8 +491,9 @@ Page({
         : !available && this.data.activeTab === 'management' ? 'browse' : this.data.activeTab;
       this._openManagementArea = false;
       this.setData({ managementAvailable: Boolean(available), activeTab });
-    } catch (_) {
-      if (this._isPageVisible && generation === this._managementAccessGeneration) this.setData({ managementAvailable: false,
+    } catch (error) {
+      if (this._isPageVisible && generation === this._managementAccessGeneration
+        && ['authorization_forbidden', 'forbidden'].includes(error.code || error.status)) this.setData({ managementAvailable: false,
         activeTab: this.data.activeTab === 'management' ? 'browse' : this.data.activeTab });
     }
   },

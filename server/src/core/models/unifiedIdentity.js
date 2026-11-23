@@ -591,11 +591,11 @@ async function listMembershipAssignments(legacyHrId, organizationId) {
   return rows;
 }
 
-async function listMembershipAssignmentSummaries(legacyHrIds, organizationId) {
+async function listMembershipAssignmentSummaries(legacyHrIds, organizationId, connection = pool) {
   const ids = Array.from(new Set((legacyHrIds || []).map(safeString).filter(Boolean)));
   if (!ids.length) return new Map();
   const placeholders = ids.map(() => '?').join(',');
-  const [rows] = await pool.query(
+  const [rows] = await connection.query(
     `SELECT om.legacy_hr_id, ma.id AS assignment_id, ma.assignment_kind,
             ma.department_id, ma.identity_id, ma.work_group_id,
             CASE WHEN ${natureEligibility.assignmentPredicate('ma')} THEN 'ready' ELSE 'pending' END AS configuration_status,

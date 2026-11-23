@@ -24,9 +24,9 @@ test('样式静态引用忽略注释并保留精确字符串范围', () => {
 });
 
 test('共享内容的WXS由两个真实宿主各自声明，不依赖include继承WXS', () => {
-  const directory = path.resolve(__dirname, '../../miniprogram/subpackages/scoring/pages/admin');
-  for (const name of ['admin.wxml', 'adminWorkbench.wxml']) {
-    const source = fs.readFileSync(path.join(directory, name), 'utf8');
+  const directory = path.resolve(__dirname, '../../miniprogram/subpackages');
+  for (const file of ['workspace/pages/admin/admin.wxml', 'workspace/package-resources/subpackages/scoring/pages/admin/adminWorkbench.wxml']) {
+    const source = fs.readFileSync(path.join(directory, file), 'utf8');
     assert(source.includes('module="gradeBandWxs"'));
     assert(source.includes('module="pk"'));
     assert(templateReferences(source).some(ref => ref.value.endsWith('/adminWorkbenchContent.wxml') || ref.value === './adminWorkbenchContent.wxml'));

@@ -1,5 +1,6 @@
 'use strict';
 const ui = require('../../../../locales/zh-CN/authorization');
+const paginationCopy = require('../../package-resources/locales/zh-CN/auditSigning');
 const editor = require('../../utils/authorizationEditor');
 const presentation = require('../../utils/authorizationPresentation');
 const { callFunction, getErrorText, showShortToast, createResultError, createLocalError } = require('../../../../utils/api');
@@ -10,8 +11,9 @@ const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation'
 
 Page({
   openIdentitySettings: function() { if (!this.data.busy) navigateToTrustedRoute('/subpackages/org/pages/authorization/authorization?tab=schemes'); },
-  data: { ui, navTopPx: 0, heroTone: 'blue', kind: 'rule', ready: false, loading: true, busy: false, notice: '', advanced: false, sensitiveLabels: [],
+  data: { ui, paginationCopy, navTopPx: 0, heroTone: 'blue', kind: 'rule', ready: false, loading: true, busy: false, notice: '', advanced: false,
     unified: false, assignmentMode: 'fixed', selectionText: '', schemeRestrictedOperations: [], schemeNeedsGeneralCapability: false,
+    selectedCapabilityPage: 1, selectedCapabilityPages: 1, selectedCapabilityPageText: '', selectedCapabilityRows: [],
     draft: null, sections: null, capabilityBusinesses: [], capabilityKeyword: '', capabilitySearchActive: false, searchCollapsed: {}, selectedCapabilitiesOnly: false, selectedCapabilityText: '', organizationSelected: false, selfSelected: false, fieldOptions: [], fieldsIncompatible: false, organizationScope: false, selfScope: false, assignmentScope: false, expanded: {}, picker: '', pickerOptions: [], pickerValue: [],
     preview: null, originalSections: null, impactText: '', impactRows: [], previewOnly: false, directory: {}, schemes: [], schemeIndex: 0, periods: [], recipientNames: [],
     requiresDelegation: false, delegationOptions: [], delegationIndex: 0, delegation: null, delegationSections: null, formAvailable: false, inheritedSubjects: false, inheritedPeriods: [], controlledLabels: [], allowRelative: true, canPickAssignments: true, canPickAdmins: true },
@@ -19,7 +21,13 @@ Page({
     this._options = options;
     this.setData({ navTopPx: getNavigationBarMetrics().totalHeight, kind: ['scheme', 'delegation'].includes(options.kind) ? options.kind : 'rule' });
   },
-  onShow: function() { this._active = true; orgSession.consume(this); this.setData({ heroTone: orgSession.getSnapshot().role === 'admin' ? 'admin' : 'blue' }); this.load(); },
+  onShow: function() {
+    const state = orgSession.consume(this);
+    if (state.changed) this.clear();
+    this._active = true;
+    this.setData({ heroTone: state.snapshot.role === 'admin' ? 'admin' : 'blue' });
+    this.load();
+  },
   onResize: function() { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight }); },
   onHide: function() { this.clear(); },
   onUnload: function() { this.clear(); },
@@ -28,7 +36,8 @@ Page({
     this._delegation = null;
     this._blockedSchemeKeys = [];
     this.setData({ originalSections: null, delegation: null, delegationSections: null, formAvailable: false,
-      delegationOptions: [], inheritedPeriods: [], inheritedSubjects: false, controlledLabels: [], sensitiveLabels: [], periods: [], previewPeriods: [],
+      delegationOptions: [], inheritedPeriods: [], inheritedSubjects: false, controlledLabels: [], periods: [], previewPeriods: [],
+      selectedCapabilityPage: 1, selectedCapabilityPages: 1, selectedCapabilityPageText: '', selectedCapabilityRows: [],
       schemeRestrictedOperations: [], schemeNeedsGeneralCapability: false });
     this.setData({ ready: false, draft: null, sections: null, capabilityBusinesses: [], capabilityKeyword: '', capabilitySearchActive: false, searchCollapsed: {}, selectedCapabilitiesOnly: false, selectedCapabilityText: '', expanded: {}, fieldOptions: [], fieldsIncompatible: false, picker: '', pickerOptions: [], pickerValue: [], preview: null, impactRows: [], busy: false, directory: {}, schemes: [], recipientNames: [] });
   },
@@ -74,7 +83,7 @@ Page({
         if (this._options.id && !this._delegation) throw createLocalError(ui.delegationNoLongerAvailable);
         if (this._delegation) draft = this.selectDelegationDraft(draft, this._delegation, !!this._options.id);
       }
-      this.setData({ unified, assignmentMode: editor.assignmentMethod(draft), requiresDelegation, delegationOptions: [{ id: '', name: ui.delegationChoicePlaceholder }].concat(options),
+      this.setData({ unified, roleBindingOnly: this._state.roleBindingOnly === true, assignmentMode: editor.assignmentMethod(draft), requiresDelegation, delegationOptions: [{ id: '', name: ui.delegationChoicePlaceholder }].concat(options),
         advanced: this.data.kind !== 'rule' || this._options.advanced === '1' || !editor.canUseIdentityFlow(draft, this._delegation) });
       this.setData({ originalSections: draft.id && this.data.kind !== 'scheme'
         ? presentation.policySections(draft.policy, this._directory, this._state.catalog, ui) : null });
@@ -90,7 +99,9 @@ Page({
     const delegation = this._delegation;
     const unified = this._state.unifiedIdentity === true;
     const scopedDirectory = editor.delegationDirectory(this._directory, delegation);
-    const schemes = [{ id: '', name: ui.selectOperations }].concat(editor.assignableSchemes(this._state.schemes, delegation, this._state.catalog, draft, unified));
+    const schemes = [{ id: '', name: this.data.roleBindingOnly ? ui.identityPlaceholder : ui.selectOperations }]
+      .concat(editor.assignableSchemes(this._state.schemes, delegation, this._state.catalog, draft, unified));
+    const compatibilityRole = this._state.schemes.some(item => item.id === draft.schemeId && item.compatibilityOnly);
     const recipients = presentation.policySections({ subjects: draft.audience || [] }, this._directory, this._state.catalog, ui).subjects;
     const recipientNames = [];
     for (const subject of recipients) recipientNames.push(...subject.lines);
@@ -104,11 +115,9 @@ Page({
     for (const capability of this._state.catalog) {
       if (draft.policy.capabilities.includes(capability.key)) Object.assign(fieldLabels, capability.fieldLabels || {});
     }
-    const sensitiveLabels = this._state.catalog.filter(item => draft.policy.capabilities.includes(item.key)
-      && (['delete', 'export'].includes(item.action) || item.governance || item.delegation)).map(item => presentation.capabilityLabel(item.key, this._state.catalog, ui));
     const schemeRestrictedOperations = (this._blockedSchemeKeys || []).filter(key => draft.policy.capabilities.includes(key))
       .map(key => ({ key, label: presentation.capabilityLabel(key, this._state.catalog, ui) }));
-    this.setData({ draft, schemes, selectionText, delegation: delegation || null, formAvailable: !this.data.requiresDelegation || !!delegation && (this.data.kind === 'scheme' || !delegation.includesOwnRole),
+    this.setData({ draft, schemes, compatibilityRole, selectionText, delegation: delegation || null, formAvailable: !this.data.requiresDelegation || !!delegation && (this.data.kind === 'scheme' || !delegation.includesOwnRole),
       delegationIndex: delegation ? this.data.delegationOptions.findIndex(item => item.id === delegation.id) : 0,
       delegationSections: delegation ? presentation.policySections(delegation.envelope, this._directory, this._state.catalog, ui) : null,
       inheritedSubjects: !!(delegation && delegation.envelope.subjects.some(item => item.kind === 'assignmentScope')),
@@ -119,7 +128,8 @@ Page({
       controlledLabels: this._state.catalog.filter(item => item.systemControlled && draft.policy.capabilities.includes(item.key)).map(item => presentation.capabilityLabel(item.key, this._state.catalog, ui)),
       schemeRestrictedOperations, schemeNeedsGeneralCapability: this.data.kind === 'scheme'
         && !!this._blockedSchemeKeys.length && !draft.policy.capabilities.length,
-      sensitiveLabels, sections: presentation.policySections(draft.policy, this._directory, this._state.catalog, ui), capabilityBusinesses: this.buildCapabilityBusinesses(draft), selectedCapabilityText: ui.selectedOperations(draft.policy.capabilities.length), recipientNames,
+      ...this.buildSelectedCapabilities(draft, this.data.capabilityKeyword, this.data.selectedCapabilityPage),
+      sections: presentation.policySections(draft.policy, this._directory, this._state.catalog, ui), capabilityBusinesses: this.buildCapabilityBusinesses(draft), selectedCapabilityText: ui.selectedOperations(draft.policy.capabilities.length), recipientNames,
       organizationSelected: draft.policy.scopes.some(item => item.kind === 'organization'), selfSelected: draft.policy.scopes.some(item => item.kind === 'self'),
       organizationScope: availableScopes.includes('organization'), selfScope: availableScopes.includes('self'), assignmentScope: availableScopes.includes('assignmentScope'),
       peopleScope: unified && availableScopes.includes('people'),
@@ -139,6 +149,24 @@ Page({
     return editor.permissionGroups({ catalog, capabilities: draft.policy.capabilities, draft, kind: this.data.kind,
       query: view.capabilityKeyword, selectedOnly: view.selectedCapabilitiesOnly, copy: ui,
       unified: this._state.unifiedIdentity === true });
+  },
+  buildSelectedCapabilities: function(draft, query, page) {
+    const result = editor.selectedPermissionsPage({ catalog: this._state.catalog, capabilities: draft.policy.capabilities, query, copy: ui, page });
+    return { selectedCapabilityPage: result.currentPage, selectedCapabilityPages: result.totalPages,
+      selectedCapabilityPageText: ui.unified.permissionPage(result.currentPage, result.totalPages),
+      selectedCapabilityRows: result.rows.map(row => ({ ...row, removeLabel: ui.unified.removeSelectedPermissionLabel(row.label) })) };
+  },
+  changeSelectedCapabilityPage: function(event) {
+    if (this.data.busy || !this.data.selectedCapabilitiesOnly) return;
+    const direction = Number(event.currentTarget.dataset.direction);
+    if (direction !== -1 && direction !== 1) return;
+    this.setData(this.buildSelectedCapabilities(this.data.draft, this.data.capabilityKeyword, this.data.selectedCapabilityPage + direction));
+  },
+  removeSelectedCapability: function(event) {
+    const key = event.currentTarget.dataset.key;
+    if (!this.data.ready || this.data.busy || !this.data.formAvailable || !this.data.selectedCapabilitiesOnly
+      || !this.data.selectedCapabilityRows.some(item => item.key === key)) return;
+    this.updateDraft(editor.removeCapability(this.data.draft, key));
   },
   withoutRestrictedSchemeKeys: function(draft) {
     const next = editor.createDraft(draft);
@@ -200,12 +228,13 @@ Page({
   },
   searchCapabilities: function(event) {
     const view = { capabilityKeyword: event.detail.value, selectedCapabilitiesOnly: this.data.selectedCapabilitiesOnly };
-    this.setData(Object.assign(view, { capabilitySearchActive: !!view.capabilityKeyword.trim(), searchCollapsed: {},
+    this.setData(Object.assign(view, this.buildSelectedCapabilities(this.data.draft, view.capabilityKeyword, 1), { capabilitySearchActive: !!view.capabilityKeyword.trim(), searchCollapsed: {},
       capabilityBusinesses: this.buildCapabilityBusinesses(this.data.draft, view) }));
   },
   switchCapabilityFilter: function(event) {
     const view = { selectedCapabilitiesOnly: event.currentTarget.dataset.filter === 'selected', capabilityKeyword: this.data.capabilityKeyword };
-    this.setData(Object.assign(view, { capabilityBusinesses: this.buildCapabilityBusinesses(this.data.draft, view) }));
+    this.setData(Object.assign(view, this.buildSelectedCapabilities(this.data.draft, view.capabilityKeyword, 1),
+      { capabilityBusinesses: this.buildCapabilityBusinesses(this.data.draft, view) }));
   },
   chooseEffect: function(event) {
     const effect = event.currentTarget.dataset.effect;
@@ -280,8 +309,13 @@ Page({
     this.setData({ expanded: Object.assign({}, this.data.expanded, { [key]: !this.data.expanded[key] }) });
   },
   togglePermissionModule: function(event) {
-    if (!this.data.capabilitySearchActive) { this.toggleGroup(event); return; }
-    const key = event.currentTarget.dataset.key;
+    const { key, group } = event.currentTarget.dataset;
+    if (!this.data.capabilitySearchActive) {
+      const previous = this.data.expanded[key];
+      const open = typeof previous === 'boolean' ? previous : !group;
+      this.setData({ expanded: { ...this.data.expanded, [key]: !open } });
+      return;
+    }
     this.setData({ searchCollapsed: Object.assign({}, this.data.searchCollapsed, { [key]: !this.data.searchCollapsed[key] }) });
   },
   capability: function(event) {
@@ -351,10 +385,13 @@ Page({
         }
         showShortToast(ui.saveSuccess); wx.navigateBack();
       } else {
+        if (this.data.kind === 'rule' && this.data.roleBindingOnly
+          && (!this.data.draft.schemeId || this.data.compatibilityRole)) throw createLocalError(ui.chooseIdentity);
         const draft = this.data.kind === 'rule' && !this.data.advanced
           ? editor.prepareSimpleDraft(this.data.draft, this.data.schemes, ui, this._delegation) : this.data.draft;
         const payload = this.data.kind === 'delegation' ? editor.delegationRequest(draft, this._state.revision, this._state.catalog, this.data.unified)
           : editor.request(draft, this._state.revision, this._state.catalog, this.data.unified);
+        if (this.data.kind === 'rule' && this.data.roleBindingOnly) payload.bindingModel = 'role';
         if (this.data.unified && this.data.kind === 'rule') {
           if (payload.policy.subjects.every(subject => subject.kind === 'assignments')) payload.assignmentMode = 'snapshot';
           else if (payload.policy.subjects.every(subject => subject.kind === 'assignmentScope')) payload.assignmentMode = 'dynamic';

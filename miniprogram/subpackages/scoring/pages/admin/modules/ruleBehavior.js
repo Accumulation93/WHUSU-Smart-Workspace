@@ -1,8 +1,8 @@
-const localeCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/ruleBehavior');
-const { format: localeFormat } = require('../../../package-resources/locales/runtime');
+const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/ruleBehavior');
+const { format: localeFormat } = require('../../../../../locales/runtime');
 // Behavior: rule tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
-const utils = require('../../../package-resources/subpackages/scoring/pages/admin/modules/adminUtils');
+const utils = require('./adminUtils');
 const { RULE_SCOPE_OPTIONS, emptyRuleForm, emptyRuleFilters, buildRuleListItem, buildRuleFilterOptions, markSelectedRules, filterRuleList, normalizeRuleFilters, createSelectedRuleIdMap, getScopeLabel, buildRuleClausesForBatchApply, buildRuleClausesForSave, normalizeClauseForEdit, moveItem, refreshTemplateConfigSortOrder } = utils;
 const orgSession = require('../../../../../utils/orgSession');
 const { createResultError } = require('../../../../../utils/api');

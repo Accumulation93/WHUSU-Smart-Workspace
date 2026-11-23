@@ -67,11 +67,11 @@ router.post('/getAuditTemplateEditorData', async (req, res) => {
 router.post('/listAuditVerificationCandidates', async (req, res) => {
   try {
     const reference = req.unifiedAuthorization?.reference;
+    if (reference) return verificationUpgradeRequired(res);
     if (!reference && !await ensureAdmin(req)) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const orgId = await getCurrentOrgId();
     const candidates = await pool.withTransaction(async connection => {
-      const activeSession = await managementAuthorization.session(connection, orgId, reference);
-      managementAuthorization.check(activeSession, orgId, 'audit.verification', 'configure', orgId);
+      await managementAuthorization.session(connection, orgId, null);
       return require('../models/auditEditorDirectory').people(connection);
     });
     return res.json({ status: 'success', candidates });
@@ -676,6 +676,11 @@ router.post('/listIdentityStamps', (req, res) => {
 // Verification Permissions
 // ═══════════════════════════════════════════════════
 
+function verificationUpgradeRequired(res) {
+  return res.status(409).json({ status: 'authorization_upgrade_required',
+    message: require('../../../locales/zh-CN/authorization').unified.legacyAuthEditReadOnly });
+}
+
 // listVerificationPermissions
 router.post('/listVerificationPermissions', async (req, res) => {
   try {
@@ -686,7 +691,7 @@ router.post('/listVerificationPermissions', async (req, res) => {
     const perms = await pool.withTransaction(async connection => {
       const activeSession = await managementAuthorization.session(connection, orgId, reference);
       managementAuthorization.check(activeSession, orgId, 'audit.verification', 'read', orgId);
-      return verificationPermModel.getAll(connection);
+      return verificationPermModel.getAll(connection, Boolean(reference));
     });
     const result = perms.map((p) => ({
       id: safeString(p.id),
@@ -707,8 +712,9 @@ router.post('/listVerificationPermissions', async (req, res) => {
 router.post('/saveVerificationPermission', async (req, res) => {
   try {
     const reference = req.unifiedAuthorization?.reference;
-    const admin = reference ? null : await ensureAdmin(req);
-    if (!reference && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (reference) return verificationUpgradeRequired(res);
+    const admin = await ensureAdmin(req);
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const granteeHrId = safeString(req.body.granteeHrId);
     const action = safeString(req.body.action) || 'grant'; // 'grant' or 'revoke'
@@ -726,7 +732,7 @@ router.post('/saveVerificationPermission', async (req, res) => {
       res.json({ status: 'success', message: localeCopy.copy_c2eabcfd63 });
     } else {
       const newId = generateId();
-      const result = await verificationPermModel.create(newId, { granteeHrId, grantedBy: reference ? reference.personId : admin.id }, reference);
+      const result = await verificationPermModel.create(newId, { granteeHrId, grantedBy: admin.id }, reference);
       if (result.status === 'grantee_not_found') {
         return res.json({ status: 'not_found', message: localeCopy.copy_7d1a305d97 });
       }

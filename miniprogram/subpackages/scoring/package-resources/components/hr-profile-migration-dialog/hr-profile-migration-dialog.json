@@ -1,8 +1,0 @@
-{
-  "component": true,
-  "styleIsolation": "apply-shared",
-  "usingComponents": {
-    "viewport-portal": "/components/viewport-portal/viewport-portal",
-    "personnel-picker": "/subpackages/scoring/package-resources/components/personnel-picker/personnel-picker"
-  }
-}

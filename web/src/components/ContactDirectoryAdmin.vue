@@ -77,7 +77,7 @@
       <p class="muted">{{ copy.ruleEffectHelp }}</p>
       <AppLoading v-if="busy" :text="copy.saving" />
       <p v-if="notice" class="notice-line" role="alert">{{ notice }}</p>
-      <div class="card-actions"><button type="button" class="btn btn-secondary" :disabled="busy" @click="cancelEdit">{{ copy.cancel }}</button><button class="btn btn-primary" :disabled="blocked">{{ copy.save }}</button></div>
+      <div class="card-actions directory-form-actions"><button type="button" class="btn btn-secondary" :disabled="busy" @click="cancelEdit">{{ copy.cancel }}</button><button class="btn btn-primary" :disabled="blocked">{{ copy.save }}</button></div>
     </form>
     <PersonnelPicker v-if="picker" :title="picker.section === 'audience' ? copy.chooseAudience : copy.chooseTargets" mode="person" :options="people" :value="people.filter(person => draft[picker.section][picker.index].personIds.includes(person.id))" @cancel="picker = null" @confirm="confirmPeople" />
     <GlassDialog v-if="deletion" :title="copy.remove" :busy="busy" @close="deletion = null">
@@ -207,6 +207,8 @@ onBeforeUnmount(() => { disposed = true; clear(); emit('busy', false); document.
 .directory-add-options { display: flex; flex-wrap: wrap; gap: var(--ui-inline-gap); }
 .directory-small-action.btn, .directory-small-actions .btn { flex: none; align-self: flex-start; width: auto; min-width: 0; max-width: 100%; min-height: var(--ui-control-height); height: auto; padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x); font-size: var(--ui-type-meta); }
 .directory-small-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--ui-inline-gap); }
+.directory-form-actions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--ui-inline-gap); }
+.directory-form-actions > .btn { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; }
 .directory-head > .section-title { flex: 1 1 auto; }
 .directory-head > .btn { flex: 0 0 auto; width: auto; }
 .directory-options { display: grid; gap: var(--ui-field-gap); grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); }

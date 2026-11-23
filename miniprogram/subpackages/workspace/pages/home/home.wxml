@@ -3,7 +3,7 @@
 <view class="page" style="min-height: calc(100vh - {{navTopPx}}px)">
   <workspace-hero class="workspace-hero-host" app-name="{{copy.appName}}" page-name="{{heroSubtitle || copy.defaultPageName}}" tone="{{heroTone || 'blue'}}"></workspace-hero>
 
-  <view class="tabs-card workspace-tabs" style="--workspace-tabs-sticky-top: {{navStickyTopPx}}px" wx:if="{{hasUser && !isAdminRole}}">
+  <view class="tabs-card workspace-primary-tabs workspace-tabs" style="--workspace-tabs-sticky-top: {{navStickyTopPx}}px" wx:if="{{hasUser && !isAdminRole}}">
     <view
       class="feature-tab {{activeTab === item.key ? 'feature-tab-active' : ''}} ui-motion-chip"
       wx:for="{{userTabs}}"
@@ -194,8 +194,8 @@
           </view>
           <view class="result-group-body" wx:if="{{expandedResultGroupClauseId === group.clauseId || filteredGroups.length === 1}}">
             <view class="ranked-list">
-              <view class="rank-card rank-card-{{m.rank === 1 ? 'gold' : (m.rank === 2 ? 'silver' : (m.rank === 3 ? 'bronze' : 'normal'))}}" wx:for="{{group.members}}" wx:for-item="m" wx:key="resultKey">
-                <view class="rank-badge rank-badge-{{m.rank === 1 ? 'gold' : (m.rank === 2 ? 'silver' : (m.rank === 3 ? 'bronze' : 'normal'))}}">
+              <view class="rank-card rank-card-{{group.displayMode === 'grade' ? 'normal' : m.rank === 1 ? 'gold' : (m.rank === 2 ? 'silver' : (m.rank === 3 ? 'bronze' : 'normal'))}}" wx:for="{{group.members}}" wx:for-item="m" wx:key="resultKey">
+                <view wx:if="{{group.displayMode !== 'grade'}}" class="rank-badge rank-badge-{{m.rank === 1 ? 'gold' : (m.rank === 2 ? 'silver' : (m.rank === 3 ? 'bronze' : 'normal'))}}">
                   <text wx:if="{{m.rank === 1}}">{{copy.rankMedalGold}}</text>
                   <text wx:elif="{{m.rank === 2}}">{{copy.rankMedalSilver}}</text>
                   <text wx:elif="{{m.rank === 3}}">{{copy.rankMedalBronze}}</text>
@@ -206,7 +206,7 @@
                   <view class="member-detail">{{m.identity}}<text wx:if="{{m.department}}"> · {{m.department}}</text><text wx:if="{{m.workGroup}}"> · {{m.workGroup}}</text></view>
                 </view>
                 <view class="score-display">
-                  <view class="score-value">{{group.displayMode === 'grade' ? (m.grade || m.finalScore) : m.finalScore}}</view>
+                  <view class="score-value">{{group.displayMode === 'grade' ? (m.grade || copy.unrated) : m.finalScore}}</view>
                   <view class="score-label">{{group.displayMode === 'grade' ? copy.grade : copy.earnedScore}}</view>
                 </view>
               </view>
@@ -223,8 +223,8 @@
       <!-- Legacy flat list (fallback when no groups) -->
       <scroll-view class="results-scroll" scroll-y enhanced show-scrollbar="{{false}}" wx:if="{{!filteredGroups.length && filteredResults.length}}">
       <view class="ranked-list">
-        <view class="rank-card rank-card-{{item.rank === 1 ? 'gold' : (item.rank === 2 ? 'silver' : (item.rank === 3 ? 'bronze' : 'normal'))}}" wx:for="{{filteredResults}}" wx:key="resultKey">
-          <view class="rank-badge rank-badge-{{item.rank === 1 ? 'gold' : (item.rank === 2 ? 'silver' : (item.rank === 3 ? 'bronze' : 'normal'))}}">
+        <view class="rank-card rank-card-{{displayMode === 'grade' ? 'normal' : item.rank === 1 ? 'gold' : (item.rank === 2 ? 'silver' : (item.rank === 3 ? 'bronze' : 'normal'))}}" wx:for="{{filteredResults}}" wx:key="resultKey">
+          <view wx:if="{{displayMode !== 'grade'}}" class="rank-badge rank-badge-{{item.rank === 1 ? 'gold' : (item.rank === 2 ? 'silver' : (item.rank === 3 ? 'bronze' : 'normal'))}}">
             <text wx:if="{{item.rank === 1}}">{{copy.rankMedalGold}}</text>
             <text wx:elif="{{item.rank === 2}}">{{copy.rankMedalSilver}}</text>
             <text wx:elif="{{item.rank === 3}}">{{copy.rankMedalBronze}}</text>
@@ -314,16 +314,16 @@
     <view class="card profile-card">
       <view class="info-head">
         <view class="section-title">{{copy.hr}}</view>
-        <view class="mode-chip {{hrProfile.template && hrProfile.template.editMode === 'audit' ? 'mode-chip-audit' : ''}} {{hrProfile.template && hrProfile.template.editMode === 'readonly' ? 'mode-chip-readonly' : ''}}" wx:if="{{hrProfile.loaded && !hrProfile.errorText}}">
+        <view class="mode-chip {{hrProfile.template && hrProfile.template.editMode === 'audit' ? 'mode-chip-audit' : ''}} {{hrProfile.template && hrProfile.template.editMode === 'readonly' ? 'mode-chip-readonly' : ''}}" wx:if="{{hrProfile.loaded && !hrProfile.errorText && !hrProfile.fieldsNotApplicable}}">
           {{hrProfile.template ? hrProfile.template.modeText : copy.noTemplate}}
         </view>
       </view>
 
-      <view class="profile-banner" wx:if="{{hrProfile.template && hrProfile.template.description}}">
+      <view class="profile-banner" wx:if="{{hrProfile.template && hrProfile.template.description && !hrProfile.fieldsNotApplicable}}">
         {{hrProfile.template.description}}
       </view>
 
-      <view class="profile-status" wx:if="{{hrProfile.loaded && !hrProfile.errorText}}">
+      <view class="profile-status" wx:if="{{hrProfile.loaded && !hrProfile.errorText && !hrProfile.fieldsNotApplicable}}">
         <view class="status-title">{{hrProfile.statusText}}</view>
         <view class="status-desc" wx:if="{{hrProfile.completenessText}}">{{hrProfile.completenessText}}</view>
         <view class="status-desc" wx:if="{{hrProfile.auditStatus === 'pending'}}">{{copy.profilePending}}</view>
@@ -360,7 +360,7 @@
         <view class="profile-load-error-text">{{hrProfile.errorText}}</view>
         <button class="secondary-btn profile-retry-btn ui-motion-button" bindtap="retryUserHrProfile" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.reloadProfile}}</button>
       </view>
-      <view class="empty-card profile-empty" wx:if="{{!hrProfile.loading && hrProfile.loaded && !hrProfile.errorText && (!hrProfile.template || !hrProfile.template.fields.length)}}">
+      <view class="empty-card profile-empty" wx:if="{{!hrProfile.loading && hrProfile.loaded && !hrProfile.errorText && (!hrProfile.template || !hrProfile.template.fields.length) && !hrProfile.fieldsNotApplicable}}">
         <view class="empty-title">{{copy.noExtraProfile}}</view>
       </view>
 

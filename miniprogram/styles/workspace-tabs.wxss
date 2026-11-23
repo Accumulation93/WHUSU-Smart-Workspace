@@ -1,0 +1,126 @@
+/* 考核评分首页的一级页签。业务页签保留 tabs-card / feature-tab 的全局响应式规则。 */
+.tabs-card.workspace-primary-tabs {
+  position: relative;
+  display: flex;
+  gap: var(--ui-tab-gap, 8rpx);
+  margin-bottom: var(--ui-card-gap);
+  padding: var(--ui-tab-shell-padding, 8rpx);
+  border-radius: var(--ui-card-radius);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.80) 0%, rgba(248, 251, 255, 0.72) 100%);
+  border: 1rpx solid rgba(255, 255, 255, 0.62);
+  box-shadow: 0 18rpx 36rpx rgba(15, 23, 42, 0.06), inset 0 1rpx 0 rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(24rpx);
+  -webkit-backdrop-filter: blur(24rpx);
+  box-sizing: border-box;
+  animation: workspacePrimaryTabsEnter 0.46s ease both;
+}
+
+@keyframes workspacePrimaryTabsEnter {
+  from { opacity: 0; transform: translateY(18rpx); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.workspace-primary-tabs > .feature-tab {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  min-height: var(--ui-tab-min-height, 66rpx);
+  padding: var(--ui-tab-padding-y, 14rpx) var(--ui-tab-padding-x, 18rpx);
+  border-radius: var(--ui-tab-radius, 20rpx);
+  text-align: center;
+  color: #49627f;
+  font-size: var(--ui-tab-font-size, 24rpx);
+  line-height: var(--ui-leading-control, 1.35);
+  font-weight: 700;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(246, 249, 255, 0.82) 100%);
+  border: 1rpx solid rgba(219, 229, 241, 0.92);
+  transition: transform 0.18s ease, box-shadow 0.24s ease, color 0.24s ease, background 0.24s ease;
+}
+
+.workspace-primary-tabs > .feature-tab::after {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  background: radial-gradient(circle, rgba(96, 165, 250, 0.22) 0%, rgba(96, 165, 250, 0) 60%);
+  opacity: 0;
+  transition: opacity 0.24s ease;
+}
+
+.workspace-primary-tabs > .feature-tab-active {
+  color: #ffffff;
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 44%, #60a5fa 100%);
+  box-shadow: 0 18rpx 34rpx rgba(37, 99, 235, 0.18), 0 0 24rpx rgba(96, 165, 250, 0.14);
+}
+
+.workspace-primary-tabs > .feature-tab-active::after {
+  opacity: 1;
+}
+
+/* 考核评分管理区的二级页签。分区、弹窗和其他管理工作台共用这一组。 */
+.tabs.workspace-secondary-tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--ui-tab-gap, 8rpx);
+  margin-bottom: 22rpx;
+}
+
+.workspace-secondary-tabs > .tab {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 0;
+  min-height: var(--ui-tab-min-height, 66rpx);
+  padding: var(--ui-tab-padding-y, 14rpx) 4rpx;
+  border-radius: var(--ui-tab-radius, 24rpx);
+  background: rgba(255, 255, 255, 0.74);
+  border: 1rpx solid rgba(255, 255, 255, 0.54);
+  color: #53687f;
+  font-size: var(--ui-tab-font-size, 24rpx);
+  line-height: var(--ui-leading-control, 1.35);
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: 0 10rpx 22rpx rgba(15, 23, 42, 0.04);
+  transition: transform 0.18s ease, box-shadow 0.22s ease, background 0.22s ease, color 0.22s ease;
+}
+
+.workspace-secondary-tabs > .tab-active {
+  color: #ffffff;
+  background: linear-gradient(135deg, #2563eb 0%, #60a5fa 100%);
+  box-shadow: 0 16rpx 30rpx rgba(37, 99, 235, 0.18);
+}
+
+.workspace-secondary-tabs > .tab:active {
+  transform: translateY(1rpx) scale(0.985);
+}
+
+.workspace-primary-tabs > button.feature-tab,
+.workspace-secondary-tabs > button.tab {
+  margin: 0;
+}
+
+.workspace-primary-tabs > button.feature-tab::after,
+.workspace-secondary-tabs > button.tab::after {
+  border: 0;
+}
+
+@media (min-width: 900px) {
+  .tabs-card.workspace-primary-tabs.workspace-tabs {
+    position: sticky;
+  }
+
+  .tabs.workspace-secondary-tabs {
+    position: static;
+    z-index: 24;
+    max-height: none;
+    overflow: visible;
+    padding: var(--ui-tab-shell-padding);
+    margin-bottom: 14px;
+    border-radius: var(--ui-tab-shell-radius);
+  }
+
+  .workspace-secondary-tabs > .tab {
+    min-height: var(--ui-tab-min-height);
+    justify-content: center;
+    padding: var(--ui-tab-padding-y) var(--ui-tab-padding-x);
+  }
+}

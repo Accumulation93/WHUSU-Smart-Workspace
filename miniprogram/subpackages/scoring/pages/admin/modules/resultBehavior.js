@@ -1,11 +1,11 @@
-const localeCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/resultBehavior');
-const adminCopy = require('../../../package-resources/locales/zh-CN/generated/subpackages/scoring/pages/admin/admin');
-const { format: localeFormat } = require('../../../package-resources/locales/runtime');
+const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/resultBehavior');
+const adminCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/admin');
+const { format: localeFormat } = require('../../../../../locales/runtime');
 // Behavior: result tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
-const utils = require('../../../package-resources/subpackages/scoring/pages/admin/modules/adminUtils');
+const utils = require('./adminUtils');
 const { emptyResultFilters, toNumber, clampNumber, formatScoreFixed3, buildProgressFillStyle, buildResultFilterOptions, getErrorText } = utils;
-const { saveAndShareFile } = require('../../../package-resources/utils/tableFile');
+const { saveAndShareFile } = require('../../../../../utils/tableFile');
 const orgSession = require('../../../../../utils/orgSession');
 const { formatAuditTime, formatAuditDetailTime } = require('../../../../../utils/api');
 

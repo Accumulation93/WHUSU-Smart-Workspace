@@ -1,7 +1,9 @@
 const copy = require('../../../../locales/zh-CN/identityCard');
+const authorizationCopy = require('../../../../locales/zh-CN/authorization');
 const common = require('../../../../locales/zh-CN/common');
 const heroCopy = require('../../../../locales/zh-CN/generated/components/workspace-hero/workspace-hero');
 const { callFunction, createResultError, createLocalError, getErrorText } = require('../../../../utils/api');
+const { readCurrentAuthorizationAccess } = require('../../../../utils/authorizationAccess');
 const orgSession = require('../../../../utils/orgSession');
 const eventBus = require('../../../../utils/eventBus');
 const { outputFile } = require('../../package-resources/utils/fileIO');
@@ -19,7 +21,8 @@ function presentCard(value) {
   });
 }
 Page({
-  data: { copy, common, navigationTitle: copy.navigationTitle, navTopPx: 0, publicView: false, card: null, valid: false, loading: false, qrLoading: false, image: '', verificationImage: '', miniProgramImage: '', codeMode: 'verification', notice: '' },
+  data: { copy, common, saveLabel: authorizationCopy.save, policyDeniedLabel: authorizationCopy.forbidden, navigationTitle: copy.navigationTitle, navTopPx: 0, publicView: false, card: null, valid: false, loading: false, qrLoading: false, image: '', verificationImage: '', miniProgramImage: '', codeMode: 'verification', notice: '',
+    policyAllowed: false, policy: null, canUpdatePolicy: false, policyLoading: false, policySaving: false, policyDirty: false, policyNotice: '' },
   onLoad(options) {
     this._envVersion = 'release';
     try { this._envVersion = wx.getAccountInfoSync().miniProgram.envVersion || 'release'; } catch (_) {}
@@ -30,7 +33,7 @@ Page({
     let token = String(options.scene || options.token || '');
     try { token = decodeURIComponent(token); } catch (_) { token = 'invalid'; }
     this._token = token;
-    this.setData({ publicView: Boolean(token), timeLabel: token ? copy.checkedAt : copy.currentTime, navTopPx: getNavigationBarMetrics().totalHeight });
+    this.setData({ publicView: Boolean(token), managementOnly: !token && options.area === 'management', timeLabel: token ? copy.checkedAt : copy.currentTime, navTopPx: getNavigationBarMetrics().totalHeight });
   },
   onShow() { orgSession.consume(this); this._visible = true; this._retainedImagePath = ''; this.load(); },
   onHide() { this._visible = false; this.clear(); },
@@ -48,6 +51,54 @@ Page({
     (this._imagePaths || []).filter(filePath => filePath !== this._retainedImagePath).forEach(filePath => wx.getFileSystemManager().unlink({ filePath, fail: function() {} }));
     this._imagePaths = (this._imagePaths || []).filter(filePath => filePath === this._retainedImagePath);
     this.setData({ card: null, image: '', verificationImage: '', miniProgramImage: '', codeMode: 'verification', notice: '', valid: false, loading: false, qrLoading: false, currentTimeText: '', checkedAtText: '', heroTone: orgSession.getSnapshot().role === 'admin' ? 'admin' : 'blue' });
+    this._savedPolicy = null;
+    this.setData({ policyAllowed: false, policy: null, canUpdatePolicy: false, policyLoading: false, policySaving: false, policyDirty: false, policyNotice: '' });
+  },
+  applyPolicy(result) {
+    this._savedPolicy = result.policy;
+    this.setData({ policy: result.policy, canUpdatePolicy: result.canUpdate === true, policyDirty: false });
+  },
+  async loadPolicy() {
+    if (this.data.policySaving || this._token) return;
+    const request = orgSession.beginRequest(this, 'identityCardPolicy');
+    const current = () => orgSession.isRequestCurrent(this, request);
+    this.setData({ policyLoading: true, policyNotice: '' });
+    try {
+      const access = await readCurrentAuthorizationAccess();
+      if (!current()) return;
+      const allowed = !!access && access.grantedCapabilities.includes('identity.cardPolicy.read');
+      this.setData({ policyAllowed: allowed });
+      if (!allowed) return;
+      const result = await callFunction({ name: 'getIdentityCardPolicy', data: {} });
+      if (!current()) return;
+      if (result.status !== 'success') throw createResultError(result, copy.management.loadFailed);
+      this.applyPolicy(result);
+    } catch (_) {
+      if (current() && this.data.policyAllowed) this.setData({ policy: null, canUpdatePolicy: false, policyNotice: copy.management.loadFailed });
+    } finally { if (current()) this.setData({ policyLoading: false }); }
+  },
+  changePolicy(event) {
+    const key = event.currentTarget.dataset.key;
+    if (!this.data.canUpdatePolicy || this.data.policySaving || !['issueEnabled', 'publicVerificationEnabled'].includes(key)) return;
+    const policy = Object.assign({}, this.data.policy, { [key]: event.detail.value === true });
+    this.setData({ policy, policyDirty: policy.issueEnabled !== this._savedPolicy.issueEnabled
+      || policy.publicVerificationEnabled !== this._savedPolicy.publicVerificationEnabled, policyNotice: '' });
+  },
+  async savePolicy() {
+    if (!this.data.canUpdatePolicy || !this.data.policyDirty || this.data.policySaving) return;
+    const request = orgSession.beginRequest(this, 'identityCardPolicy');
+    const current = () => orgSession.isRequestCurrent(this, request);
+    const { version, issueEnabled, publicVerificationEnabled } = this.data.policy;
+    this.setData({ policySaving: true, policyNotice: '' });
+    try {
+      const result = await callFunction({ name: 'saveIdentityCardPolicy', data: { expectedVersion: version, issueEnabled, publicVerificationEnabled } });
+      if (!current()) return;
+      if (result.status !== 'success') throw createResultError(result, authorizationCopy.operationFailed);
+      this.applyPolicy(result);
+      this.setData({ policyNotice: copy.management.saved });
+    } catch (error) {
+      if (current()) this.setData({ policy: null, canUpdatePolicy: false, policyNotice: getErrorText(error, authorizationCopy.operationFailed) });
+    } finally { if (current()) this.setData({ policySaving: false }); }
   },
   switchCode(e) {
     const codeMode = e.currentTarget.dataset.mode;
@@ -66,6 +117,8 @@ Page({
       this.setData({ notice: copy.login });
       return;
     }
+    if (this.data.managementOnly) return this.loadPolicy();
+    if (!this._token) this.loadPolicy();
     const request = orgSession.beginRequest(this, 'identityCard');
     const current = () => orgSession.isRequestCurrent(this, request);
     this.setData({ loading: true });
@@ -81,6 +134,10 @@ Page({
         }, 1000);
       }
       if (this._token || !result.valid) return;
+      if (result.codeDisabledByPolicy === true) {
+        this.setData({ notice: copy.codeDisabledByPolicy });
+        return;
+      }
       this.setData({ qrLoading: true });
       const generated = await callFunction({ name: 'createMyIdentityCardCode', data: { envVersion: this._envVersion } });
       if (!current()) return;

@@ -14,7 +14,8 @@ const pages = (appConfig.pages || []).concat(...(appConfig.subPackages || []).ma
 const lifecycleExempt = new Set([
   'subpackages/main/pages/login/login',
   'subpackages/org/pages/switch/switch',
-  'subpackages/venue/pages/venueBookings/venueBookings'
+  'subpackages/venue/pages/venueBookings/venueBookings',
+  'subpackages/scoring/pages/admin/admin'
 ]);
 const rawNetworkExempt = new Set([
   // 鸿蒙旧版运行时的微信登录必须使用最小原生回调链，避免通用请求层的
@@ -23,7 +24,7 @@ const rawNetworkExempt = new Set([
 ]);
 const issues = [];
 const behaviorLifecycle = new Map([
-  ['subpackages/scoring/pages/admin/admin', { binding: 'adminWorkbenchBehavior', source: 'subpackages/scoring/package-resources/subpackages/scoring/pages/admin/adminWorkbenchBehavior', prefix: 'workbench' }],
+  ['subpackages/workspace/pages/admin/admin', { binding: 'adminWorkbenchBehavior', source: 'subpackages/workspace/package-resources/subpackages/scoring/pages/admin/adminWorkbenchBehavior', prefix: 'workbench' }],
   ['subpackages/venue/pages/venueManage/venueManage', { binding: 'venueManagementBehavior', source: 'subpackages/venue/pages/venueManage/venueManagementBehavior', prefix: 'management' }]
 ]);
 const delegatedLifecycle = new Map([

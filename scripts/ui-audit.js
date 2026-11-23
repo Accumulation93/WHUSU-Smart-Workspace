@@ -648,7 +648,7 @@ function scanAdminOrgContextContracts() {
   const pages = [
     {
       name: '评分管理',
-      wxml: path.join(MINI_ROOT, 'subpackages', 'scoring', 'pages', 'admin', 'admin.wxml'),
+      wxml: path.join(MINI_ROOT, 'subpackages', 'workspace', 'pages', 'admin', 'admin.wxml'),
       script: path.join(MINI_ROOT, 'subpackages', 'scoring', 'pages', 'admin', 'adminWorkbenchBehavior.js')
     },
     {
@@ -712,6 +712,7 @@ function scanWorkspaceShellContracts() {
     'subpackages/main/pages/login/login',
     'subpackages/org/pages/switch/switch',
     'subpackages/venue/pages/venueBookings/venueBookings',
+    'subpackages/scoring/pages/admin/admin',
     // 用户要求签署页以文件为主体，限定这一专业页面不显示身份 Hero。
     'subpackages/audit/pages/signing/signing'
   ]);
@@ -1454,7 +1455,7 @@ const personnelPickerMarkup = fs.readFileSync(`${personnelPickerBase}.wxml`, 'ut
 const personnelPickerStyle = fs.readFileSync(`${personnelPickerBase}.wxss`, 'utf8');
 const personnelPickerPages = [
   'subpackages/audit/pages/submissionDetail/submissionDetail',
-  'subpackages/scoring/pages/admin/admin',
+  'subpackages/workspace/pages/admin/admin',
   'subpackages/workspace/pages/home/home',
   'subpackages/venue/pages/venueBooking/venueBooking',
   'subpackages/venue/components/pendingApprovals/pendingApprovals'
@@ -1669,6 +1670,7 @@ const missingTypographySystem = typeScale.some(([name, compactPhone, phone, pad,
   /page \.list-title,[\s\S]*?font-size:\s*var\(--ui-type-value\)\s*!important/.test(GLOBAL_STYLE) &&
   /page \.list-desc,[\s\S]*?font-size:\s*var\(--ui-type-meta\)\s*!important/.test(GLOBAL_STYLE)
 );
+const workspaceTabStyle = fs.readFileSync(path.join(MINI_ROOT, 'styles', 'workspace-tabs.wxss'), 'utf8');
 const missingTabSizeSystem = !(
   /--ui-tab-font-size:\s*var\(--ui-type-control\)/.test(GLOBAL_STYLE) &&
   /--ui-tab-min-height:\s*76rpx/.test(GLOBAL_STYLE) &&
@@ -1676,8 +1678,9 @@ const missingTabSizeSystem = !(
   /--ui-tab-min-height:\s*50px/.test(GLOBAL_STYLE) &&
   /--ui-tab-sidebar-min-height:\s*40px/.test(GLOBAL_STYLE) &&
   /\.message-tab\s*\{[\s\S]*?min-height:\s*var\(--ui-tab-min-height/.test(GLOBAL_STYLE) &&
-  /\.tabs\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*nowrap;/s.test(adminStyle) &&
-  /\.tab\s*\{[^}]*flex:\s*1 1 0;[^}]*min-width:\s*0;[^}]*white-space:\s*nowrap;/s.test(adminStyle)
+  /@import\s+['"]\.\/styles\/workspace-tabs\.wxss['"]/.test(GLOBAL_STYLE) &&
+  /\.tabs\.workspace-secondary-tabs\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*nowrap;/s.test(workspaceTabStyle) &&
+  /\.workspace-secondary-tabs\s*>\s*\.tab\s*\{[^}]*flex:\s*1 1 0;[^}]*min-width:\s*0;[^}]*white-space:\s*nowrap;/s.test(workspaceTabStyle)
 );
 const homeStyle = fs.readFileSync(path.join(MINI_ROOT, 'subpackages', 'main', 'styles', 'home.wxss'), 'utf8');
 if (!/\.selection-option-card\.selection-option-card-selected\s*\{[^}]*border-color:\s*#3b82f6[^}]*background:\s*linear-gradient/s.test(homeStyle)) {
@@ -1699,7 +1702,7 @@ if (!/\.card-actions\s*\{[^}]*justify-content:\s*flex-end[^}]*border-top:/s.test
 }
 if (/\.audit-template-actions\s*\{[^}]*position:\s*absolute/s.test(adminStyle)) {
   controlSurfaceIssues.push({
-    file: 'miniprogram/subpackages/scoring/pages/admin/admin.wxss',
+    file: 'miniprogram/subpackages/scoring/pages/admin/adminWorkbenchStyles.wxss',
     message: '审核模板编辑/删除操作禁止绝对定位到展开按钮同一行'
   });
 }

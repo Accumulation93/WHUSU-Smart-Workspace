@@ -57,10 +57,15 @@ function personnelOptions(directory, role) {
 
 function capabilityLabel(key, catalog, copy) {
   const definition = catalog.find(item => item.key === key);
+  if (copy.capabilityDisplayNames && Object.prototype.hasOwnProperty.call(copy.capabilityDisplayNames, key)) return copy.capabilityDisplayNames[key];
   if (copy.capabilityNames && Object.prototype.hasOwnProperty.call(copy.capabilityNames, key)) return copy.capabilityNames[key];
   if (!definition || !copy.resources[definition.resourceType] || !copy.actions[definition.action]) return copy.unknownCapability;
   if (definition.classification && copy.unified) return copy.unified.capabilityLabel(copy.resources[definition.resourceType], copy.actions[definition.action]);
   return copy.capabilityLabel(copy.resources[definition.resourceType], copy.actions[definition.action]);
+}
+
+function permissionSearchText(value) {
+  return String(value || '').trim().toLowerCase().replace(/\s*·\s*/g, '');
 }
 
 function dimensionLines(dimensions, indexes, copy) {
@@ -111,12 +116,12 @@ function policySections(policy, directory, catalog, copy) {
 }
 
 function ruleCards(rules, directory, catalog, copy, query = '') {
-  const needle = query.trim().toLowerCase();
+  const needle = permissionSearchText(query);
   return rules.map(rule => ({ ...rule, ...policySections(rule.policy, directory, catalog, copy) })).filter(rule => {
     if (!needle) return true;
     const words = [rule.name].concat(rule.capabilityLabels);
     for (const subject of rule.subjects) for (const line of subject.lines) words.push(line.value);
-    return words.join(' ').toLowerCase().includes(needle);
+    return permissionSearchText(words.join(' ')).includes(needle);
   });
 }
 
@@ -141,11 +146,11 @@ function recipientCards(rules, schemes, directory, catalog, copy, query = '') {
           ? copy.sharedGrantNotice : '', scopeText: rule.scopes.map(scope => [scope.label].concat(scope.lines.map(line => line.label + '：' + line.value)).join(' · ')).join('；') });
     }
   }
-  const needle = query.trim().toLowerCase();
+  const needle = permissionSearchText(query);
   return Array.from(groups.values()).map(item => {
-    const roleMatches = !needle || [item.name, item.assignmentLabel].join(' ').toLowerCase().includes(needle);
+    const roleMatches = !needle || permissionSearchText([item.name, item.assignmentLabel].join(' ')).includes(needle);
     const grants = roleMatches ? item.grants : item.grants.filter(grant =>
-      [grant.name, grant.identityName].concat(grant.capabilityLabels).join(' ').toLowerCase().includes(needle));
+      permissionSearchText([grant.name, grant.identityName].concat(grant.capabilityLabels).join(' ')).includes(needle));
     return { ...item, grants, countText: copy.roleGrantCount(grants.length) };
   }).filter(item => item.grants.length);
 }
@@ -160,11 +165,11 @@ function permissionStatus(item, copy) {
 
 function inspectionGroups(capabilities, catalog, copy, range = 'granted', query = '') {
   const groups = new Map();
-  const needle = query.trim().toLowerCase();
+  const needle = permissionSearchText(query);
   for (const item of capabilities || []) {
     if (item.systemControlled || (range !== 'all' && item.grantState !== 'granted')) continue;
     const label = capabilityLabel(item.capability, catalog, copy);
-    if (needle && !label.toLowerCase().includes(needle)) continue;
+    if (needle && !permissionSearchText(label).includes(needle)) continue;
     const key = item.capability.split('.')[0];
     if (!groups.has(key)) groups.set(key, { key, label: copy.businessGroups[key] || copy.unknownCapability, items: [] });
     const definition = catalog.find(entry => entry.key === item.capability);
@@ -177,7 +182,7 @@ function inspectionGroups(capabilities, catalog, copy, range = 'granted', query 
   return Array.from(groups.values()).map(group => ({ ...group, countText: copy.effectiveCount(group.items.length) }));
 }
 
-const sharedModule = Object.freeze({ makeIndexes, assignmentLabel, personnelOptions, capabilityLabel, dimensionLines, policySections, ruleCards, recipientCards, permissionStatus, inspectionGroups });
+const sharedModule = Object.freeze({ makeIndexes, assignmentLabel, personnelOptions, capabilityLabel, permissionSearchText, dimensionLines, policySections, ruleCards, recipientCards, permissionStatus, inspectionGroups });
 
-export { makeIndexes, assignmentLabel, personnelOptions, capabilityLabel, dimensionLines, policySections, ruleCards, recipientCards, permissionStatus, inspectionGroups };
+export { makeIndexes, assignmentLabel, personnelOptions, capabilityLabel, permissionSearchText, dimensionLines, policySections, ruleCards, recipientCards, permissionStatus, inspectionGroups };
 export default sharedModule;

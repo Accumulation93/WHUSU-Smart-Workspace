@@ -9,6 +9,7 @@
       "name": "workspace",
       "pages": [
         "pages/home/home",
+        "pages/admin/admin",
         "pages/calendar/calendar",
         "pages/calendarEdit/calendarEdit",
         "pages/calendarDetail/calendarDetail",

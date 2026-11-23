@@ -136,7 +136,8 @@ function rewrite(source, from, output, pkg, state) {
   if (from.endsWith('.wxml') || from.endsWith('.wxss')) {
     const refs = from.endsWith('.wxml') ? templateReferences(source) : styleReferences(source);
     for (const ref of refs.reverse()) {
-      const target = targetFor(state.resolve(from, ref.value), pkg, state.mapping);
+      const file = state.resolve(from, ref.value);
+      const target = pkg ? targetFor(file, pkg, state.mapping) : file;
       let relative = path.posix.relative(path.posix.dirname(output), target);
       if (!relative.startsWith('.')) relative = './' + relative;
       source = source.slice(0, ref.start) + relative + source.slice(ref.end);
@@ -144,7 +145,7 @@ function rewrite(source, from, output, pkg, state) {
   } else if (from.endsWith('.js')) {
     const replacements = requires(source).filter(ref => ref.value.startsWith('.') || ref.value.startsWith('/')).map(ref => {
       const file = state.resolve(from, ref.value);
-      const target = targetFor(file, pkg, state.mapping);
+      const target = pkg ? targetFor(file, pkg, state.mapping) : file;
       let relative = path.posix.relative(path.posix.dirname(output), target);
       if (!relative.startsWith('.')) relative = './' + relative;
       if (!path.posix.extname(ref.value)) relative = relative.replace(/\.js$/, '');
@@ -157,7 +158,7 @@ function rewrite(source, from, output, pkg, state) {
     for (const [name, request] of Object.entries(json.usingComponents || {})) {
       if (request.startsWith('plugin://')) continue;
       const file = state.resolve(from, request);
-      const target = targetFor(file, pkg, state.mapping).replace(/\.(?:js|json)$/, '');
+      const target = (pkg ? targetFor(file, pkg, state.mapping) : file).replace(/\.(?:js|json)$/, '');
       const replacement = '/' + target;
       if (request !== replacement) { json.usingComponents[name] = replacement; changed = true; }
     }
@@ -191,7 +192,10 @@ function sync(root = ROOT, write = false) {
       || file.includes('/tests/') || file.endsWith('.test.js')) continue;
     const full = path.join(state.mini, file);
     const source = fs.readFileSync(full, 'utf8').replace(/\r\n/g, '\n');
-    const content = rewrite(source, file, file, state.owner(file), state);
+    const owner = state.owner(file);
+    const consumers = state.mapping.get(file);
+    // 排除上传的工作台母版可以继续引用各自的真实源文件。
+    const content = rewrite(source, file, file, consumers && !consumers.includes(owner) ? null : owner, state);
     if (source !== content) {
       if (!write) throw new Error('入口仍引用主包专用源：' + file);
       fs.writeFileSync(full, content);

@@ -1,6 +1,5 @@
 <template>
-  <div class="section-control-card">
-  <div class="tabs">
+  <div class="tabs" :class="secondary ? 'workspace-secondary-tabs' : 'workspace-primary-tabs'">
     <button
       v-for="entry in entries"
       :key="entry.key"
@@ -12,7 +11,6 @@
       {{ entry.label }}
     </button>
   </div>
-  </div>
 </template>
 
 <script setup>
@@ -22,7 +20,8 @@ import copy from '@/locales/zh-CN/index.js';
 import venueCopy from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
 
 const props = defineProps({
-  active: { type: String, default: '' }
+  active: { type: String, default: '' },
+  secondary: Boolean
 });
 
 const router = useRouter();

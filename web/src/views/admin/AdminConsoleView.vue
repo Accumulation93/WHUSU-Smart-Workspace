@@ -14,7 +14,7 @@
       <AppLoading v-if="permissionLoading" /><span v-else class="notice-line">{{ permissionNotice || copy.errors.permissionDenied }}</span>
       <button v-if="permissionNotice" type="button" class="btn-quiet" @click="loadPermissions">{{ personnel.dictionaryRetry }}</button>
     </section>
-    <div v-if="tabs.length" class="tabs admin-tabs" role="tablist" :aria-label="module.label">
+    <div v-if="tabs.length" class="tabs admin-tabs workspace-secondary-tabs" role="tablist" :aria-label="module.label">
       <button
         v-for="tab in tabs"
         :key="tab.key"
@@ -30,7 +30,7 @@
       </button>
     </div>
 
-    <div v-if="activeTab === 'hrInfo'" class="tabs"><button v-if="canMembers || canMigration" class="tab" :class="{ 'tab-active': hrMode === 'profiles' }" :disabled="actionBusy" @click="hrMode = 'profiles'">{{ copy.admin.tabHr }}</button><button v-if="canDirectory" class="tab" :class="{ 'tab-active': hrMode === 'directory' }" :disabled="actionBusy" @click="hrMode = 'directory'">{{ directoryCopy.title }}</button><button v-if="canReadAuthPolicy" class="tab" :class="{ 'tab-active': hrMode === 'policy' }" :disabled="actionBusy" @click="hrMode='policy'">{{ accountCopy.copy_aef40f4a64 }}</button></div>
+    <div v-if="activeTab === 'hrInfo'" class="tabs workspace-secondary-tabs"><button v-if="canMembers || canMigration" class="tab" :class="{ 'tab-active': hrMode === 'profiles' }" :disabled="actionBusy" @click="hrMode = 'profiles'">{{ copy.admin.tabHr }}</button><button v-if="canDirectory" class="tab" :class="{ 'tab-active': hrMode === 'directory' }" :disabled="actionBusy" @click="hrMode = 'directory'">{{ directoryCopy.title }}</button><button v-if="canReadAuthPolicy" class="tab" :class="{ 'tab-active': hrMode === 'policy' }" :disabled="actionBusy" @click="hrMode='policy'">{{ accountCopy.copy_aef40f4a64 }}</button></div>
     <ContactDirectoryAdmin v-if="activeTab === 'hrInfo' && hrMode === 'directory' && canDirectory" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
     <AdminActivityPanel v-if="activeTab === 'activities'" :state="activityState" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
     <AdminTemplatePanel v-else-if="activeTab === 'templates'" :state="templateState" :disabled="permissionLoading || !!permissionNotice" @busy="actionBusy = $event" />
@@ -323,5 +323,4 @@ onBeforeRouteUpdate(() => session.status !== 'authenticated' || !actionBusy.valu
 </script>
 
 <style scoped>
-.admin-tabs .tab { min-width: 0; width: 0; padding-inline: var(--ui-admin-tab-padding-x); font-size: var(--ui-admin-tab-font-size); white-space: nowrap; }
 </style>

@@ -54,6 +54,38 @@ async function run() {
     await requestWork.memo('org-b', load); assert.strictEqual(reads, 4);
   });
 
+  const authorizationSource = fs.readFileSync(path.resolve(__dirname, '../src/modules/audit/models/todoAuthorization.js'), 'utf8');
+  let authorizationReads = 0;
+  const authorizationModule = { exports: {} };
+  vm.runInNewContext(authorizationSource, { module: authorizationModule,
+    require(name) {
+      if (name === '../../../config/db') return { withTransaction: run => run({}) };
+      if (name === '../../../core/models/authorization') return {
+        read: async () => { authorizationReads++; return { mode: 'shadow' }; }
+      };
+      return name === '../../../utils/requestWork' ? requestWork : {};
+    }
+  });
+  const { prepareRelated } = authorizationModule.exports;
+  const reference = { accountId: 'account', sessionId: 'session' };
+  const readRole = () => prepareRelated('org-a', 'assignment-a', reference);
+  await requestWork.run(async () => {
+    requestWork.getState().readOnly = true;
+    const [audit, venue, scoring] = await Promise.all([readRole(), readRole(), readRole()]);
+    assert.strictEqual(authorizationReads, 1);
+    assert.strictEqual(audit, venue);
+    assert.strictEqual(audit, scoring);
+    await prepareRelated('org-b', 'assignment-a', reference);
+    await prepareRelated('org-a', 'assignment-b', reference);
+    await prepareRelated('org-a', 'assignment-a', { ...reference, sessionId: 'different' });
+    assert.strictEqual(authorizationReads, 4);
+  });
+  await requestWork.run(async () => {
+    await readRole();
+    await readRole();
+    assert.strictEqual(authorizationReads, 6);
+  });
+
   const patterns = [['daily', []], ['weekly', [1, 1, 5, 7]], ['monthly', [1, 28, 29, 30, 31]],
     ['yearly', [{ m: 2, d: 29 }, { m: 12, dStart: 29, dEnd: 31 }, { m: 12, d: 30 }]]];
   for (const [type, values] of patterns) {

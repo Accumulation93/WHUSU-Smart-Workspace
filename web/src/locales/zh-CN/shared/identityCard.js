@@ -15,9 +15,19 @@ const sharedModule = Object.freeze({
   organization: '组织', department: '部门', identityCategory: '身份类别', functionGroup: '职能组',
   position: '当前岗位', state: '身份状态',
   failure: '身份卡暂时无法读取，请重试', qrFailure: '核验码暂时无法生成，请重试',
+  codeDisabledByPolicy: '当前组织暂不提供身份卡核验码。',
   noIdentity: '当前身份无法生成身份卡，请切换有效工作角色。',
   login: '登录后查看我的身份卡',
-  currentTime: '当前时间', checkedAt: '核验时间', open: '查看身份卡'
+  currentTime: '当前时间', checkedAt: '核验时间', open: '查看身份卡',
+  management: {
+    title: '身份卡管理',
+    issue: '允许生成身份卡',
+    publicVerification: '允许公开核验',
+    publicVerificationHelp: '关闭期间，本组织已生成的核验码也无法核验。',
+    readOnly: '你可以查看身份卡设置。修改设置需要另行授权。',
+    loadFailed: '暂时无法读取身份卡设置。请重试。',
+    saved: '身份卡设置已保存'
+  }
 });
 
 export default sharedModule;

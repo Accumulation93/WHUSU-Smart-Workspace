@@ -412,7 +412,6 @@ async function getAuthorizedAuditFile(fileId, req) {
   if (!file) return { status: 'not_found', message: localeCopy.copy_03d69a9d28 };
 
   const reference = req.unifiedAuthorization?.reference;
-  let allowLegacyVerification = true;
   if (reference) {
     try {
       const decision = await require('../models/auditManagementAuthorization').readDecision(
@@ -422,7 +421,6 @@ async function getAuthorizedAuditFile(fileId, req) {
       const verification = await require('../models/auditManagementAuthorization').readDecision(
         orgId, reference, 'audit.verification', 'verify', orgId);
       if (verification.allowed) return { status: 'success', file };
-      allowLegacyVerification = verification.reason === 'not_granted';
     } catch (error) {
       if (error.code === 'authorization_forbidden') return { status: 'forbidden', message: localeCopy.copy_f1cdbd7be3 };
       throw error;
@@ -467,7 +465,7 @@ async function getAuthorizedAuditFile(fileId, req) {
   );
   if (eventRows.length) return { status: 'success', file };
 
-  if (allowLegacyVerification && await verificationPermModel.checkPermission(hrId)) return { status: 'success', file };
+  if (!reference && await verificationPermModel.checkPermission(hrId)) return { status: 'success', file };
   return { status: 'forbidden', message: localeCopy.copy_f1cdbd7be3 };
 }
 

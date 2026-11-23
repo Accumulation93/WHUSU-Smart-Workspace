@@ -2,7 +2,7 @@
   <div class="page stack authorization-page authorization-workspace">
     <WorkspaceHero :tone="session.activeRole === 'admin' ? 'admin' : 'blue'" :page-name="ui.title" :person-name="personName" :identity-name="roleName"
       :organization-name="organizationName" @switch="router.push({ name: 'workRole' })" />
-    <nav class="tabs" :aria-label="ui.title">
+    <nav class="tabs workspace-primary-tabs" :aria-label="ui.title">
       <button v-for="item in tabs" :key="item" type="button" class="tab" :class="{ 'tab-active': tab === item }"
         :aria-current="tab === item ? 'page' : undefined" @click="selectTab(item)">{{ tabLabel(item) }}</button>
     </nav>
@@ -30,14 +30,14 @@
         </div>
       </section>
       <template v-if="tab === 'rules'">
-        <section class="card stack">
+        <section v-if="!state.roleBindingOnly || state.canManageDelegations" class="card stack">
           <details>
-            <summary>{{ ui.advancedManagement }}</summary>
+            <summary>{{ state.roleBindingOnly ? ui.delegations : ui.advancedManagement }}</summary>
             <div class="stack">
-              <p class="muted">{{ state.canManageDelegations ? ui.advancedManagementHelp : ui.advancedRulesHelp }}</p>
-              <button type="button" class="btn btn-secondary" @click="edit('rule', undefined, false, true)">{{ ui.createCustomRule }}</button>
+              <p v-if="!state.roleBindingOnly" class="muted">{{ state.canManageDelegations ? ui.advancedManagementHelp : ui.advancedRulesHelp }}</p>
+              <button v-if="!state.roleBindingOnly" type="button" class="btn btn-secondary" @click="edit('rule', undefined, false, true)">{{ ui.createCustomRule }}</button>
               <template v-if="state.canManageDelegations">
-                <h2 class="section-title">{{ ui.delegations }}</h2>
+                <h2 v-if="!state.roleBindingOnly" class="section-title">{{ ui.delegations }}</h2>
                 <p class="muted">{{ ui.delegationNotice }}</p>
                 <button type="button" class="btn btn-secondary" @click="edit('delegation')">{{ ui.createDelegation }}</button>
                 <div v-for="item in state.delegations" :key="item.id" class="glass-panel stack-tight">
@@ -116,8 +116,9 @@
         <p class="muted">{{ ui.schemeLifecycleHelp }}</p>
         <p v-if="!schemes.length" class="empty-state">{{ ui.noSchemes }}</p>
         <details v-for="scheme in schemes" :key="scheme.id" :open="!!opened['scheme:' + scheme.id]" class="card authorization-scheme" @toggle.stop="trackOpen($event, 'scheme:' + scheme.id)">
-          <summary><strong class="section-title">{{ scheme.name }}</strong><span class="chip chip-blue">{{ scheme.publishedVersion ? ui.schemeVersion(scheme.publishedVersion) : ui.draft }}</span><span class="muted">{{ ui.effectiveCount((scheme.publishedVersion ? scheme.publishedCapabilities : scheme.capabilities).length) }}</span><UiIcon class="disclosure-chevron" name="chevron-right" size-role="row-leading" /></summary>
+          <summary><strong class="section-title">{{ scheme.name }}</strong><span class="chip chip-blue">{{ scheme.compatibilityOnly ? ui.unified.temporaryRoleLabel : scheme.publishedVersion ? ui.schemeVersion(scheme.publishedVersion) : ui.draft }}</span><span class="muted">{{ ui.effectiveCount((scheme.publishedVersion ? scheme.publishedCapabilities : scheme.capabilities).length) }}</span><UiIcon class="disclosure-chevron" name="chevron-right" size-role="row-leading" /></summary>
           <template v-if="opened['scheme:' + scheme.id]">
+          <p v-if="scheme.compatibilityOnly" class="muted">{{ ui.unified.temporaryRoleHelp }}</p>
           <p v-if="scheme.draftRestrictedCapabilities?.length" class="notice-line">{{ ui.unified.schemeBlockedStatus }}</p>
           <details v-for="version in schemeVersions(scheme)" :key="version.key" :open="!!opened[version.key]" class="glass-panel" @toggle.stop="trackOpen($event, version.key)">
             <summary>{{ version.title }}</summary>
@@ -154,7 +155,7 @@
         <p v-if="inspectionNotice" class="notice-line" role="alert">{{ inspectionNotice }}</p>
         <template v-if="effective">
           <p class="muted">{{ inspectionLabel }}</p>
-          <div class="tabs"><button type="button" class="tab" :class="{ 'tab-active': effectiveRange === 'granted' }" @click="effectiveRange = 'granted'">{{ ui.effectiveAssigned }}</button><button type="button" class="tab" :class="{ 'tab-active': effectiveRange === 'all' }" @click="effectiveRange = 'all'">{{ ui.effectiveAll }}</button></div>
+          <div class="tabs workspace-secondary-tabs"><button type="button" class="tab" :class="{ 'tab-active': effectiveRange === 'granted' }" @click="effectiveRange = 'granted'">{{ ui.effectiveAssigned }}</button><button type="button" class="tab" :class="{ 'tab-active': effectiveRange === 'all' }" @click="effectiveRange = 'all'">{{ ui.effectiveAll }}</button></div>
           <p class="muted">{{ effectiveRange === 'all' ? ui.effectiveAllHelp : ui.effectiveAssignedHelp }}</p>
           <p class="muted">{{ ui.effectiveHelp }}</p>
           <label class="search-bar"><UiIcon name="search" tone="muted" size-role="row-leading" /><input v-model="effectiveQuery" class="search-input" :placeholder="ui.searchEffective" :aria-label="ui.searchEffective" /></label>
@@ -199,7 +200,7 @@ const tabs = computed(() => state.value.canManage === false ? ['effective']
   : state.value.unifiedIdentity ? ['schemes', 'rules', 'effective'] : ['rules', 'schemes', 'effective']);
 const tab = ref(useRoute().query.tab === 'schemes' ? 'schemes' : 'rules');
 const state = ref({ rules: [], schemes: [], catalog: [] });
-const hasPublishedRole = computed(() => state.value.schemes.some(item => item.publishedVersion));
+const hasPublishedRole = computed(() => state.value.schemes.some(item => item.publishedVersion && !item.compatibilityOnly));
 const basicBusy = ref(false);
 const canCopy = ref(false);
 const directory = ref({ assignments: [], adminGrants: [] });
@@ -362,7 +363,6 @@ document.addEventListener('visibilitychange', visibilityChanged);
 onBeforeUnmount(() => { disposed = true; clear(); document.removeEventListener('visibilitychange', visibilityChanged); });
 </script>
 <style scoped>
-.authorization-page { max-width: var(--ui-permission-page-width); }
 .effective-summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--ui-inline-gap); }
 .button-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-inline-gap); }
 details > summary { cursor: pointer; }

@@ -7,14 +7,14 @@
       <p v-if="!item.rules.length" class="muted">{{ ui.copy_b856d92ba6 }}</p>
       <div v-for="(rule, ruleIndex) in item.rules" :key="ruleIndex" class="condition-summary"><strong>{{ ui.copy_96aab98a23 }}</strong><div class="condition-line"><span class="muted">{{ relations.nature }}</span><span class="break-all">{{ natureSummary(rule) }}</span></div><div v-for="field in fields" :key="field.key" class="condition-line"><span class="muted">{{ field.label }}</span><span class="break-all">{{ summary(rule, field) }}</span></div></div>
     </div>
-    <button type="button" class="btn btn-secondary" :disabled="disabled" @click="editStep(-1)">+ {{ ui.copy_7963fb24a5 }}</button>
+    <button type="button" class="btn btn-secondary venue-inline-add" :disabled="disabled" @click="editStep(-1)">+ {{ ui.copy_7963fb24a5 }}</button>
     <div v-if="step && !condition" ref="stepEditor" class="list-row step-card">
       <strong>{{ stepIndex < 0 ? ui.copy_904f6072c4 : ui.copy_16fc906860 }}</strong>
       <label class="field"><span class="field-label">{{ ui.copy_c5dd070c37 }}</span><input v-model="step.name" class="field-input" :placeholder="ui.copy_ac4d7a45e0" :disabled="disabled" /></label>
       <span class="field-label">{{ ui.copy_97d10704ef }}</span>
       <p v-if="!step.rules.length" class="muted">{{ ui.copy_7ae01e1929 }}</p>
       <div v-for="(rule, index) in step.rules" :key="index" class="condition-summary"><strong>{{ ui.copy_7de8083e58 }}</strong><div class="condition-line"><span class="muted">{{ relations.nature }}</span><span class="break-all">{{ natureSummary(rule) }}</span></div><div v-for="field in fields" :key="field.key" class="condition-line"><span class="muted">{{ field.label }}</span><span class="break-all">{{ summary(rule, field) }}</span></div><div class="row row-wrap"><button type="button" class="btn-quiet" :disabled="disabled" @click="editCondition(index)">{{ ui.copy_e040ae3016 }}</button><button type="button" class="btn-quiet btn-quiet-danger" :disabled="disabled" @click="step.rules.splice(index, 1)">{{ ui.copy_acc985cabc }}</button></div></div>
-      <button type="button" class="btn btn-secondary" :disabled="disabled" @click="editCondition(-1)">+ {{ ui.copy_e36c6c6875 }}</button>
+      <button type="button" class="btn btn-secondary venue-inline-add" :disabled="disabled" @click="editCondition(-1)">+ {{ ui.copy_e36c6c6875 }}</button>
       <div class="editor-actions"><button type="button" class="btn btn-secondary" :disabled="disabled" @click="step = null">{{ ui.copy_06dbb49961 }}</button><button type="button" class="btn btn-primary" :disabled="disabled" @click="saveStep">{{ ui.copy_2fda3d6579 }}</button></div>
     </div>
     <div v-if="condition" ref="conditionEditor" class="list-row step-card">
@@ -105,6 +105,7 @@ loadReferences(); onBeforeUnmount(() => { disposed = true; generation++; });
 .condition-summary { display: flex; flex-direction: column; gap: var(--ui-label-gap); border-left: var(--ui-field-border); padding-left: var(--ui-control-padding-x); }
 .condition-line { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--ui-inline-gap); }
 .editor-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-inline-gap); }
+.venue-inline-add { align-self: flex-start; width: auto; max-width: 100%; min-height: var(--ui-compact-height); }
 .scope-picker { flex: 1; min-width: 0; text-align: left; cursor: pointer; white-space: normal; }
 .nature-option { width: 100%; text-align:left; color:var(--ui-text); font:inherit; }
 .nature-option-selected { border-color:var(--ui-blue-700);background:var(--ui-chip-blue-bg); }

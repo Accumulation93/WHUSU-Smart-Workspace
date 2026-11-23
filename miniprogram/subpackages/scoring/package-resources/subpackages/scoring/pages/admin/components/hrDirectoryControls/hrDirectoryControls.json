@@ -1,8 +1,0 @@
-{
-  "component": true,
-  "styleIsolation": "apply-shared",
-  "usingComponents": {
-    "ui-icon": "/components/ui-icon/ui-icon",
-    "list-filter-row": "/subpackages/scoring/package-resources/components/list-filter-row/list-filter-row"
-  }
-}

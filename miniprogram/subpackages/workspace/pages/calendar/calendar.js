@@ -14,13 +14,13 @@ Page({
   onLoad:function(options){
     this._openRuleManagement=options&&options.area==='management';
     this.setData({navTopPx:getNavigationBarMetrics().totalHeight});
-    this._contextChanged=()=>{this.clear();if(this._visible)this.load();};
+    this._contextChanged=()=>{if(orgSession.consume(this).changed){this.clear();if(this._visible)this.load();}};
     eventBus.on('auth:contextChanged',this._contextChanged);eventBus.on('auth:selectionChanged',this._contextChanged);eventBus.on('org:changed',this._contextChanged);
     this.setData({selected:time.formatAbsoluteDate(new Date())});
   },
   onResize:function(){this.setData({navTopPx:getNavigationBarMetrics().totalHeight});},
-  onShow:function(){const contextChange=orgSession.consume(this);if(contextChange.changed)orgSession.invalidateRequests(this);this._visible=true;this.load();},
-  onHide:function(){this._visible=false;this.clear();},
+  onShow:function(){if(orgSession.consume(this).changed)this.clear();this._visible=true;this.load();},
+  onHide:function(){this._visible=false;orgSession.invalidateRequests(this);if(this.data.loading)this.setData({loading:false});},
   onUnload:function(){this._visible=false;this.clear();eventBus.off('auth:contextChanged',this._contextChanged);eventBus.off('auth:selectionChanged',this._contextChanged);eventBus.off('org:changed',this._contextChanged);},
   clear:function(){orgSession.invalidateRequests(this);this._items=[];this.setData({items:[],visibleItems:[],days:[],notice:'',loading:false,metadata:{permissions:{},timezoneOffset:480}});},
   async load(){
@@ -40,7 +40,10 @@ Page({
       if(result.status!=='success')throw createResultError(result,copy.operationFailed);
       this._items=result.items.map(item=>Object.assign({},item,{key:item.id+':'+item.occurrenceDate,timeText:view.timeText(item,config.timezoneOffset,time,timeCopy,messageCopy)}));
       this.setData({loading:false});this.render();
-    }catch(error){if(current())this.setData({loading:false,notice:getErrorText(error,copy.operationFailed)});}
+    }catch(error){if(current()){
+      if(['authorization_forbidden','forbidden'].includes(error.code||error.status))this.clear();
+      this.setData({loading:false,notice:getErrorText(error,copy.operationFailed)});
+    }}
   },
   render:function(){
     const query=this.data.query.trim().toLowerCase();

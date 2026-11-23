@@ -62,6 +62,12 @@ try {
   put('miniprogram/subpackages/workspace/page.js', "require('../scoring/pages/admin/adminWorkbenchBehavior'); Page({});");
   sync(root, true);
   assert.match(read('miniprogram/subpackages/scoring/pages/admin/adminWorkbenchBehavior.js'), /package-resources/);
+  put('miniprogram/subpackages/scoring/pages/admin/admin.js', "Page({ onLoad() { wx.redirectTo({ url: '/subpackages/workspace/page' }); } });");
+  sync(root, true);
+  assert.doesNotMatch(read('miniprogram/subpackages/scoring/pages/admin/adminWorkbenchBehavior.js'), /package-resources/);
+  const workbench = 'package-resources/subpackages/scoring/pages/admin/adminWorkbenchBehavior.js';
+  assert.ok(graph(root, true).files.includes('subpackages/workspace/' + workbench));
+  assert.ok(!fs.existsSync(path.join(root, 'miniprogram/subpackages/scoring', workbench)));
   put('miniprogram/home.js', "require('./utils/report'); require('./locales/zh-CN/workbench'); Page({});");
   sync(root, true);
   assert.doesNotMatch(read('miniprogram/subpackages/scoring/pages/admin/adminWorkbenchBehavior.js'), /package-resources/);

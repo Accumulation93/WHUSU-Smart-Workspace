@@ -35,6 +35,7 @@ const ADAPTED = new Set(['/saveVenueBookingPurpose', '/deleteVenueBookingPurpose
   '/deletePersonPermanently',
   '/listHrProfileTemplates', '/saveHrProfileTemplateDefinition', '/duplicateHrProfileTemplateDefinition', '/deleteHrProfileTemplateDefinition',
   '/getHrProfileTemplateSwitchContext', '/previewHrProfileTemplateSwitch', '/applyHrProfileTemplateSwitch', '/saveOrgHrProfileTemplateSettings',
+  '/getHrProfileFieldApplicability', '/saveHrProfileFieldApplicability',
   '/getCrossOrgMigrationContext', '/previewCrossOrgMigration', '/applyCrossOrgMigration', '/submitCrossOrgMigrationRequest',
   '/reviewCrossOrgMigrationRequest', '/cancelCrossOrgMigrationRequest', '/listCrossOrgMigrationRequests', '/getPersonOrgProfiles',
   '/listVenueBookingPurposes',

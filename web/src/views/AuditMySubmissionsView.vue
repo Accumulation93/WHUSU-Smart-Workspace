@@ -7,8 +7,8 @@
       :organization-name="orgName"
       @switch="goWorkRole"
     />
-    <AuthorizedManagementTabs sub-app="audit" :business-label="copy.audit.title">
-    <AuditNav active="mySubmissions" />
+    <AuthorizedManagementTabs v-slot="{ hasPrimaryTabs }" sub-app="audit" :business-label="copy.audit.title">
+    <AuditNav active="mySubmissions" :secondary="hasPrimaryTabs" />
 
     <section class="card stack">
       <div class="panel-head">

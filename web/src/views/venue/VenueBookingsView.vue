@@ -7,8 +7,8 @@
       :organization-name="orgName"
       @switch="goWorkRole"
     />
-    <AuthorizedManagementTabs sub-app="venue" :business-label="copy.venue.title" :blocked="!!bookingVenue">
-    <VenueNav active="browse" />
+    <AuthorizedManagementTabs v-slot="{ hasPrimaryTabs }" sub-app="venue" :business-label="copy.venue.title" :blocked="!!bookingVenue">
+    <VenueNav active="browse" :secondary="hasPrimaryTabs" />
 
     <section class="card stack">
       <div class="panel-head">

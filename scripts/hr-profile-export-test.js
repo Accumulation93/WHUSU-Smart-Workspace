@@ -115,9 +115,10 @@ console.log('人事资料导出列选择测试通过');
 const fs = require('fs');
 const path = require('path');
 const base = path.join(__dirname, '../miniprogram/subpackages/scoring/pages/admin');
-const markup = fs.readFileSync(path.join(base, 'admin.wxml'), 'utf8')
+const pageRoot = path.join(__dirname, '../miniprogram/subpackages/workspace/pages/admin');
+const markup = fs.readFileSync(path.join(pageRoot, 'admin.wxml'), 'utf8')
   + fs.readFileSync(path.join(base, 'adminWorkbenchContent.wxml'), 'utf8');
-const styles = fs.readFileSync(path.join(base, 'admin.wxss'), 'utf8')
+const styles = fs.readFileSync(path.join(pageRoot, 'admin.wxss'), 'utf8')
   + fs.readFileSync(path.join(base, 'adminWorkbenchStyles.wxss'), 'utf8');
 const dialogStart = markup.indexOf('<view class="modal-card hr-profile-export-modal');
 const dialogEnd = markup.indexOf('</viewport-portal>', dialogStart);
