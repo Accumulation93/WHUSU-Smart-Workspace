@@ -1345,8 +1345,8 @@ module.exports = Behavior({
     const disablesDirectRule = ruleEditorType === 'booking' && ruleForm.ruleType === 'flow' && ruleForm.isActive !== false
       && (this.data.bookingRules || []).some(function(rule) { return rule.rule_type === 'direct' && Number(rule.is_active) !== 0; });
     const disablesOtherConfiguration = ruleEditorType === 'booking' && ruleForm.ruleType === 'direct' && ruleForm.isActive !== false
-      && ((this.data.approvalFlows || []).some(function(flow) { return Number(flow.is_active) === 1; })
-        || (this.data.bookingRules || []).some(function(rule) { return rule.id !== ruleEditId && Number(rule.is_active) === 1; }));
+      && ((this.data.approvalFlows || []).some(function(flow) { return Number(flow.is_active) !== 0; })
+        || (this.data.bookingRules || []).some(function(rule) { return rule.id !== ruleEditId && Number(rule.is_active) !== 0; }));
     if (disablesDirectRule || disablesOtherConfiguration) {
       const confirmed = await new Promise(function(resolve) {
         wx.showModal({

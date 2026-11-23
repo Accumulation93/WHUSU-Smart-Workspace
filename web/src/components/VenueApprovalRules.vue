@@ -160,8 +160,8 @@ function saveRule() {
   if (referencesLoading.value || referencesError.value) return;
   const value = clone(editor.value);
   const disablesOtherConfiguration = value.isActive && value.ruleType === 'direct'
-    && (flows.value.some(flow => Number(flow.is_active) === 1)
-      || rules.value.some(rule => rule.id !== value.id && Number(rule.is_active) === 1));
+    && (flows.value.some(flow => Number(flow.is_active) !== 0)
+      || rules.value.some(rule => rule.id !== value.id && Number(rule.is_active) !== 0));
   return write('saveVenueBookingRule', { id: value.id, venueId: props.venue.id, ruleType: value.ruleType,
     approverIdentityId: value.approverIdentityId, approverHrId: value.approverHrId,
     approverAssignmentId: value.approverAssignmentId, scopeDepartmentId: value.scopeDepartmentId,
