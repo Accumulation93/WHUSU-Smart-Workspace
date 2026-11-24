@@ -2,6 +2,8 @@
 
 const { referenceFromRequest } = require('./authorizationReference');
 const identity = require('../models/authorizationIdentity');
+const identityTransition = require('../models/authorizationIdentityTransition');
+const relationshipRole = require('../models/authorizationRelationshipRole');
 const model = require('../models/authorization');
 const references = require('../models/authorizationReferences');
 const candidates = require('../models/authorizationCandidates');
@@ -57,6 +59,35 @@ function withinEnvelopes(policy, envelopes, unified = false) {
 function schemeAllowed(capabilities, envelopes) {
   return Array.isArray(capabilities) && capabilities.length > 0 && envelopes.some(envelope => capabilities.every(key =>
     CATALOG.has(key) && !CATALOG.get(key).delegation && envelope.capabilities.includes(key)));
+}
+
+function canAllocateCandidate(actor, envelopes, item, role) {
+  if (actor.isSuper) return true;
+  if (role === 'user' ? item.assignmentId === actor.assignment?.id : item.adminGrantId === actor.adminGrantId) return false;
+  const target = candidateActor(item, actor.organizationId, role);
+  // 动态条件只能分配同形或更窄条件，不能换成调岗后仍生效的指定工作角色授权。
+  return envelopes.some(envelope => envelope.subjects.some(subject => subject.kind !== 'assignmentScope'
+    && subjectMatches(subject, target)));
+}
+
+async function readLegacyRecipientAssignments(connection, actor, envelopes, rules) {
+  if (actor.unifiedAuthorization !== true) return {};
+  const grantIds = new Set(rules.flatMap(rule => rule.policy.subjects.filter(subject => subject.kind === 'adminGrants')
+    .flatMap(subject => subject.ids)).filter(id => actor.isSuper || id !== actor.adminGrantId));
+  if (!grantIds.size) return {};
+  const { assignments } = await candidates.read(connection, actor.organizationId, { role: 'user' });
+  const visibleIds = assignments.filter(item => canAllocateCandidate(actor, envelopes, item, 'user'))
+    .map(item => item.assignmentId);
+  const linked = await identityTransition.linkedGrantsForAssignments(connection, actor.organizationId, visibleIds);
+  const recipients = new Map();
+  for (const [assignmentId, ids] of linked) {
+    for (const id of ids) {
+      if (!grantIds.has(id)) continue;
+      if (!recipients.has(id)) recipients.set(id, []);
+      recipients.get(id).push(assignmentId);
+    }
+  }
+  return Object.fromEntries(recipients);
 }
 
 async function matchesOwnPosition(connection, actor, subjects) {
@@ -173,6 +204,7 @@ async function readManagement(connection, reference) {
   const canEditRule = policy => actor.isSuper || withinEnvelopes(policy, envelopes, actor.unifiedAuthorization)
     && !policy.subjects.some(subject => subjectMatches(subject, actor));
   const canPublishScheme = scheme => {
+    if (state.relationshipRole?.schemeId === scheme.id) return actor.isSuper;
     if (specialCapabilities(scheme.capabilities, actor.unifiedAuthorization).length) return false;
     const linked = state.rules.filter(rule => rule.schemeId === scheme.id);
     try {
@@ -195,20 +227,23 @@ async function readManagement(connection, reference) {
     const source = runtime?.sources.get('delegation:' + row.id);
     return { ...row, ...source, sourceActive: !runtime || runtime.activeDelegations.some(item => item.id === row.id) };
   }).filter(row => actor.isSuper || row.issuerAssignmentId === actor.assignment?.id);
+  const rules = actor.isSuper ? state.rules : state.rules.filter(rule => withinEnvelopes(rule.policy, envelopes));
+  const legacyRecipientAssignments = await readLegacyRecipientAssignments(connection, actor, envelopes, rules);
   return { revision: state.revision, mode: state.mode, roleBindingOnly: state.mode === 'enforced', isSuper: actor.isSuper, canManage: true,
     unifiedIdentity: actor.unifiedAuthorization === true,
+    basicRoleId: state.relationshipRole?.schemeId || null,
+    relationshipRoleAssignment: relationshipRole.assignment(state.relationshipRole, actor.organizationId),
     canInspectOwn: true, canInspectOthers, canManageDelegations, delegationOptions,
-    rules: (actor.isSuper ? state.rules : state.rules.filter(rule => withinEnvelopes(rule.policy, envelopes)))
-      .map(rule => ({ ...rule, canEdit: canEditRule(rule.policy) })),
+    rules: rules.map(rule => ({ ...rule, canEdit: canEditRule(rule.policy) })),
+    legacyRecipientAssignments,
     schemes: (actor.isSuper ? schemes : schemes.filter(scheme => schemeAllowed(scheme.capabilities, envelopes)
       || scheme.publishedVersion && schemeAllowed(scheme.publishedCapabilities, envelopes)))
-      .map(scheme => ({ ...scheme, canEdit: actor.isSuper || schemeAllowed(scheme.capabilities, envelopes),
+      .map(scheme => ({ ...scheme, canEdit: actor.isSuper || (state.relationshipRole?.schemeId !== scheme.id && schemeAllowed(scheme.capabilities, envelopes)),
         draftRestrictedCapabilities: actor.isSuper ? specialCapabilities(scheme.capabilities, actor.unifiedAuthorization) : [],
         canPublish: canPublishScheme(scheme) })),
     delegations,
-    basicCapabilities: actor.unifiedAuthorization === true ? [...CATALOG.values()]
-      .filter(item => item.businessRoles.includes('user'))
-      .map(item => ({ key: item.key, enabled: !state.disabledBasic.has(item.key) })) : [],
+    basicCapabilities: actor.unifiedAuthorization === true
+      ? relationshipRole.CAPABILITIES.map(key => ({ key, enabled: !state.disabledBasic.has(key) })) : [],
     capabilityKeys,
     catalog: capabilityKeys.map(key => {
       const definition = organizationCatalog.get(key);
@@ -229,21 +264,10 @@ async function readCandidates(connection, reference) {
   const result = await candidates.read(connection, actor.organizationId);
   result.dimensions = await candidates.readDimensions(connection, actor.organizationId);
   if (actor.isSuper) return result;
-  function permitted(target) {
-    // 动态条件只能分配同形或更窄条件，不能变成调岗后仍永久生效的指定岗位授权。
-    return envelopes.some(envelope => envelope.subjects.some(subject => subject.kind !== 'assignmentScope'
-      && subjectMatches(subject, target)));
-  }
   return {
     dimensions: result.dimensions,
-    assignments: result.assignments.filter(item => item.assignmentId !== (actor.assignment && actor.assignment.id) && permitted({ role: 'user', active: true,
-      organizationId: actor.organizationId, personId: item.personId,
-      assignment: { id: item.assignmentId, active: true, organizationId: actor.organizationId,
-        personId: item.personId, natureId: item.natureId, departmentId: item.departmentId,
-        identityCategoryId: item.identityCategoryId, workGroupId: item.workGroupId } })),
-    adminGrants: result.adminGrants.filter(item => item.adminGrantId !== actor.adminGrantId && permitted({
-      role: 'admin', active: true, organizationId: actor.organizationId, personId: item.personId,
-      adminGrantId: item.adminGrantId }))
+    assignments: result.assignments.filter(item => canAllocateCandidate(actor, envelopes, item, 'user')),
+    adminGrants: result.adminGrants.filter(item => canAllocateCandidate(actor, envelopes, item, 'admin'))
   };
 }
 

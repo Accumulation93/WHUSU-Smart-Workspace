@@ -13,10 +13,11 @@ const { formatDetailTime } = require('../../../../utils/dateTime');
 Page({
   openOrganizationCopy: function() { navigateToTrustedRoute('/subpackages/org/pages/organizationCopy/organizationCopy'); },
   data: { ui, navTopPx: 0, heroTone: 'blue', tab: 'rules', tabs: ['rules', 'schemes', 'effective'], loading: true,
-    ready: false, canCopy: false, notice: '', keyword: '', cards: [], schemes: [], effective: [], inspecting: false, recipientCards: [], showRules: false,
-    previewOnly: false, expanded: {}, effectiveGroups: [], effectiveExpanded: {}, effectiveRange: 'granted', dynamicRules: [], isSuper: false, delegations: [], showDelegations: false,
+    ready: false, canCopy: false, notice: '', keyword: '', cards: [], schemes: [], effective: [], inspecting: false, allocations: [], showRules: false,
+    allocationFilter: 'all', allocationFilters: ['all', 'specified', 'conditional', 'relationship', 'historical'], allocationPage: 1, allocationPages: 1, allocationPageText: '',
+    previewOnly: false, expanded: {}, effectiveGroups: [], effectiveExpanded: {}, effectiveRange: 'granted', delegations: [], showDelegations: false,
     inspectionLabel: ui.ownRole, picker: '', pickerOptions: [], pickerValue: [], candidateLoading: false, inspectionLoaded: false, inspectionUnavailable: false, inspectingOther: false, controlledEffective: [],
-    selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '', unified: false, basicCapabilities: [], basicBusy: false, schemePermissions: {} },
+    selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '', unified: false, schemePermissions: {} },
   onLoad: function(options) { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight, tab: options && options.tab === 'schemes' ? 'schemes' : 'rules' }); },
   onResize: function() { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight }); },
   onShow: function() {
@@ -31,11 +32,12 @@ Page({
   clear: function(preserveNavigation) {
     this._active = false; orgSession.invalidateRequests(this); this._state = null; this._directory = null;
     this._inspectionTarget = null;
-    this.setData({ recipientCards: [], showRules: false, selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '', unified: false, basicCapabilities: [], basicBusy: false,
+    this.setData({ allocations: [], allocationFilter: 'all', allocationPage: 1, allocationPages: 1, allocationPageText: '', showRules: false,
+      selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '', unified: false,
       inspectionLabel: ui.ownRole, picker: '', pickerOptions: [], pickerValue: [], candidateLoading: false, inspectionLoaded: false, inspectionUnavailable: false, inspectingOther: false, controlledEffective: [],
       ready: false, canCopy: false, keyword: preserveNavigation ? this.data.keyword : '',
-      cards: [], schemes: [], schemePermissions: {}, dynamicRules: [], effective: [], effectiveGroups: [],
-      effectiveRange: preserveNavigation ? this.data.effectiveRange : 'granted', effectiveExpanded: {}, expanded: {}, inspecting: false, isSuper: false, delegations: [], showDelegations: false });
+      cards: [], schemes: [], schemePermissions: {}, effective: [], effectiveGroups: [],
+      effectiveRange: preserveNavigation ? this.data.effectiveRange : 'granted', effectiveExpanded: {}, expanded: {}, inspecting: false, delegations: [], showDelegations: false });
   },
   load: async function() {
     const request = orgSession.beginRequest(this, 'authorization');
@@ -56,12 +58,9 @@ Page({
       this._state = results[0]; this._directory = results[1];
       this.setData({ canManage: management.canManage !== false, canInspectOthers: management.canInspectOthers === true, canManageDelegations: management.canManageDelegations === true, tabs: management.canManage === false ? ['effective'] : management.unifiedIdentity ? ['schemes', 'rules', 'effective'] : ['rules', 'schemes', 'effective'],
         tab: management.canManage === false ? 'effective' : this.data.tab });
-      this.setData({ ready: true, previewOnly: results[0].mode === 'shadow', isSuper: !!results[0].isSuper,
+      this.setData({ ready: true, previewOnly: results[0].mode === 'shadow',
         unified: management.unifiedIdentity === true,
         roleBindingOnly: management.roleBindingOnly === true,
-        basicCapabilities: (management.basicCapabilities || []).map(item => Object.assign({}, item, {
-          label: presentation.capabilityLabel(item.key, management.catalog, ui)
-        })),
         delegations: management.canManageDelegations ? (management.delegations || []).map(item => ({ id: item.id, name: item.name, enabledText: item.enabled ? ui.enabled : ui.disabled })) : [] });
       this.refreshCards();
       if (this.data.tab === 'effective') await this.inspect();
@@ -71,39 +70,38 @@ Page({
       if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
   },
-  setBasicCapability: async function(event) {
-    const item = this.data.basicCapabilities.find(row => row.key === event.currentTarget.dataset.key);
-    const enabled = event.detail.value === true;
-    if (this.data.basicBusy || !this.data.isSuper || !item || item.enabled === enabled) return;
-    const request = orgSession.beginRequest(this, 'authorizationBasicCapability');
-    this.setData({ basicBusy: true });
-    try {
-      const result = await callFunction({ name: 'setAuthorizationBasicCapability',
-        data: { identityModel: 'unified', enabled, capability: item.key, expectedRevision: this._state.revision } });
-      if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
-      if (result.status !== 'success') throw createResultError(result, ui.operationFailed);
-      await this.load();
-    } catch (error) {
-      if (this._active && orgSession.isRequestCurrent(this, request)) {
-        this.setData({ notice: getErrorText(error, ui.operationFailed), basicCapabilities: this.data.basicCapabilities.slice() });
-      }
-    } finally {
-      if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ basicBusy: false });
-    }
-  },
   refreshCards: function() {
     if (!this._state) return;
     const keyword = this.data.keyword.trim().toLowerCase();
     const dates = item => Object.assign({}, item, { startsAtText: item.policy.startsAt ? formatDetailTime(item.policy.startsAt) : '', endsAtText: item.policy.endsAt ? formatDetailTime(item.policy.endsAt) : '' });
-    this.setData({ hasPublishedSchemes: this._state.schemes.some(item => item.publishedVersion), recipientCards: presentation.recipientCards(this._state.rules, this._state.schemes, this._directory, this._state.catalog, ui, keyword).map(item => Object.assign({}, item, { grants: item.grants.map(dates) })),
-      dynamicRules: presentation.ruleCards(this._state.rules, this._directory, this._state.catalog, ui, keyword).filter(item => item.policy.subjects.some(subject => subject.kind === 'assignmentScope')).map(dates),
-      cards: presentation.ruleCards(this._state.rules, this._directory, this._state.catalog, ui, keyword).map(item => Object.assign({}, item, { summaryLabels: item.capabilityLabels.slice(0, 3), capabilityCountText: ui.effectiveCount(item.capabilityLabels.length) })),
+    const allocations = presentation.allocationCards(this._state, this._directory, ui, keyword, this.data.allocationFilter);
+    const page = presentation.allocationPage(allocations, this.data.allocationPage);
+    this.setData({ hasPublishedSchemes: this._state.schemes.some(item => item.publishedVersion && item.id !== this._state.basicRoleId),
+      hasEditableAllocations: this._state.rules.some(item => item.canEdit !== false),
+      allocations: page.rows.map(item => item.relationship ? item : dates(item)), allocationPage: page.currentPage,
+      allocationPages: page.totalPages, allocationPageText: ui.unified.permissionPage(page.currentPage, page.totalPages),
+      cards: this.data.showRules ? presentation.ruleCards(this._state.rules, this._directory, this._state.catalog, ui, keyword).map(item => Object.assign({}, item, { summaryLabels: item.capabilityLabels.slice(0, 3), capabilityCountText: ui.effectiveCount(item.capabilityLabels.length) })) : [],
       schemes: this._state.schemes.filter(item => item.name.toLowerCase().includes(keyword)).map(item => Object.assign({}, item, {
         versionText: item.publishedVersion ? ui.schemeVersion(item.publishedVersion) : ui.draft,
         countText: ui.effectiveCount((item.publishedVersion ? item.publishedCapabilities : item.capabilities).length),
         draftRestrictedLabels: (item.draftRestrictedCapabilities || []).map(key => ({ key, label: presentation.capabilityLabel(key, this._state.catalog, ui) })) })) });
   },
-  search: function(event) { this.setData({ keyword: event.detail.value }); this.refreshCards(); this.refreshEffectiveGroups(); },
+  search: function(event) { this.setData({ keyword: event.detail.value, allocationPage: 1 }); this.refreshCards(); this.refreshEffectiveGroups(); },
+  filterAllocations: function(event) {
+    const filter = event.currentTarget.dataset.filter;
+    if (!this.data.allocationFilters.includes(filter)) return;
+    this.setData({ allocationFilter: filter, allocationPage: 1 });
+    this.refreshCards();
+  },
+  changeAllocationPage: function(event) {
+    this.setData({ allocationPage: this.data.allocationPage + Number(event.currentTarget.dataset.direction) });
+    this.refreshCards();
+  },
+  viewAllocationRole: function(event) {
+    const id = event.currentTarget.dataset.id;
+    this.setData({ tab: 'schemes', keyword: '', expanded: { ['scheme:' + id]: true } });
+    this.refreshCards();
+  },
   refreshEffectiveGroups: function() {
     this.setData({ effectiveGroups: presentation.inspectionGroups(this.data.effective, this._state && this._state.catalog || [], ui, this.data.effectiveRange, this.data.keyword) });
   },
@@ -117,9 +115,9 @@ Page({
     this.setData({ effectiveExpanded: Object.assign({}, this.data.effectiveExpanded, { [key]: !this.data.effectiveExpanded[key] }) });
   },
   toggleSelection: function() {
-    this.setData({ showRules: true, selecting: !this.data.selecting, selectedRules: {}, selectedCount: 0, selectedText: ui.selectedRules(0) });
+    this.setData({ selecting: !this.data.selecting, selectedRules: {}, selectedCount: 0, selectedText: ui.selectedRules(0) });
   },
-  toggleRules: function() { this.setData({ showRules: !this.data.showRules, selecting: false, selectedRules: {}, selectedCount: 0 }); },
+  toggleRules: function() { this.setData({ showRules: !this.data.showRules, selecting: false, selectedRules: {}, selectedCount: 0 }); this.refreshCards(); },
   selectRule: function(event) {
     if (!this.data.selecting) return;
     const id = event.currentTarget.dataset.id;
@@ -134,7 +132,8 @@ Page({
   },
   selectShown: function() {
     const selected = Object.assign({}, this.data.selectedRules);
-    this.data.cards.filter(item => item.canEdit !== false).forEach(item => { selected[item.id] = true; });
+    const visible = this.data.showRules ? this.data.cards : this.data.allocations;
+    visible.filter(item => item.canEdit !== false).forEach(item => { selected[item.id] = true; });
     this.applySelection(selected);
   },
   clearSelection: function() { this.applySelection({}); },

@@ -4,7 +4,6 @@
 <template name="grantDetails">
   <view class="authorization-details">
     <view class="authorization-chips"><text wx:for="{{grant.capabilityLabels}}" wx:key="*this" class="authorization-chip">{{item}}</text></view>
-    <block wx:if="{{!hideSubjects}}"><view class="authorization-label">{{ui.subjects}}</view><block wx:for="{{grant.subjects}}" wx:for-item="subject" wx:key="key"><view>{{subject.label}}</view><view wx:for="{{subject.lines}}" wx:for-item="line" wx:key="key" class="permission-admin-meta">{{line.label}} {{line.value}}</view></block></block>
     <view class="authorization-label">{{ui.scopes}}</view><block wx:for="{{grant.scopes}}" wx:for-item="scope" wx:key="key"><view>{{scope.label}}</view><view wx:for="{{scope.lines}}" wx:for-item="line" wx:key="key" class="permission-admin-meta">{{line.label}} {{line.value}}</view></block>
     <view class="authorization-label">{{ui.fields}}</view><view wx:for="{{grant.fieldLabels}}" wx:key="*this" class="permission-admin-meta">{{item}}</view>
     <view class="authorization-label">{{ui.conditions}}</view><view wx:if="{{!grant.startsAtText && !grant.endsAtText}}">{{ui.noConditions}}</view><view wx:if="{{grant.startsAtText}}">{{ui.startsAt}} · {{grant.startsAtText}}</view><view wx:if="{{grant.endsAtText}}">{{ui.endsAt}} · {{grant.endsAtText}}</view>
@@ -40,14 +39,21 @@
         <button wx:elif="{{canManage}}" class="secondary-btn ui-motion-button" data-tab="schemes" bindtap="switchTab" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.identitySettingsEntry}}</button>
       </view>
       <view class="permission-section-desc">{{!unified ? ui.tabHelp[tab] : tab === 'schemes' ? ui.unified.landingRoleHelp : hasPublishedSchemes ? ui.unified.landingRuleHelp : canManage ? ui.unified.landingNoPublishedRole : ui.unified.landingAskForPublishedRole}}</view>
-      <view class="ui-list-filter-search"><ui-icon name="search" tone="muted" sizeRole="row-leading" /><input class="ui-list-filter-input" value="{{keyword}}" bindinput="search" placeholder="{{tab === 'schemes' ? ui.searchIdentities : ui.search}}" /></view>
+      <view class="ui-list-filter-search"><ui-icon name="search" tone="muted" sizeRole="row-leading" /><input class="ui-list-filter-input" value="{{keyword}}" bindinput="search" placeholder="{{tab === 'schemes' ? ui.searchIdentities : ui.allocation.search}}" /></view>
       <block wx:if="{{tab === 'rules'}}">
-        <button class="secondary-btn ui-motion-button authorization-compact" bindtap="toggleRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{showRules ? ui.byRecipient : ui.advancedRules}}</button>
-        <button wx:if="{{showRules}}" class="secondary-btn ui-motion-button authorization-compact" bindtap="toggleSelection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{selecting ? ui.finishSelection : ui.batchSelect}}</button>
+        <block wx:if="{{!showRules}}">
+          <view class="authorization-label">{{ui.allocation.recipient}}</view>
+          <view class="authorization-filter-row">
+            <button wx:for="{{allocationFilters}}" wx:key="*this" class="{{allocationFilter === item ? 'primary-btn' : 'secondary-btn'}} ui-motion-button" aria-pressed="{{allocationFilter === item}}" data-filter="{{item}}" bindtap="filterAllocations" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.allocation[item]}}</button>
+          </view>
+        </block>
+        <view class="authorization-filter-row">
+          <button wx:if="{{!roleBindingOnly}}" class="secondary-btn ui-motion-button" bindtap="toggleRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{showRules ? ui.byRecipient : ui.advancedRules}}</button>
+          <button wx:if="{{hasEditableAllocations}}" class="secondary-btn ui-motion-button" bindtap="toggleSelection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{selecting ? ui.finishSelection : ui.batchSelect}}</button>
+        </view>
         <block wx:if="{{selecting}}">
           <view class="permission-admin-meta">{{selectedText}}</view>
-          <view class="authorization-actions"><button class="secondary-btn ui-motion-button" bindtap="selectShown" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.selectShown}}</button><button class="secondary-btn ui-motion-button" bindtap="clearSelection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.clearSelection}}</button></view>
-          <button class="danger-btn ui-motion-button" disabled="{{!selectedCount}}" bindtap="deleteSelected" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.deleteSelected}}</button>
+          <view class="authorization-filter-row"><button class="secondary-btn ui-motion-button" bindtap="selectShown" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.selectShown}}</button><button class="secondary-btn ui-motion-button" bindtap="clearSelection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.clearSelection}}</button><button class="danger-btn ui-motion-button" disabled="{{!selectedCount}}" bindtap="deleteSelected" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.deleteSelected}}</button></view>
         </block>
       </block>
     </view>
@@ -69,27 +75,41 @@
         </block>
       </view>
       <block wx:if="{{!showRules}}">
-        <view wx:if="{{!recipientCards.length}}" class="permission-empty">{{keyword ? ui.noMatchingRules : dynamicRules.length ? ui.noDirectGrants : ui.noAssignments}}</view>
-        <view wx:for="{{recipientCards}}" wx:key="key" class="permission-card authorization-body">
-          <view class="authorization-disclosure ui-motion-card" data-id="{{'recipient:' + item.key}}" bindtap="toggleDetails" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><view><view class="permission-section-title">{{item.assignmentLabel}}</view><view class="permission-admin-meta">{{item.name}}</view><view class="authorization-summary">{{item.countText}}</view></view><ui-icon name="chevron-right" sizeRole="row-leading" /></view>
-          <block wx:if="{{expanded['recipient:' + item.key]}}">
-          <view wx:for="{{item.grants}}" wx:for-item="grant" wx:key="id" class="authorization-group authorization-body">
-            <view class="authorization-disclosure ui-motion-card" data-id="{{'grant:' + item.key + ':' + grant.id}}" bindtap="toggleDetails" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><view class="authorization-title">{{grant.identityName}}</view><text class="authorization-chip">{{grant.policy.enabled && grant.policy.effect === 'deny' ? ui.deny : grant.enabledText}}</text><ui-icon name="chevron-right" sizeRole="row-leading" /></view>
-            <block wx:if="{{expanded['grant:' + item.key + ':' + grant.id]}}">
-            <view wx:if="{{grant.custom}}" class="permission-admin-meta">{{ui.customAuthorization}}</view>
-            <view wx:if="{{grant.sharedText}}" class="permission-admin-meta">{{grant.sharedText}}</view>
-            <template is="grantDetails" data="{{grant, ui, hideSubjects: true}}" />
-            <view wx:if="{{grant.canEdit !== false}}" class="authorization-row-actions"><button class="secondary-btn ui-motion-button authorization-link authorization-edit" data-id="{{grant.id}}" data-kind="rule" catchtap="edit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.adjustPermissions}}</button></view>
-            </block>
+        <view wx:if="{{!allocations.length}}" class="permission-empty">{{keyword || allocationFilter !== 'all' ? ui.allocation.noMatches : ui.allocation.empty}}</view>
+        <view wx:for="{{allocations}}" wx:for-item="grant" wx:key="id" class="permission-card authorization-body authorization-allocation {{selecting && grant.canEdit !== false ? 'selection-option-card ui-motion-card' : ''}} {{selecting && selectedRules[grant.id] ? 'selection-option-card-selected' : ''}}" data-id="{{grant.id}}" bindtap="selectRule" hover-class="{{selecting && grant.canEdit !== false ? 'ui-press-card' : 'none'}}" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+          <view class="authorization-label">{{ui.allocation.role}}</view>
+          <view class="permission-section-title">{{grant.roleName}}</view>
+          <view class="authorization-allocation-facts">
+            <view class="authorization-allocation-fact">
+              <view class="authorization-label">{{ui.allocation.recipient}}</view>
+              <block wx:for="{{grant.recipientRows}}" wx:for-item="recipient" wx:key="key">
+                <view>{{recipient.name}}<text wx:if="{{recipient.detail}}" class="permission-admin-meta"> · {{recipient.detail}}</text></view>
+                <block wx:if="{{expanded['allocation:' + grant.id] && recipient.lines.length}}">
+                  <view class="permission-admin-meta">{{ui.allocation.conditionalHelp}}</view>
+                  <view wx:for="{{recipient.lines}}" wx:for-item="line" wx:key="key" class="permission-admin-meta">{{line.label}} {{line.value}}</view>
+                </block>
+              </block>
+            </view>
+            <view class="authorization-allocation-fact"><view class="authorization-label">{{ui.allocation.dataScope}}</view><view wx:for="{{grant.scopeNames}}" wx:key="*this">{{item}}</view></view>
+            <view class="authorization-allocation-fact"><view class="authorization-label">{{ui.allocation.status}}</view><view><text class="authorization-chip">{{grant.statusText}}</text></view></view>
           </view>
+          <view class="authorization-row-actions">
+            <button wx:if="{{!grant.relationship}}" class="secondary-btn ui-motion-button authorization-link" data-id="{{'allocation:' + grant.id}}" aria-expanded="{{!!expanded['allocation:' + grant.id]}}" catchtap="toggleDetails" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{expanded['allocation:' + grant.id] ? ui.allocation.hide : ui.allocation.view}}</button>
+            <button wx:if="{{!grant.relationship && grant.canEdit !== false}}" class="secondary-btn ui-motion-button authorization-link authorization-edit" data-id="{{grant.id}}" data-kind="rule" catchtap="edit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{ui.allocation.adjust}}</button>
+            <button wx:if="{{grant.relationship && grant.hasRole}}" class="secondary-btn ui-motion-button authorization-link" data-id="{{grant.schemeId}}" catchtap="viewAllocationRole" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{ui.allocation.viewRole}}</button>
+          </view>
+          <view wx:if="{{grant.relationship}}" class="permission-admin-meta">{{grant.canEditRole ? ui.allocation.relationshipRoleHelp : ui.allocation.relationshipScopeHelp}}</view>
+          <block wx:elif="{{expanded['allocation:' + grant.id]}}">
+            <view wx:if="{{grant.custom}}" class="permission-admin-meta">{{ui.customAuthorization}}</view>
+            <view wx:if="{{grant.shared}}" class="permission-admin-meta">{{ui.allocation.sharedNotice}}</view>
+            <view class="authorization-label">{{grant.effectText}}</view>
+            <template is="grantDetails" data="{{grant, ui}}" />
           </block>
         </view>
-        <view wx:if="{{dynamicRules.length}}" class="permission-card authorization-body">
-          <view class="authorization-disclosure ui-motion-card" data-id="dynamic" bindtap="toggleDetails" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><view class="permission-section-title">{{ui.dynamicAssignments}}</view><ui-icon name="chevron-right" sizeRole="row-leading" /></view>
-          <block wx:if="{{expanded.dynamic}}"><view wx:for="{{dynamicRules}}" wx:for-item="grant" wx:key="id" class="authorization-group authorization-body">
-            <view class="authorization-disclosure ui-motion-card" data-id="{{'dynamic:' + grant.id}}" bindtap="toggleDetails" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><view>{{grant.name || ui.unnamed}}</view><text class="authorization-chip">{{grant.effectText}}</text><ui-icon name="chevron-right" sizeRole="row-leading" /></view>
-            <block wx:if="{{expanded['dynamic:' + grant.id]}}"><template is="grantDetails" data="{{grant, ui}}" /><view wx:if="{{grant.canEdit !== false}}" class="authorization-row-actions"><button class="secondary-btn ui-motion-button authorization-link authorization-edit" data-id="{{grant.id}}" data-kind="rule" catchtap="edit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.adjustPermissions}}</button></view></block>
-          </view></block>
+        <view wx:if="{{allocationPages > 1}}" class="authorization-allocation-pager">
+          <button class="secondary-btn ui-motion-button" data-direction="-1" disabled="{{allocationPage === 1}}" bindtap="changeAllocationPage" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.allocation.previousPage}}</button>
+          <text class="permission-admin-meta">{{allocationPageText}}</text>
+          <button class="secondary-btn ui-motion-button" data-direction="1" disabled="{{allocationPage === allocationPages}}" bindtap="changeAllocationPage" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.allocation.nextPage}}</button>
         </view>
       </block>
       <block wx:else>
@@ -112,13 +132,6 @@
       </block>
     </block>
     <block wx:elif="{{tab === 'schemes'}}">
-      <view wx:if="{{unified && basicCapabilities.length}}" class="permission-card authorization-section">
-        <view class="permission-section-title">{{ui.unified.permissionBasicRole}}</view>
-        <view wx:for="{{basicCapabilities}}" wx:key="key" class="authorization-head">
-          <view class="authorization-label">{{item.label}}</view>
-          <switch aria-label="{{item.label}}" color="#3b82f6" checked="{{item.enabled}}" disabled="{{basicBusy || !isSuper}}" data-key="{{item.key}}" bindchange="setBasicCapability" />
-        </view>
-      </view>
       <view wx:if="{{!schemes.length}}" class="permission-empty">{{ui.noSchemes}}</view>
       <view wx:for="{{schemes}}" wx:key="id" class="permission-card authorization-body">
         <view class="authorization-disclosure ui-motion-card" data-id="{{'scheme:' + item.id}}" bindtap="toggleDetails" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><view><view class="permission-section-title">{{item.name}}</view><view class="authorization-summary">{{item.countText}}</view><view wx:if="{{item.draftRestrictedLabels.length}}" class="authorization-summary">{{ui.unified.schemeBlockedStatus}}</view></view><text class="authorization-chip">{{item.versionText}}</text><ui-icon name="chevron-right" sizeRole="row-leading" /></view>
@@ -166,7 +179,7 @@
           <view wx:for="{{item.items}}" wx:for-item="entry" wx:key="capability" class="authorization-section">
             <view class="authorization-disclosure ui-motion-card" data-key="{{'operation:' + entry.capability}}" bindtap="toggleEffectiveGroup" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><view>{{entry.label}}</view><text class="authorization-status {{entry.grantState !== 'granted' ? 'authorization-status-warning' : ''}}">{{entry.statusText}}</text><ui-icon wx:if="{{entry.rules.length}}" name="chevron-right" sizeRole="row-leading" /></view>
             <block wx:if="{{effectiveExpanded['operation:' + entry.capability]}}">
-            <view wx:if="{{unified}}" class="authorization-chips"><text class="authorization-chip">{{entry.categoryLabel}}</text><text wx:if="{{entry.grantBasis === 'basic_role'}}" class="authorization-chip">{{ui.unified.permissionBasicRole}}</text></view>
+            <view wx:if="{{unified}}" class="authorization-chips"><text class="authorization-chip">{{entry.categoryLabel}}</text><text wx:if="{{entry.roleName}}" class="authorization-chip">{{entry.roleName}}</text></view>
             <view wx:for="{{entry.rules}}" wx:for-item="rule" wx:key="id" class="authorization-group authorization-section"><view class="authorization-label">{{rule.name}}</view>
               <view class="authorization-chip">{{rule.sections.effectText}}</view>
               <view class="authorization-label">{{ui.scopes}}</view><view wx:for="{{rule.sections.scopes}}" wx:for-item="scope" wx:key="key"><view>{{scope.label}}</view><view wx:for="{{scope.lines}}" wx:for-item="line" wx:key="key">{{line.label}} {{line.value}}</view></view>

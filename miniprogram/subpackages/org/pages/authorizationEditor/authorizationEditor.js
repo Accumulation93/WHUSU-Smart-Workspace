@@ -53,8 +53,7 @@ Page({
       if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
       for (const result of results) if (result.status !== 'success') throw createResultError(result, ui.operationFailed);
       this._state = results[0]; this._directory = results[1];
-      this.setData({ directory: this._directory,
-        schemes: [{ id: '', name: ui.selectOperations }].concat(this._state.schemes.filter(item => item.publishedVersion)) });
+      this.setData({ directory: this._directory });
       this._blockedSchemeKeys = [];
       let draft = editor.createDraft();
       if (this.data.kind === 'delegation') {
@@ -100,7 +99,7 @@ Page({
     const unified = this._state.unifiedIdentity === true;
     const scopedDirectory = editor.delegationDirectory(this._directory, delegation);
     const schemes = [{ id: '', name: this.data.roleBindingOnly ? ui.identityPlaceholder : ui.selectOperations }]
-      .concat(editor.assignableSchemes(this._state.schemes, delegation, this._state.catalog, draft, unified));
+      .concat(editor.assignableSchemes(this._state.schemes.filter(item => item.id !== this._state.basicRoleId), delegation, this._state.catalog, draft, unified));
     const recipients = presentation.policySections({ subjects: draft.audience || [] }, this._directory, this._state.catalog, ui).subjects;
     const recipientNames = [];
     for (const subject of recipients) recipientNames.push(...subject.lines);
@@ -143,8 +142,11 @@ Page({
   },
   buildCapabilityBusinesses: function(draft, filters) {
     const view = filters || this.data;
+    const relationalRole = this.data.kind === 'scheme' && this._state.basicRoleId && draft.id === this._state.basicRoleId;
+    const relationshipKeys = relationalRole ? new Set((this._state.basicCapabilities || []).map(item => item.key)) : null;
     const catalog = draft.schemeId ? this._state.catalog : this._state.catalog.filter(item =>
-      !this._blockedSchemeKeys.includes(item.key) && (!this._delegation || this._delegation.envelope.capabilities.includes(item.key)));
+      !this._blockedSchemeKeys.includes(item.key) && (!relationshipKeys || relationshipKeys.has(item.key))
+      && (!this._delegation || this._delegation.envelope.capabilities.includes(item.key)));
     return editor.permissionGroups({ catalog, capabilities: draft.policy.capabilities, draft, kind: this.data.kind,
       query: view.capabilityKeyword, selectedOnly: view.selectedCapabilitiesOnly, copy: ui,
       unified: this._state.unifiedIdentity === true });
@@ -374,7 +376,7 @@ Page({
         const draft = this.data.draft;
         if (this.data.schemeRestrictedOperations.length) throw createLocalError(ui.unified.schemePublishBlocked);
         if (!draft.name.trim()) throw createLocalError(ui.invalidPolicy);
-        if (!draft.policy.capabilities.length) throw createLocalError(ui.unified.schemeNeedsGeneralCapability);
+        if (!draft.policy.capabilities.length && (!this._state.basicRoleId || draft.id !== this._state.basicRoleId)) throw createLocalError(ui.unified.schemeNeedsGeneralCapability);
         const result = await callFunction({ name: 'saveAuthorizationScheme', data: { identityModel: 'unified', id: draft.id, version: draft.version, delegationId: draft.delegationId, name: draft.name.trim(), capabilities: draft.policy.capabilities } });
         if (!this._active || !orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') {

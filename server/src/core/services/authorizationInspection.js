@@ -30,7 +30,7 @@ async function inspect(connection, reference, input = {}) {
     }
   }
   const explanationCatalog = await require('../models/authorizationProfileFields').catalog(connection, actor.organizationId, CATALOG);
-  const capabilities = selected.accountAvailable ? explainCapabilities(selected.actor, state.rules, explanationCatalog, now, state.disabledBasic)
+  const capabilities = selected.accountAvailable ? explainCapabilities(selected.actor, state.rules, explanationCatalog, now, state.disabledBasic, true, state.relationshipRole)
     : [...CATALOG.keys()].map(capability => ({ capability, status: 'denied', reason: 'account_unavailable', rules: [],
       grantState: 'unavailable', grantBasis: 'none', hasRestrictions: false, businessEntry: false }));
   const usedDimensions = new Map();

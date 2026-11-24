@@ -85,16 +85,20 @@ test('简化只影响展示，不丢失禁止、停用、日期、字段、记�
   assert.throws(() => editor.prepareSimpleDraft(draft, [], ui), { code: 'chooseIdentity' });
 });
 
-test('人员授权按可靠岗位编号分组，不合并同名人员，不推断动态授权', () => {
+test('分配清单按真实规则编号展示，保留同名人员及未核实的历史分配', () => {
   const policy = { effect: 'allow', enabled: true, fields: null, capabilities: [], scopes: [{ kind: 'self' }],
     subjects: [{ kind: 'assignments', ids: ['a', 'b'] }] };
   const rules = [{ id: 'shared', schemeId: 'identity', name: '共用', policy },
-    { id: 'dynamic', name: '范围', policy: { ...policy, subjects: [{ kind: 'assignmentScope', dimensions: { departmentId: ['d'] } }] } }];
+    { id: 'dynamic', schemeId: 'identity', name: '范围', policy: { ...policy, subjects: [{ kind: 'assignmentScope', dimensions: { departmentId: ['d'] } }] } },
+    { id: 'old', schemeId: 'identity', name: '历史分配', policy: { ...policy, subjects: [{ kind: 'adminGrants', ids: ['missing'] }] } }];
   const directory = { assignments: [{ assignmentId: 'a', name: '同名' }, { assignmentId: 'b', name: '同名' }] };
-  const cards = presentation.recipientCards(rules, [{ id: 'identity', name: '场地查看员' }], directory, [], ui);
-  assert.equal(cards.length, 2);
-  assert.notEqual(cards[0].key, cards[1].key);
-  assert.equal(cards[0].grants.length, 1);
-  assert.equal(cards[0].grants[0].sharedText, ui.sharedGrantNotice);
-  assert.equal(rules.length, 2);
+  const management = { rules, schemes: [{ id: 'identity', name: '场地查看员' }], catalog: [] };
+  const cards = presentation.allocationCards(management, directory, ui);
+  assert.deepEqual(cards.map(item => item.id), ['shared', 'dynamic', 'old']);
+  assert.deepEqual(cards[0].recipientRows.map(item => item.key), ['work:a', 'work:b']);
+  assert.equal(cards[0].shared, true);
+  assert.equal(cards[0].roleName, '场地查看员');
+  assert.deepEqual(cards[0].scopeNames, [ui.ownRecords]);
+  assert.equal(cards[2].recipientRows[0].name, ui.allocation.unknownRecipient);
+  assert.deepEqual(presentation.allocationCards(management, directory, ui, '', 'conditional').map(item => item.id), ['dynamic']);
 });

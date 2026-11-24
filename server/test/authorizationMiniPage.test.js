@@ -110,9 +110,9 @@ test('授权身份三步配置保存回读，复杂授权不因切换视图丢�
   assert.equal(reopened.data.advanced, true);
   assert.equal(JSON.stringify(reopened.data.draft), before);
   const home = pageHarness(source.api, {}, 'authorization'); await home.load();
-  assert.equal(home.data.recipientCards[0].name, '成员甲');
-  assert.equal(home.data.recipientCards[0].grants[0].identityName, '场地查看员');
-  home.onHide(); assert.equal(home.data.recipientCards.length, 0);
+  assert.equal(home.data.allocations[0].recipientRows[0].name, '成员甲');
+  assert.equal(home.data.allocations[0].roleName, '场地查看员');
+  home.onHide(); assert.equal(home.data.allocations.length, 0);
 });
 
 test('迁移生成的角色正常进入原生编辑、发布、分配和复制流程', async () => {

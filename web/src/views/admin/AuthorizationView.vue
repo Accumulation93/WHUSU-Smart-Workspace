@@ -21,11 +21,17 @@
         <p class="muted">{{ !state.unifiedIdentity ? ui.tabHelp[tab] : tab === 'schemes' ? ui.unified.landingRoleHelp : hasPublishedRole ? ui.unified.landingRuleHelp : tabs.includes('schemes') ? ui.unified.landingNoPublishedRole : ui.unified.landingAskForPublishedRole }}</p>
         <label class="search-bar">
           <UiIcon name="search" tone="muted" size-role="row-leading" />
-          <input v-model="query" class="search-input" :placeholder="tab === 'schemes' ? ui.searchIdentities : ui.search" :aria-label="tab === 'schemes' ? ui.searchIdentities : ui.search" />
+          <input v-model="query" class="search-input" :placeholder="tab === 'schemes' ? ui.searchIdentities : ui.allocation.search" :aria-label="tab === 'schemes' ? ui.searchIdentities : ui.allocation.search" />
         </label>
+        <div v-if="tab === 'rules' && !showRules" class="stack-tight" role="group" :aria-label="ui.allocation.recipient">
+          <span class="field-label">{{ ui.allocation.recipient }}</span>
+          <div class="row row-wrap authorization-filter-row">
+            <button v-for="filter in allocationFilters" :key="filter" type="button" class="btn btn-small" :class="allocationFilter === filter ? 'btn-primary' : 'btn-secondary'" :aria-pressed="allocationFilter === filter" @click="allocationFilter = filter">{{ ui.allocation[filter] }}</button>
+          </div>
+        </div>
         <div class="authorization-tools">
-          <button v-if="tab === 'rules'" type="button" class="btn btn-secondary btn-small" @click="toggleRules">{{ showRules ? ui.byRecipient : ui.advancedRules }}</button>
-          <button v-if="tab === 'rules' && showRules" type="button" class="btn btn-secondary btn-small" @click="toggleSelection">{{ selecting ? ui.finishSelection : ui.batchSelect }}</button>
+          <button v-if="tab === 'rules' && !state.roleBindingOnly" type="button" class="btn btn-secondary btn-small" @click="toggleRules">{{ showRules ? ui.byRecipient : ui.advancedRules }}</button>
+          <button v-if="tab === 'rules' && state.rules.some(rule => rule.canEdit !== false)" type="button" class="btn btn-secondary btn-small" @click="toggleSelection">{{ selecting ? ui.finishSelection : ui.batchSelect }}</button>
           <button v-if="canCopy" type="button" class="btn btn-secondary btn-small" @click="router.push({ name: 'organizationCopy' })">{{ ui.configurationCopy.title }}</button>
         </div>
       </section>
@@ -49,43 +55,52 @@
             </div>
           </details>
         </section>
+        <section v-if="selecting" class="card stack">
+          <p class="muted">{{ ui.selectedRules(selectedRules.length) }}</p>
+          <div class="row row-wrap authorization-filter-row"><button type="button" class="btn btn-secondary btn-small" @click="selectShown">{{ ui.selectShown }}</button><button type="button" class="btn btn-secondary btn-small" @click="selectedRules = []">{{ ui.clearSelection }}</button>
+          <button type="button" class="btn btn-danger btn-small" :disabled="!selectedRules.length" @click="deleteSelected">{{ ui.deleteSelected }}</button></div>
+        </section>
         <template v-if="!showRules">
-          <p v-if="!recipients.length" class="empty-state">{{ query ? ui.noMatchingRules : dynamicRules.length ? ui.noDirectGrants : ui.noAssignments }}</p>
-          <details v-for="person in recipients" :key="person.key" :open="!!opened['recipient:' + person.key]" class="card authorization-recipient" @toggle.stop="trackOpen($event, 'recipient:' + person.key)">
-            <summary><strong class="section-title">{{ person.assignmentLabel }}</strong><span class="muted">{{ person.name }}</span><span class="chip chip-blue">{{ person.countText }}</span><UiIcon class="disclosure-chevron" name="chevron-right" size-role="row-leading" /></summary>
-            <template v-if="opened['recipient:' + person.key]">
-            <details v-for="grant in person.grants" :key="grant.id" :open="!!opened['grant:' + person.key + ':' + grant.id]" class="glass-panel authorization-grant" @toggle.stop="trackOpen($event, 'grant:' + person.key + ':' + grant.id)">
-              <summary><strong>{{ grant.identityName }}</strong><span class="chip chip-blue">{{ grant.policy.enabled && grant.policy.effect === 'deny' ? ui.deny : grant.enabledText }}</span><UiIcon class="disclosure-chevron" name="chevron-right" size-role="row-leading" /></summary>
-              <template v-if="opened['grant:' + person.key + ':' + grant.id]">
-              <p v-if="grant.sharedText" class="muted">{{ grant.sharedText }}</p>
+          <p v-if="!allocations.rows.length" class="empty-state">{{ query || allocationFilter !== 'all' ? ui.allocation.noMatches : ui.allocation.empty }}</p>
+          <article v-for="grant in allocations.rows" :key="grant.id" class="card stack authorization-allocation"
+            :class="{ 'selection-option-card': selecting && grant.canEdit !== false, 'selection-option-card-selected': selecting && selectedRules.includes(grant.id) }"
+            :role="selecting && grant.canEdit !== false ? 'checkbox' : undefined" :aria-checked="selecting && grant.canEdit !== false ? selectedRules.includes(grant.id) : undefined"
+            :tabindex="selecting && grant.canEdit !== false ? 0 : undefined" @click="selectRule(grant.id)" @keydown.space.self.prevent="selectRule(grant.id)" @keydown.enter.self.prevent="selectRule(grant.id)">
+            <div class="stack-tight">
+              <span class="field-label">{{ ui.allocation.role }}</span><h3 class="section-title">{{ grant.roleName }}</h3>
+            </div>
+            <dl class="authorization-allocation-facts">
+              <div class="stack-tight"><dt class="field-label">{{ ui.allocation.recipient }}</dt>
+                <dd v-for="recipient in grant.recipientRows" :key="recipient.key" class="stack-tight">
+                  <span>{{ recipient.name }}<span v-if="recipient.detail" class="muted"> · {{ recipient.detail }}</span></span>
+                  <template v-if="opened['allocation:' + grant.id] && recipient.lines?.length">
+                    <span class="muted">{{ ui.allocation.conditionalHelp }}</span>
+                    <span v-for="line in recipient.lines" :key="line.key" class="muted">{{ ui.dimensionLabel(line.label, line.value) }}</span>
+                  </template>
+                </dd>
+              </div>
+              <div class="stack-tight"><dt class="field-label">{{ ui.allocation.dataScope }}</dt><dd v-for="scope in grant.scopeNames" :key="scope">{{ scope }}</dd></div>
+              <div class="stack-tight"><dt class="field-label">{{ ui.allocation.status }}</dt><dd><span class="chip chip-blue">{{ grant.statusText }}</span></dd></div>
+            </dl>
+            <div class="card-actions authorization-rule-actions" @click.stop>
+              <button v-if="!grant.relationship" type="button" class="btn-quiet" :aria-expanded="!!opened['allocation:' + grant.id]" @click="opened['allocation:' + grant.id] = !opened['allocation:' + grant.id]">{{ opened['allocation:' + grant.id] ? ui.allocation.hide : ui.allocation.view }}</button>
+              <button v-if="!grant.relationship && grant.canEdit !== false" type="button" class="btn-quiet authorization-edit" @click="edit('rule', grant.id)">{{ ui.allocation.adjust }}</button>
+              <button v-if="grant.relationship && grant.hasRole" type="button" class="btn-quiet" @click="viewAllocationRole(grant.schemeId)">{{ ui.allocation.viewRole }}</button>
+            </div>
+            <p v-if="grant.relationship" class="muted">{{ grant.canEditRole ? ui.allocation.relationshipRoleHelp : ui.allocation.relationshipScopeHelp }}</p>
+            <template v-else-if="opened['allocation:' + grant.id]">
+              <p v-if="grant.shared" class="muted">{{ ui.allocation.sharedNotice }}</p>
               <p v-if="grant.custom" class="muted">{{ ui.customAuthorization }}</p>
               <AuthorizationPolicySummary :policy="grant.policy" :directory="directory" :catalog="state.catalog" hide-subjects />
-              <div v-if="grant.canEdit !== false" class="card-actions authorization-rule-actions"><button type="button" class="btn-quiet authorization-edit" @click.stop="edit('rule', grant.id)">{{ ui.adjustPermissions }}</button></div>
-              </template>
-            </details>
             </template>
-          </details>
-          <details v-if="dynamicRules.length" :open="!!opened.dynamic" class="card authorization-dynamic" @toggle.stop="trackOpen($event, 'dynamic')">
-            <summary><strong>{{ ui.dynamicAssignments }}</strong><span class="chip chip-blue">{{ ui.roleGrantCount(dynamicRules.length) }}</span><UiIcon class="disclosure-chevron" name="chevron-right" size-role="row-leading" /></summary>
-            <template v-if="opened.dynamic">
-            <details v-for="rule in dynamicRules" :key="rule.id" :open="!!opened['dynamic:' + rule.id]" class="glass-panel authorization-grant" @toggle.stop="trackOpen($event, 'dynamic:' + rule.id)">
-              <summary><strong>{{ rule.name || ui.unnamed }}</strong><span class="chip chip-blue">{{ rule.effectText }}</span><UiIcon class="disclosure-chevron" name="chevron-right" size-role="row-leading" /></summary>
-              <template v-if="opened['dynamic:' + rule.id]">
-              <AuthorizationPolicySummary :policy="rule.policy" :directory="directory" :catalog="state.catalog" />
-              <div v-if="rule.canEdit !== false" class="card-actions authorization-rule-actions"><button type="button" class="btn-quiet authorization-edit" @click.stop="edit('rule', rule.id)">{{ ui.adjustPermissions }}</button></div>
-              </template>
-            </details>
-            </template>
-          </details>
+          </article>
+          <div v-if="allocations.totalPages > 1" class="row row-wrap authorization-filter-row authorization-allocation-pager">
+            <button type="button" class="btn btn-secondary btn-small" :disabled="allocations.currentPage === 1" @click="allocationPage = allocations.currentPage - 1">{{ ui.allocation.previousPage }}</button>
+            <span class="muted" aria-live="polite">{{ ui.unified.permissionPage(allocations.currentPage, allocations.totalPages) }}</span>
+            <button type="button" class="btn btn-secondary btn-small" :disabled="allocations.currentPage === allocations.totalPages" @click="allocationPage = allocations.currentPage + 1">{{ ui.allocation.nextPage }}</button>
+          </div>
         </template>
         <template v-else>
-        <section v-if="selecting" class="card stack">
-          <template v-if="selecting">
-            <p class="muted">{{ ui.selectedRules(selectedRules.length) }}</p>
-            <div class="button-row"><button type="button" class="btn btn-secondary" @click="selectShown">{{ ui.selectShown }}</button><button type="button" class="btn btn-secondary" @click="selectedRules = []">{{ ui.clearSelection }}</button></div>
-            <button type="button" class="btn btn-danger" :disabled="!selectedRules.length" @click="deleteSelected">{{ ui.deleteSelected }}</button>
-          </template>
-        </section>
         <p v-if="!cards.length" class="empty-state">{{ query ? ui.noMatchingRules : ui.noRules }}</p>
         <article v-for="rule in cards" :key="rule.id" class="card stack" :class="{ 'selection-option-card': selecting, 'selection-option-card-selected': selecting && selectedRules.includes(rule.id) }"
             :role="selecting && rule.canEdit !== false ? 'checkbox' : undefined" :aria-checked="selecting && rule.canEdit !== false ? selectedRules.includes(rule.id) : undefined"
@@ -106,13 +121,6 @@
         </template>
       </template>
       <template v-else-if="tab === 'schemes'">
-        <section v-if="state.unifiedIdentity && state.basicCapabilities?.length" class="card stack">
-          <h2 class="section-title">{{ ui.unified.permissionBasicRole }}</h2>
-          <div v-for="item in state.basicCapabilities" :key="item.key" class="switch-row">
-            <span class="field-label">{{ capabilityText(item.key) }}</span>
-            <UiSwitch :checked="item.enabled" :label="capabilityText(item.key)" :disabled="basicBusy || !state.isSuper" @change="setBasicCapability(item, $event.target.checked)" />
-          </div>
-        </section>
         <p class="muted">{{ ui.schemeLifecycleHelp }}</p>
         <p v-if="!schemes.length" class="empty-state">{{ ui.noSchemes }}</p>
         <details v-for="scheme in schemes" :key="scheme.id" :open="!!opened['scheme:' + scheme.id]" class="card authorization-scheme" @toggle.stop="trackOpen($event, 'scheme:' + scheme.id)">
@@ -165,7 +173,7 @@
           <template v-if="opened['module:' + group.key]">
           <details v-for="item in group.items" :key="item.capability" :open="!!opened['operation:' + item.capability]" class="authorization-resource" @toggle.stop="trackOpen($event, 'operation:' + item.capability)">
             <summary class="effective-summary"><strong>{{ item.label }}</strong><span class="chip" :class="item.grantState !== 'granted' ? 'chip-orange' : 'chip-blue'">{{ item.statusText }}</span><UiIcon v-if="item.rules?.length" class="disclosure-chevron" name="chevron-right" size-role="row-leading" /></summary>
-            <template v-if="opened['operation:' + item.capability]"><div v-if="state.unifiedIdentity" class="row row-wrap"><span class="chip chip-blue">{{ categoryLabel(item.capability) }}</span><span v-if="item.grantBasis === 'basic_role'" class="chip chip-sky">{{ ui.unified.permissionBasicRole }}</span></div><div v-for="rule in item.rules" :key="rule.id" class="stack-tight"><strong>{{ rule.name }}</strong><AuthorizationPolicySummary :policy="{ ...rule, enabled: true, capabilities: [item.capability], subjects: [], fieldLabels: effective.fieldLabels }" :directory="effective.scopeDirectory || {}" :catalog="state.catalog" inspection :supports-fields="item.supportsFields" /></div></template>
+            <template v-if="opened['operation:' + item.capability]"><div v-if="state.unifiedIdentity" class="row row-wrap"><span class="chip chip-blue">{{ categoryLabel(item.capability) }}</span><span v-if="item.roleName" class="chip chip-sky">{{ item.roleName }}</span></div><div v-for="rule in item.rules" :key="rule.id" class="stack-tight"><strong>{{ rule.name }}</strong><AuthorizationPolicySummary :policy="{ ...rule, enabled: true, capabilities: [item.capability], subjects: [], fieldLabels: effective.fieldLabels }" :directory="effective.scopeDirectory || {}" :catalog="state.catalog" inspection :supports-fields="item.supportsFields" /></div></template>
           </details>
           </template>
           </details>
@@ -183,7 +191,6 @@ import { useRouter, useRoute } from 'vue-router';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import UiIcon from '@/components/UiIcon.vue';
 import AppLoading from '@/components/AppLoading.vue';
-import UiSwitch from '@/components/UiSwitch.vue';
 import PersonnelPicker from '@/components/PersonnelPicker.vue';
 import AuthorizationPolicySummary from '@/components/AuthorizationPolicySummary.vue';
 import ui from '@/locales/zh-CN/shared/authorization.js';
@@ -199,8 +206,7 @@ const tabs = computed(() => state.value.canManage === false ? ['effective']
   : state.value.unifiedIdentity ? ['schemes', 'rules', 'effective'] : ['rules', 'schemes', 'effective']);
 const tab = ref(useRoute().query.tab === 'schemes' ? 'schemes' : 'rules');
 const state = ref({ rules: [], schemes: [], catalog: [] });
-const hasPublishedRole = computed(() => state.value.schemes.some(item => item.publishedVersion));
-const basicBusy = ref(false);
+const hasPublishedRole = computed(() => state.value.schemes.some(item => item.publishedVersion && item.id !== state.value.basicRoleId));
 const canCopy = ref(false);
 const directory = ref({ assignments: [], adminGrants: [] });
 const query = ref('');
@@ -225,7 +231,11 @@ const pickerOptions = ref([]);
 const pickerValue = ref([]);
 const selecting = ref(false);
 const showRules = ref(false);
-const recipients = computed(() => presentation.recipientCards(state.value.rules, state.value.schemes, directory.value, state.value.catalog, ui, query.value));
+const allocationFilters = ['all', 'specified', 'conditional', 'relationship', 'historical'];
+const allocationFilter = ref('all');
+const allocationPage = ref(1);
+const allocations = computed(() => presentation.allocationPage(presentation.allocationCards(state.value, directory.value, ui, query.value, allocationFilter.value), allocationPage.value));
+watch([query, allocationFilter], () => { allocationPage.value = 1; });
 const selectedRules = ref([]);
 let candidateGeneration = 0;
 let generation = 0;
@@ -235,7 +245,6 @@ const personName = computed(() => session.context?.name || session.user?.name ||
 const roleName = computed(() => roleLabelOf(session.context));
 const organizationName = computed(() => session.context?.organizationName || '');
 const cards = computed(() => presentation.ruleCards(state.value.rules, directory.value, state.value.catalog, ui, query.value));
-const dynamicRules = computed(() => cards.value.filter(rule => rule.policy.subjects.some(subject => subject.kind === 'assignmentScope')));
 const schemes = computed(() => state.value.schemes.filter(item => item.name.toLowerCase().includes(query.value.trim().toLowerCase())));
 const effectiveGroups = computed(() => presentation.inspectionGroups(effective.value?.capabilities, state.value.catalog, ui, effectiveRange.value, effectiveQuery.value));
 const controlledEffective = computed(() => (effective.value?.capabilities || []).filter(item => item.systemControlled && item.rules?.length));
@@ -253,17 +262,6 @@ function categoryLabel(key) {
   return state.value.catalog.find(item => item.key === key)?.classification === 'special'
     ? ui.unified.categorySpecial : ui.unified.categoryGeneral;
 }
-async function setBasicCapability(item, enabled) {
-  if (basicBusy.value || state.value.isSuper !== true || item.enabled === enabled) return;
-  const context = session.context;
-  basicBusy.value = true;
-  try {
-    requireSuccess(await callApi('setAuthorizationBasicCapability', { identityModel: 'unified', capability: item.key, enabled, expectedRevision: state.value.revision }));
-    if (!disposed && session.context === context) await load();
-  } catch (error) {
-    if (!disposed && session.context === context) notice.value = errorText(error, ui.operationFailed);
-  } finally { basicBusy.value = false; }
-}
 function clear() {
   canCopy.value = false;
   effectiveQuery.value = '';
@@ -272,6 +270,7 @@ function clear() {
   generation++; inspectionGeneration++; candidateGeneration++;
   selecting.value = false; selectedRules.value = [];
   showRules.value = false;
+  allocationFilter.value = 'all'; allocationPage.value = 1;
   closeInspection(); inspectionTarget.value = null; inspectionLabel.value = ui.ownRole; candidateLoading.value = false;
   state.value = { rules: [], schemes: [], catalog: [] }; directory.value = { assignments: [], adminGrants: [] };
   effective.value = null; ready.value = false; query.value = ''; inspecting.value = false; inspectionNotice.value = ''; notice.value = '';
@@ -341,14 +340,22 @@ function selectTab(value) {
   tab.value = value;
   if (value === 'effective' && ready.value) inspect();
 }
-function toggleSelection() { showRules.value = true; selecting.value = !selecting.value; selectedRules.value = []; }
+function toggleSelection() { selecting.value = !selecting.value; selectedRules.value = []; }
 function toggleRules() { showRules.value = !showRules.value; selecting.value = false; selectedRules.value = []; }
 function selectRule(id) {
   if (!selecting.value) return;
   if (state.value.rules.find(rule => rule.id === id)?.canEdit === false) return;
   selectedRules.value = selectedRules.value.includes(id) ? selectedRules.value.filter(value => value !== id) : [...selectedRules.value, id];
 }
-function selectShown() { selectedRules.value = [...new Set([...selectedRules.value, ...cards.value.filter(item => item.canEdit !== false).map(item => item.id)])]; }
+function selectShown() {
+  const visible = showRules.value ? cards.value : allocations.value.rows;
+  selectedRules.value = [...new Set([...selectedRules.value, ...visible.filter(item => item.canEdit !== false).map(item => item.id)])];
+}
+function viewAllocationRole(id) {
+  query.value = '';
+  tab.value = 'schemes';
+  opened.value = { ['scheme:' + id]: true };
+}
 function deleteSelected() {
   if (selectedRules.value.length) router.push({ name: 'authorizationChanges', query: { kind: 'delete', ids: JSON.stringify(selectedRules.value) } });
 }
@@ -366,8 +373,18 @@ onBeforeUnmount(() => { disposed = true; clear(); document.removeEventListener('
 .button-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-inline-gap); }
 details > summary { cursor: pointer; }
 details[open] > summary { margin-bottom: var(--ui-list-gap); }
-.authorization-recipient > summary, .authorization-grant > summary, .authorization-scheme > summary, .authorization-dynamic > summary { display: flex; align-items: center; flex-wrap: wrap; gap: var(--ui-inline-gap); }
-.authorization-recipient > details, .authorization-dynamic > details, .authorization-scheme > details { margin-top: var(--ui-list-gap); }
+.authorization-scheme > summary { display: flex; align-items: center; flex-wrap: wrap; gap: var(--ui-inline-gap); }
+.authorization-scheme > details { margin-top: var(--ui-list-gap); }
+.authorization-allocation-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; gap: var(--ui-list-gap); }
+.authorization-allocation-facts > div { min-width: 0; overflow-wrap: anywhere; }
+.authorization-allocation-facts > div:first-child { grid-column: 1 / -1; }
+.authorization-allocation-facts dd { margin: 0; }
+.authorization-workspace .authorization-filter-row > .btn { flex: 0 0 auto; width: auto; margin: 0; }
+.authorization-allocation-pager { justify-content: center; }
+@media (min-width: 520px) {
+  .authorization-allocation-facts { grid-template-columns: minmax(0, 2fr) minmax(0, 2fr) minmax(0, 1fr); }
+  .authorization-allocation-facts > div:first-child { grid-column: auto; }
+}
 .disclosure-chevron { margin-left: auto; flex-shrink: 0; }
 details[open] > summary > .disclosure-chevron { transform: rotate(90deg); }
 </style>

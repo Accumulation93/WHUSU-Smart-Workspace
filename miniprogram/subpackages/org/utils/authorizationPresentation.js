@@ -124,34 +124,73 @@ function ruleCards(rules, directory, catalog, copy, query = '') {
   });
 }
 
-// 只按明确的岗位或管理身份关联分组，不推算动态范围的实际授权结果。
-function recipientCards(rules, schemes, directory, catalog, copy, query = '') {
+function allocationCards(management, directory, copy, query = '', filter = 'all') {
   const indexes = makeIndexes(directory);
-  const schemeNames = new Map(schemes.map(item => [item.id, item.name]));
-  const groups = new Map();
-  for (const rule of ruleCards(rules, directory, catalog, copy)) {
+  const labels = copy.allocation;
+  const schemes = new Map(management.schemes.map(item => [item.id, item]));
+  const legacy = management.legacyRecipientAssignments || {};
+  const makeRecipient = (key, name, detail = '') => ({ key, name, detail });
+  const assignment = id => {
+    const item = indexes.assignments.get(id);
+    return item ? makeRecipient(id, item.name || copy.unnamed,
+      [...new Set([item.departmentName, item.identityCategoryName, item.workGroupName].filter(Boolean))].join(' · ')) : null;
+  };
+  const rows = ruleCards(management.rules, directory, management.catalog, copy).map(rule => {
     const recipients = new Map();
-    for (const subject of rule.policy.subjects || []) {
-      if (!['assignments', 'adminGrants'].includes(subject.kind)) continue;
-      for (const id of subject.ids || []) recipients.set(subject.kind + ':' + id, { kind: subject.kind, id });
+    const filters = new Set();
+    for (const [index, subject] of (rule.policy.subjects || []).entries()) {
+      if (subject.kind === 'assignmentScope') {
+        filters.add('conditional');
+        recipients.set('condition:' + index, { ...makeRecipient('condition:' + index, labels.conditional), lines: rule.subjects[index].lines });
+        continue;
+      }
+      for (const id of subject.ids || []) {
+        const matches = subject.kind === 'assignments' ? [id] : (legacy[id] || []);
+        const known = matches.map(assignment).filter(Boolean);
+        for (const item of known) recipients.set('work:' + item.key, { ...item, key: 'work:' + item.key });
+        if (known.length) filters.add('specified');
+        if (known.length && known.length === matches.length) continue;
+        filters.add('historical');
+        const historical = subject.kind === 'adminGrants' ? indexes.adminGrants.get(id) : null;
+        const historicalName = historical && historical.name;
+        const key = subject.kind + ':' + id;
+        recipients.set(key, makeRecipient(key, historicalName || labels.unknownRecipient,
+          historicalName ? labels.unknownRecipient : ''));
+      }
     }
-    for (const [key, recipient] of recipients) {
-      const item = indexes[recipient.kind].get(recipient.id);
-      if (!groups.has(key)) groups.set(key, { key, name: item && item.name || copy.unavailableReference,
-        assignmentLabel: item && recipient.kind === 'assignments' ? assignmentLabel(item) : copy.adminGrants, grants: [] });
-      groups.get(key).grants.push({ ...rule, identityName: schemeNames.get(rule.schemeId) || rule.name || copy.customAuthorization,
-        custom: !schemeNames.has(rule.schemeId),
-        sharedText: recipients.size > 1 || rule.policy.subjects.some(subject => subject.kind === 'assignmentScope')
-          ? copy.sharedGrantNotice : '', scopeText: rule.scopes.map(scope => [scope.label].concat(scope.lines.map(line => line.label + '：' + line.value)).join(' · ')).join('；') });
-    }
+    const scheme = schemes.get(rule.schemeId);
+    return { ...rule, roleName: scheme && scheme.name || (rule.schemeId ? labels.unknownRole : rule.name || copy.customAuthorization),
+      custom: !rule.schemeId, recipientRows: [...recipients.values()], filters: [...filters],
+      shared: recipients.size > 1 || filters.has('conditional'),
+      scopeNames: [...new Set(rule.scopes.map(scope => scope.label))], statusText: rule.enabledText };
+  });
+  const relationship = management.relationshipRoleAssignment;
+  if (relationship) {
+    const scheme = schemes.get(relationship.schemeId);
+    rows.unshift({ id: 'relationship:' + relationship.id, schemeId: relationship.schemeId, roleName: scheme && scheme.name || labels.unknownRole,
+      relationship: true, canEdit: false, hasRole: !!scheme, canEditRole: !!scheme && scheme.canEdit !== false, filters: ['relationship'],
+      recipientRows: [makeRecipient('relationship', labels.relationshipRecipient)], scopeNames: [labels.relationshipDataScope],
+      capabilityLabels: scheme ? (scheme.publishedCapabilities || []).map(key => capabilityLabel(key, management.catalog, copy)) : [],
+      statusText: relationship.enabled ? copy.enabled : copy.disabled });
   }
   const needle = permissionSearchText(query);
-  return Array.from(groups.values()).map(item => {
-    const roleMatches = !needle || permissionSearchText([item.name, item.assignmentLabel].join(' ')).includes(needle);
-    const grants = roleMatches ? item.grants : item.grants.filter(grant =>
-      permissionSearchText([grant.name, grant.identityName].concat(grant.capabilityLabels).join(' ')).includes(needle));
-    return { ...item, grants, countText: copy.roleGrantCount(grants.length) };
-  }).filter(item => item.grants.length);
+  return rows.filter(row => {
+    if (filter !== 'all' && !row.filters.includes(filter)) return false;
+    if (!needle) return true;
+    const values = [row.roleName, row.name, ...row.scopeNames, ...(row.capabilityLabels || [])];
+    for (const recipient of row.recipientRows) {
+      values.push(recipient.name, recipient.detail, ...(recipient.lines || []).map(line => line.value));
+    }
+    return permissionSearchText(values.join(' ')).includes(needle);
+  });
+}
+
+function allocationPage(rows, page = 1) {
+  const pageSize = 20;
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const currentPage = Math.min(Math.max(1, page), totalPages);
+  const offset = (currentPage - 1) * pageSize;
+  return { currentPage, totalPages, rows: rows.slice(offset, offset + pageSize) };
 }
 
 function permissionStatus(item, copy) {
@@ -181,4 +220,4 @@ function inspectionGroups(capabilities, catalog, copy, range = 'granted', query 
   return Array.from(groups.values()).map(group => ({ ...group, countText: copy.effectiveCount(group.items.length) }));
 }
 
-module.exports = { makeIndexes, assignmentLabel, personnelOptions, capabilityLabel, permissionSearchText, dimensionLines, policySections, ruleCards, recipientCards, permissionStatus, inspectionGroups };
+module.exports = { makeIndexes, assignmentLabel, personnelOptions, capabilityLabel, permissionSearchText, dimensionLines, policySections, ruleCards, allocationCards, allocationPage, permissionStatus, inspectionGroups };

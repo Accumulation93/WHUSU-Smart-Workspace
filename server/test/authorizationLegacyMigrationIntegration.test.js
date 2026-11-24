@@ -51,7 +51,8 @@ async function run() {
     await connection.query(fs.readFileSync(path.join(__dirname, '../db/init.sql'), 'utf8'));
     await connection.query(`CREATE TABLE cache_domain_versions (org_id VARCHAR(64), domain VARCHAR(32), version BIGINT UNSIGNED NOT NULL,
       PRIMARY KEY(org_id,domain)); INSERT INTO organizations(id,name) VALUES ('migration-org','迁移隔离组织'),('other-org','其他组织')`);
-    for (const name of ['20261031160000_unified_authorization.sql', '20261101130000_authorization_legacy_migration_ledger.sql',
+    for (const name of ['20261031160000_unified_authorization.sql', '20261101023000_organization_config_copy.sql',
+      '20261124130000_merge_duplicate_authorization_roles.sql', '20261101130000_authorization_legacy_migration_ledger.sql',
       '20261101013000_organization_venue_purposes.sql', '20261101100000_venue_purpose_storage_transition.sql',
       '20261102193000_authorization_runtime_transition.sql']) {
       const sql = fs.readFileSync(path.join(__dirname, '../db/deploy', name), 'utf8');
@@ -316,6 +317,19 @@ async function verifyUnifiedIdentityTransition(connection, pool) {
   assert.equal(superActor.isSuper, true);
   assert.equal(superActor.assignment.systemRole, 'super_admin');
   assert.equal(superActor.assignment.id, scopedSuper.effectiveAssignmentId);
+  const { readManagement } = require('../src/core/services/authorizationManagement');
+  const crossOrganization = await readManagement(connection, { accountId: 'super-account', personId: 'super-person',
+    sessionId: 'session-super', contextId: scopedSuper.contextId, organizationId: 'other-org' });
+  assert.deepEqual(crossOrganization.legacyRecipientAssignments, {});
+  const hub = (await identity.listContexts('super-account')).find(context => context.organizationId === 'migration-org');
+  await connection.query(`INSERT INTO auth_sessions(id,account_id,openid_hash,context_id,context_type,context_subject_id,
+    organization_id,role,token_version,expires_at)
+    VALUES ('session-super-hub','super-account','',?,'admin','grant-super','migration-org','admin',1,UTC_TIMESTAMP() + INTERVAL 1 DAY)`, [hub.contextId]);
+  await connection.query(`INSERT INTO authorization_identity_assignment_links(org_id,admin_grant_id,assignment_id)
+    VALUES ('migration-org','grant-a','b-post')`);
+  const sameOrganization = await readManagement(connection, { accountId: 'super-account', personId: 'super-person',
+    sessionId: 'session-super-hub', contextId: hub.contextId, organizationId: 'migration-org' });
+  assert.deepEqual(sameOrganization.legacyRecipientAssignments['grant-a'], ['a-post-2']);
   console.log('普通身份合并：无岗阻断、固定岗位范围、无差异启用、旧身份切换兼容、增岗不继承、超管跨组织及来源岗位失效检查通过。');
 }
 run().catch(error => { console.error(error); process.exitCode = 1; });

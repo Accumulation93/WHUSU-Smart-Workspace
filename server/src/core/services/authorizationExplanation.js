@@ -3,7 +3,7 @@
 const { normalizePolicy, subjectMatches, isTrustedSuper, restrictionFor } = require('./authorizationPolicy');
 
 // 无具体资源时只解释条件，不把“存在允许规则”表述为能操作组织内全部记录。
-function explainCapabilities(actor, entries, catalog, now, disabledBasic = new Set(), includeRuleDetails = true) {
+function explainCapabilities(actor, entries, catalog, now, disabledBasic = new Set(), includeRuleDetails = true, relationshipRole = null) {
   if (!actor || actor.active !== true || !actor.organizationId || !actor.personId
     || !['user', 'admin'].includes(actor.role) || !Number.isFinite(now)) return [];
   const superAdmin = isTrustedSuper(actor);
@@ -39,11 +39,14 @@ function explainCapabilities(actor, entries, catalog, now, disabledBasic = new S
     const hasAllow = rules.some(({ policy }) => policy.effect === 'allow');
     const hasBusinessEntry = !disabledBasic.has(definition.key) && (definition.businessRoles || []).includes(actor.role);
     const basic = actor.unifiedAuthorization === true && hasBusinessEntry;
+    const basicSource = !fullDeny && !hasAllow && basic && relationshipRole?.enabled
+      ? { roleId: relationshipRole.schemeId, roleName: relationshipRole.name } : {};
     // 新展示字段解释有效授权配置，旧状态保留给旧客户端；不代替逐记录业务判权。
     return { capability: definition.key, status: fullDeny || (!hasAllow && !hasBusinessEntry) ? 'denied' : hasAllow ? 'conditional' : 'business_check_required',
       reason: fullDeny ? 'explicit_deny' : hasAllow ? 'scope_and_business_check_required' : hasBusinessEntry ? 'business_relationship_required' : 'not_granted',
       grantState: fullDeny ? 'blocked' : hasAllow || basic ? 'granted' : 'not_granted',
       grantBasis: fullDeny ? 'none' : hasAllow ? 'rule' : basic ? 'basic_role' : 'none',
+      ...basicSource,
       hasRestrictions: !fullDeny && rules.some(({ policy }) => policy.effect === 'deny'),
       businessEntry: hasBusinessEntry,
       rules: includeRuleDetails ? rules.map(({ name, policy }) => ({ id: policy.id, name, effect: policy.effect,

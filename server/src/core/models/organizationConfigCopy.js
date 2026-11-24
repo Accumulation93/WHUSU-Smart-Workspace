@@ -291,7 +291,8 @@ async function workspace(input, reference, guard) {
         [rows] = await connection.query(`SELECT id, ${name} AS name,venue_id FROM ${table}
           WHERE id>? ORDER BY id LIMIT 31`, [after]);
       } else {
-        const published = input.kind === 'authorization.schemes' ? ' AND published_version > 0' : '';
+        const published = input.kind === 'authorization.schemes'
+          ? ' AND published_version > 0 AND ' + require('./authorizationRoleBackfill').activeRole(table) : '';
         [rows] = await connection.query(`SELECT id, ${name} AS name FROM ${table}
           WHERE org_id=? AND id>?${published} ORDER BY id LIMIT 31`, [reference.organizationId, after]);
       }

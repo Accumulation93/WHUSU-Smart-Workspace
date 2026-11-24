@@ -19,6 +19,7 @@ const ERRORS = Object.freeze({
   authorization_stale_reference: [409, 'staleReference'],
   authorization_organization_missing: [403, 'forbidden'],
   authorization_scheme_unpublished: [409, 'unpublishedScheme'],
+  authorization_duplicate_scheme_name: [409, 'duplicateSchemeName'],
   authorization_role_required: [400, 'chooseIdentity'],
   invalid_authorization_name: [400, 'invalidName'],
   invalid_authorization_policy: [400, 'invalidPolicy'],

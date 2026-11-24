@@ -16,6 +16,14 @@ module.exports = async function unifiedPermissionIntegrationCases(admin, post) {
     await admin.query(migration);
     await admin.query(migration);
   }
+  const previousDisabled = 'calendar.events.create';
+  await admin.query('INSERT INTO authorization_basic_role_exclusions (org_id, capability_key) VALUES (?, ?)', [org, previousDisabled]);
+  await admin.query(`INSERT INTO authorization_schemes (id, org_id, name, draft_capabilities_json)
+    VALUES ('prior-member-name', ?, '成员基础权限', JSON_ARRAY('audit.submissions.read'))`, [org]);
+  const memberMigration = fs.readFileSync(path.join(__dirname,
+    '../../db/deploy/20261124131000_bind_member_relationship_permissions_to_roles.sql'), 'utf8');
+  await admin.query(memberMigration);
+  await admin.query(memberMigration);
   await admin.query("UPDATE authorization_runtime_transition SET phase='enforced',minimum_protocol=3 WHERE id=1");
   await admin.query("UPDATE authorization_organizations SET mode='enforced' WHERE org_id='org'");
   await admin.query("UPDATE auth_sessions SET context_type='admin',context_subject_id='grant',role='admin' WHERE id='session'");
@@ -41,6 +49,15 @@ module.exports = async function unifiedPermissionIntegrationCases(admin, post) {
   assert(reopened.rules.some(rule => rule.id === saved.rule.id && rule.policy.subjects[0].ids[0] === 'assignment'));
   assert.equal(reopened.unifiedIdentity, true);
   assert.equal(reopened.roleBindingOnly, true);
+  const memberRole = reopened.schemes.find(item => item.id === reopened.basicRoleId);
+  assert.equal(memberRole.name, '成员基础权限（2）');
+  assert.deepEqual(reopened.relationshipRoleAssignment, { id: org, schemeId: memberRole.id,
+    subject: 'organizationMembers', scope: 'businessRelationship', enabled: true });
+  const relationshipRoles = require('../../src/core/models/authorizationRelationshipRole');
+  assert.deepEqual(new Set(memberRole.publishedCapabilities), new Set(relationshipRoles.CAPABILITIES.filter(key => key !== previousDisabled)));
+  const badBinding = await post('previewAuthorizationRule', { ...body, bindingModel: 'role', schemeId: memberRole.id,
+    expectedRevision: await revision() });
+  assert.equal((await badBinding.json()).status, 'authorization_forbidden');
   const generatedRole = reopened.schemes.find(item => item.id === saved.rule.schemeId);
   assert.deepEqual([generatedRole.canEdit, generatedRole.canPublish, generatedRole.publishedVersion], [true, true, 1]);
   assert.deepEqual(generatedRole.publishedCapabilities, body.policy.capabilities);
@@ -136,6 +153,41 @@ module.exports = async function unifiedPermissionIntegrationCases(admin, post) {
   assert.equal((await post('setAuthorizationBasicCapability', { identityModel, capability: 'notifications.items.read',
     enabled: false, expectedRevision: await revision() })).status, 200);
   assert((await model.read(admin, org, false, true)).disabledBasic.has('notifications.items.read'));
+  const notification = async (businessGranted, resource = { type: 'notifications.items', id: 'own-item', organizationId: org }) =>
+    (await createAuthorizationSession(admin, recipientReference)).check({ resource, capability: 'notifications.items.read',
+      businessAllowed: true, businessGranted }).allowed;
+  assert.equal(await notification(true), false);
+  const toggledRole = (await model.listSchemes(admin, org)).find(role => role.id === memberRole.id);
+  assert.equal(toggledRole.publishedVersion, 2);
+  assert.equal(toggledRole.publishedCapabilities.includes('notifications.items.read'), false);
+  const emptyDraft = await (await post('saveAuthorizationScheme', { identityModel, id: toggledRole.id,
+    version: toggledRole.version, name: toggledRole.name, capabilities: [] })).json();
+  assert.equal(emptyDraft.status, 'success');
+  assert.equal((await model.read(admin, org, false, true)).disabledBasic.has('calendar.events.read'), false);
+  const emptyPublish = { identityModel, id: toggledRole.id, version: emptyDraft.scheme.version, expectedRevision: await revision() };
+  const relationshipPreview = await (await post('previewAuthorizationScheme', emptyPublish)).json();
+  assert.deepEqual(relationshipPreview.relationshipRoleAssignment.afterCapabilities, []);
+  const emptied = await (await post('publishAuthorizationScheme', emptyPublish)).json();
+  assert.equal(emptied.status, 'success');
+  assert.equal((await model.read(admin, org, false, true)).disabledBasic.size, relationshipRoles.CAPABILITIES.length);
+  const restoreMemberRole = await (await post('publishAuthorizationScheme', { ...emptyPublish, version: emptied.version,
+    expectedRevision: await revision(), restoreVersion: 1 })).json();
+  assert.equal(restoreMemberRole.status, 'success');
+  assert.equal(await notification(true), true);
+  assert.equal(await notification(false), false);
+  assert.equal(await notification(true, { type: 'notifications.items', id: 'own-item', organizationId: 'other' }), false);
+  const personallyExplained = await require('../../src/core/services/authorizationInspection').inspect(admin, recipientReference);
+  assert.deepEqual(personallyExplained.capabilities.filter(item => item.capability === 'notifications.items.read')
+    .map(item => [item.grantBasis, item.roleId, item.roleName]), [['basic_role', memberRole.id, memberRole.name]]);
+  await admin.query('INSERT INTO authorization_basic_role_exclusions (org_id, capability_key) VALUES (?, ?)',
+    [org, 'notifications.items.read']);
+  assert.equal(await notification(true), true);
+  await admin.query('DELETE FROM authorization_basic_role_exclusions WHERE org_id = ? AND capability_key = ?',
+    [org, 'notifications.items.read']);
+  assert.deepEqual([...(await model.read(admin, org, false, true)).disabledBasic], [previousDisabled]);
+  await admin.query(memberMigration);
+  assert.equal((await model.listSchemes(admin, org)).find(role => role.id === memberRole.id).publishedVersion, 4);
+  console.log('成员基础角色：重复迁移、旧关闭状态、名称区分、旧开关改正式发布版本、空草稿和发布、回退、按本人业务关系、来源展示及组织隔离通过。');
   const root = { accountId: 'account', personId: 'person', sessionId: 'session', contextId: 'context', organizationId: org };
   assert.equal((await createAuthorizationSession(admin, root)).isSuper, true);
   const legacyCreate = await post('saveAdmin', { name: 'Compatibility candidate', studentId: 'legacy-identity-test', adminLevel: 'admin' });

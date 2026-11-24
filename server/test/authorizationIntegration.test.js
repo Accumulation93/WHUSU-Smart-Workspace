@@ -30,6 +30,9 @@ async function run() {
     const migration = fs.readFileSync(path.join(__dirname, '../db/deploy/20261031160000_unified_authorization.sql'), 'utf8');
     await admin.query(migration);
     await admin.query(migration);
+    for (const file of ['20261101023000_organization_config_copy.sql', '20261124130000_merge_duplicate_authorization_roles.sql']) {
+      await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy', file), 'utf8'));
+    }
     const descriptionMigration = fs.readFileSync(path.join(__dirname, '../db/deploy/20261110190000_assignment_nature_description.sql'), 'utf8');
     await admin.query(descriptionMigration);
     await admin.query(descriptionMigration);
@@ -724,7 +727,6 @@ async function run() {
     await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261101013000_organization_venue_purposes.sql'), 'utf8'));
     await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261101100000_venue_purpose_storage_transition.sql'), 'utf8'));
     await require('../src/modules/venue/models/venuePurposeStorage').activate('a'.repeat(40), async () => true);
-    await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261101023000_organization_config_copy.sql'), 'utf8'));
     await admin.query("UPDATE auth_sessions SET context_type='admin',context_subject_id='grant',role='admin' WHERE id='session'");
     const purposeRule = await model.saveRule({ name: '普通岗位事由维护', policy: { ...blank,
       subjects: [{ kind: 'assignments', ids: ['assignment'] }],

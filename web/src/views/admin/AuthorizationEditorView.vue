@@ -242,9 +242,14 @@ const delegationOptions = computed(() => (state.value.delegationOptions || [])
 const requiresDelegation = computed(() => !state.value.isSuper && (kind.value !== 'delegation' || unified.value));
 const delegation = computed(() => delegationOptions.value.find(item => item.id === selectedDelegation.value));
 const formAvailable = computed(() => !requiresDelegation.value || !!delegation.value && (kind.value === 'scheme' || !delegation.value.includesOwnRole));
-const availableSchemes = computed(() => editor.assignableSchemes(state.value.schemes, delegation.value, state.value.catalog, draft.value, unified.value));
+const availableSchemes = computed(() => editor.assignableSchemes(state.value.schemes.filter(item => item.id !== state.value.basicRoleId), delegation.value, state.value.catalog, draft.value, unified.value));
 const scopedDirectory = computed(() => editor.delegationDirectory(directory.value, delegation.value));
-const activeCatalog = computed(() => state.value.catalog.filter(item => !delegation.value || delegation.value.envelope.capabilities.includes(item.key)));
+const editingRelationshipRole = computed(() => kind.value === 'scheme' && !!state.value.basicRoleId && draft.value.id === state.value.basicRoleId);
+const activeCatalog = computed(() => {
+  const relationshipKeys = editingRelationshipRole.value ? new Set((state.value.basicCapabilities || []).map(item => item.key)) : null;
+  return state.value.catalog.filter(item => (!relationshipKeys || relationshipKeys.has(item.key))
+    && (!delegation.value || delegation.value.envelope.capabilities.includes(item.key)));
+});
 const inheritedSubjects = computed(() => delegation.value?.envelope.subjects.filter(item => item.kind === 'assignmentScope') || []);
 const controlledCapabilities = computed(() => state.value.catalog.filter(item => item.systemControlled && draft.value.policy.capabilities.includes(item.key)));
 const inheritedPeriods = computed(() => ['startsAt', 'endsAt'].filter(key => delegation.value?.envelope[key]));
@@ -443,7 +448,7 @@ async function review() {
     if (kind.value === 'scheme') {
       if (!draft.value.name.trim()) throw createLocalError(ui.invalidPolicy);
       if (blockedSchemeCapabilities.value.length) throw createLocalError(ui.unified.schemePublishBlocked);
-      if (!draft.value.policy.capabilities.length) throw createLocalError(ui.unified.schemeNeedsGeneralCapability);
+      if (!draft.value.policy.capabilities.length && !editingRelationshipRole.value) throw createLocalError(ui.unified.schemeNeedsGeneralCapability);
       const result = await callApi('saveAuthorizationScheme', { identityModel: 'unified', id: draft.value.id, version: draft.value.version, delegationId: selectedDelegation.value || undefined,
         name: draft.value.name.trim(), capabilities: draft.value.policy.capabilities });
       if (request !== generation) return;

@@ -1,5 +1,6 @@
 const pool = require('../../config/db');
 const assignmentNature = require('./assignmentNature');
+const relationshipRole = require('./authorizationRelationshipRole');
 const { assignmentNatureLabels } = require('../../locales/zh-CN/adminPersonnel');
 
 async function authorizeGovernance(connection, reference, action, targetId = reference?.organizationId) {
@@ -24,9 +25,19 @@ async function findDependencies(connection, organizationId) {
       AND COLUMN_NAME IN ('org_id','creator_org_id','approval_org_id','source_org_id','target_org_id')
     ORDER BY TABLE_NAME,ORDINAL_POSITION`);
   const tables = new Set();
+  const basicRole = await relationshipRole.read(connection, organizationId);
+  const initialRoleId = basicRole?.schemeId === relationshipRole.schemeIdFor(organizationId) ? basicRole.schemeId : null;
   for (const column of columns) {
     // 初始化的性质和缓存版本不是业务资料；自定义性质、规则和变更记录仍然阻止删除。
     if (['authorization_organizations', 'cache_domain_versions', 'identity_nature_rollouts'].includes(column.table_name)) continue;
+    if (initialRoleId && column.table_name === 'authorization_relationship_role_assignments') continue;
+    if (initialRoleId && ['authorization_schemes', 'authorization_scheme_versions'].includes(column.table_name)) {
+      const idColumn = column.table_name === 'authorization_schemes' ? 'id' : 'scheme_id';
+      const [rows] = await connection.query('SELECT 1 AS present FROM ?? WHERE org_id=? AND ??<>? LIMIT 1',
+        [column.table_name, organizationId, idColumn, initialRoleId]);
+      if (rows.length) tables.add(column.table_name);
+      continue;
+    }
     if (column.table_name === 'assignment_natures') {
       const [rows] = await connection.query('SELECT id,name,version FROM assignment_natures WHERE org_id=? FOR UPDATE', [organizationId]);
       if (rows.some(row => !['staff', 'liaison', 'other'].includes(row.id)
@@ -49,6 +60,12 @@ async function removeEmpty(id, authorize) {
     if (!organizations.length) return { status: 'not_found' };
     const dependencies = await findDependencies(connection, id);
     if (dependencies.length) return { status: 'not_empty', dependencies };
+    const basicRole = await relationshipRole.read(connection, id);
+    if (basicRole?.schemeId === relationshipRole.schemeIdFor(id)) {
+      await connection.query('DELETE FROM authorization_relationship_role_assignments WHERE org_id=?', [id]);
+      await connection.query('DELETE FROM authorization_scheme_versions WHERE org_id=? AND scheme_id=?', [id, basicRole.schemeId]);
+      await connection.query('DELETE FROM authorization_schemes WHERE org_id=? AND id=?', [id, basicRole.schemeId]);
+    }
     await connection.query('DELETE FROM assignment_natures WHERE org_id=?', [id]);
     await connection.query('DELETE FROM authorization_organizations WHERE org_id=?', [id]);
     await connection.query('DELETE FROM cache_domain_versions WHERE org_id=?', [id]);
@@ -78,6 +95,7 @@ async function create(id, name, reference) {
     await require('./authorizationCutover').inheritOrganization(connection, id);
     await authorizeGovernance(connection, reference, 'create');
     await connection.query('INSERT INTO organizations (id, name) VALUES (?, ?)', [id, name]);
+    await relationshipRole.initialize(connection, id);
     await assignmentNature.initialize(connection, id);
     await connection.query('INSERT INTO identity_nature_rollouts(org_id,enabled,enabled_at) VALUES (?,1,UTC_TIMESTAMP())', [id]);
     return { id, name };

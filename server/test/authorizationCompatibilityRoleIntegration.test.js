@@ -21,7 +21,9 @@ test('migration-generated roles preserve existing grants and restrictions across
     await connection.query('CREATE TABLE organizations (id VARCHAR(64) PRIMARY KEY)');
     await connection.query(`CREATE TABLE cache_domain_versions (org_id VARCHAR(64), domain VARCHAR(32),
       version BIGINT UNSIGNED NOT NULL, PRIMARY KEY (org_id, domain))`);
+    await connection.query(schema('20261101023000_organization_config_copy.sql'));
     await connection.query(schema('20261031160000_unified_authorization.sql'));
+    await connection.query(schema('20261124130000_merge_duplicate_authorization_roles.sql'));
     await connection.query("INSERT INTO authorization_organizations (org_id, mode) VALUES ('active', 'enforced'), ('shadow', 'shadow')");
     const rows = [
       { id: 'allow', organizationId: 'active', effect: 'allow', enabled: true },

@@ -8,6 +8,7 @@ const candidates = require('./authorizationCandidates');
 const { describeRuleImpact, describeDelegationImpact } = require('../services/authorizationImpact');
 const grants = require('./authorizationGrantSources');
 const roleBackfill = require('./authorizationRoleBackfill');
+const relationshipRole = require('./authorizationRelationshipRole');
 const legacyVerification = require('./authorizationLegacyVerification');
 const parse = value => typeof value === 'string' ? JSON.parse(value) : value;
 
@@ -47,32 +48,37 @@ async function read(connection, orgId, lock = false, unified = false) {
   if (unified) {
     const runtime = await grants.readGrantSources(connection, orgId, await listDelegations(connection, orgId, lock), lock);
     result.rules = runtime.filterRules(result.rules);
-    result.disabledBasic = await grants.readBasicExclusions(connection, orgId, lock);
+    result.relationshipRole = await relationshipRole.read(connection, orgId, lock);
+    result.disabledBasic = result.relationshipRole === undefined ? await grants.readBasicExclusions(connection, orgId, lock)
+      : relationshipRole.disabledCapabilities(result.relationshipRole);
   }
   return result;
 }
 
 async function setBasicCapability(input, orgId, guard) {
   checkGuard(guard);
-  const definition = CATALOG.get(input.capability);
-  if (!definition || !definition.businessRoles.includes('user') || typeof input.enabled !== 'boolean') fail('invalid_authorization_capabilities');
+  if (!relationshipRole.CAPABILITY_SET.has(input.capability) || typeof input.enabled !== 'boolean') fail('invalid_authorization_capabilities');
   return pool.withTransaction(async connection => {
     const actor = await guard.authorize(connection);
     if (!actor?.isSuper || actor.organizationId !== orgId || actor.unifiedAuthorization !== true) fail('authorization_forbidden');
     const state = await lockOrganization(connection, orgId);
     if (Number(state.revision) !== revision(input.expectedRevision)) fail('authorization_conflict');
-    const disabled = await grants.readBasicExclusions(connection, orgId, true);
-    const alreadyEnabled = !disabled.has(input.capability);
+    const relationship = await relationshipRole.read(connection, orgId, true);
+    if (!relationship?.enabled) fail('authorization_conflict');
+    const [[scheme]] = await connection.query('SELECT * FROM authorization_schemes WHERE org_id = ? AND id = ? FOR UPDATE',
+      [orgId, relationship.schemeId]);
+    if (!scheme) fail('authorization_conflict');
+    const alreadyEnabled = relationship.capabilities.includes(input.capability);
     if (alreadyEnabled === input.enabled) return { capability: input.capability, enabled: input.enabled, revision: Number(state.revision) };
-    if (input.enabled) {
-      await connection.query('DELETE FROM authorization_basic_role_exclusions WHERE org_id = ? AND capability_key = ?', [orgId, input.capability]);
-    } else {
-      await connection.query('INSERT INTO authorization_basic_role_exclusions (org_id, capability_key) VALUES (?, ?)', [orgId, input.capability]);
-    }
-    await connection.query('UPDATE authorization_organizations SET revision = revision + 1 WHERE org_id = ?', [orgId]);
-    await recordChange(connection, actor, orgId, 'basic_permission_toggle', input.capability,
-      { enabled: alreadyEnabled }, { enabled: input.enabled });
-    return { capability: input.capability, enabled: input.enabled, revision: Number(state.revision) + 1 };
+    const apply = keys => input.enabled ? [...new Set([...keys, input.capability])].sort() : keys.filter(key => key !== input.capability);
+    const next = apply(relationship.capabilities);
+    const draft = apply(parse(scheme.draft_capabilities_json));
+    const publishedVersion = await writePublishedScheme(connection, orgId, actor, scheme, next, draft);
+    await relationshipRole.syncExclusions(connection, orgId, next);
+    await recordChange(connection, actor, orgId, 'scheme_publish', scheme.id,
+      { publishedVersion: Number(scheme.published_version) }, { publishedVersion, capabilities: next, affectedRules: 0 });
+    const [[updated]] = await connection.query('SELECT revision FROM authorization_organizations WHERE org_id = ?', [orgId]);
+    return { capability: input.capability, enabled: input.enabled, revision: Number(updated.revision) };
   });
 }
 
@@ -87,7 +93,7 @@ async function recordChange(connection, actor, orgId, action, targetId, before, 
 async function publishedCapabilities(connection, orgId, schemeId) {
   const [rows] = await connection.query(`SELECT v.capabilities_json FROM authorization_schemes s
     JOIN authorization_scheme_versions v ON v.org_id = s.org_id AND v.scheme_id = s.id AND v.version = s.published_version
-    WHERE s.org_id = ? AND s.id = ? FOR SHARE`, [orgId, schemeId]);
+    WHERE s.org_id = ? AND s.id = ? AND ${roleBackfill.activeRole('s')} FOR SHARE`, [orgId, schemeId]);
   if (!rows.length) fail('authorization_scheme_unpublished');
   return parse(rows[0].capabilities_json);
 }
@@ -107,7 +113,7 @@ async function listSchemes(connection, orgId) {
   const [rows] = await connection.query(`SELECT s.*, v.capabilities_json AS published_capabilities_json
     FROM authorization_schemes s LEFT JOIN authorization_scheme_versions v
       ON v.org_id = s.org_id AND v.scheme_id = s.id AND v.version = s.published_version
-    WHERE s.org_id = ? ORDER BY s.name, s.id`, [orgId]);
+    WHERE s.org_id = ? AND ${roleBackfill.activeRole('s')} ORDER BY s.name, s.id`, [orgId]);
   return rows.map(row => ({ id: row.id, name: row.name, version: Number(row.version),
     publishedVersion: Number(row.published_version), capabilities: parse(row.draft_capabilities_json),
     publishedCapabilities: row.published_capabilities_json == null ? [] : parse(row.published_capabilities_json) }));
@@ -127,6 +133,8 @@ async function prepareRuleChange(connection, input, orgId, guard) {
   const [before = null] = state.mode === 'enforced' ? await legacyVerification.project(connection, orgId, rows, stored, true) : stored;
   if (state.mode === 'enforced' && input.bindingModel === 'role' && !input.schemeId) fail('authorization_role_required');
   if (input.schemeId) {
+    const relationship = await relationshipRole.read(connection, orgId, true);
+    if (relationship?.schemeId === input.schemeId) fail('authorization_forbidden');
     normalized.capabilities = await publishedCapabilities(connection, orgId, input.schemeId);
   }
   const policy = normalizePolicy(normalized, CATALOG);
@@ -252,25 +260,31 @@ async function deleteRules(input, orgId, guard) {
   });
 }
 
-function normalizeCapabilities(input) {
-  if (!Array.isArray(input) || !input.length || input.length > CATALOG.size
-    || input.some(key => typeof key !== 'string' || !CATALOG.has(key))) fail('invalid_authorization_capabilities');
+function normalizeCapabilities(input, isRelationshipRole = false) {
+  if (!Array.isArray(input) || (!isRelationshipRole && !input.length) || input.length > CATALOG.size
+    || input.some(key => typeof key !== 'string' || !CATALOG.has(key)
+      || (isRelationshipRole && !relationshipRole.CAPABILITY_SET.has(key)))) fail('invalid_authorization_capabilities');
   return [...new Set(input)].sort();
 }
 
 async function saveScheme(input, orgId, guard, transactionConnection = null) {
   checkGuard(guard);
   const schemeName = name(input.name);
-  const capabilities = normalizeCapabilities(input.capabilities);
   const write = async connection => {
     const actor = await guard.authorize(connection);
     if (!actor || actor.organizationId !== orgId || !actor.contextId) fail('authorization_actor_missing');
     await lockOrganization(connection, orgId);
     const id = input.id || crypto.randomUUID();
-    const [rows] = await connection.query('SELECT * FROM authorization_schemes WHERE org_id = ? AND id = ? FOR UPDATE', [orgId, id]);
+    const [rows] = await connection.query(`SELECT s.* FROM authorization_schemes s
+      WHERE s.org_id = ? AND s.id = ? AND ${roleBackfill.activeRole('s')} FOR UPDATE`, [orgId, id]);
     const before = rows[0] || null;
     if (input.id && (!before || Number(before.version) !== revision(input.version))) fail('authorization_conflict');
+    const relationship = before ? await relationshipRole.read(connection, orgId, true) : null;
+    const isRelationshipRole = relationship?.schemeId === id;
+    if (isRelationshipRole && !actor.isSuper) fail('authorization_forbidden');
+    const capabilities = normalizeCapabilities(input.capabilities, isRelationshipRole);
     await guard.validateChange(connection, before, { kind: 'scheme', capabilities });
+    if (await roleBackfill.roleNameExists(connection, orgId, schemeName, id)) fail('authorization_duplicate_scheme_name');
     if (before) {
       await connection.query('UPDATE authorization_schemes SET name = ?, draft_capabilities_json = ?, version = version + 1 WHERE org_id = ? AND id = ?',
         [schemeName, JSON.stringify(capabilities), orgId, id]);
@@ -291,7 +305,8 @@ async function prepareSchemePublication(connection, input, orgId, guard) {
     if (!actor || actor.organizationId !== orgId || !actor.contextId) fail('authorization_actor_missing');
     const state = await lockOrganization(connection, orgId);
     if (Number(state.revision) !== revision(input.expectedRevision)) fail('authorization_conflict');
-    const [rows] = await connection.query('SELECT * FROM authorization_schemes WHERE org_id = ? AND id = ? FOR UPDATE', [orgId, input.id]);
+    const [rows] = await connection.query(`SELECT s.* FROM authorization_schemes s
+      WHERE s.org_id = ? AND s.id = ? AND ${roleBackfill.activeRole('s')} FOR UPDATE`, [orgId, input.id]);
     const scheme = rows[0];
     if (!scheme || Number(scheme.version) !== revision(input.version)) fail('authorization_conflict');
     let capabilities = parse(scheme.draft_capabilities_json);
@@ -301,7 +316,10 @@ async function prepareSchemePublication(connection, input, orgId, guard) {
       if (!versions.length) fail('authorization_conflict');
       capabilities = parse(versions[0].capabilities_json);
     }
-    capabilities = normalizeCapabilities(capabilities);
+    const relationship = await relationshipRole.read(connection, orgId, true);
+    const isRelationshipRole = relationship?.schemeId === scheme.id;
+    if (isRelationshipRole && !actor.isSuper) fail('authorization_forbidden');
+    capabilities = normalizeCapabilities(capabilities, isRelationshipRole);
     await guard.validateChange(connection, scheme, { kind: 'scheme', capabilities });
     const [linked] = await connection.query('SELECT * FROM authorization_rules WHERE org_id = ? AND scheme_id = ? ORDER BY id FOR UPDATE', [orgId, input.id]);
     const stored = linked.map(decode);
@@ -315,13 +333,13 @@ async function prepareSchemePublication(connection, input, orgId, guard) {
       await guard.validateChange(connection, before.policy, policy);
       next.push({ before, policy, storedPolicy: { ...stored[index].policy, capabilities: policy.capabilities } });
     }
-    return { actor, state, scheme, capabilities, next };
+    return { actor, state, scheme, capabilities, next, relationship: isRelationshipRole ? relationship : null };
 }
 
 async function previewScheme(input, orgId, guard) {
   checkGuard(guard);
   return pool.withTransaction(async connection => {
-    const { state, scheme, capabilities, next } = await prepareSchemePublication(connection, input, orgId, guard);
+    const { state, scheme, capabilities, next, relationship } = await prepareSchemePublication(connection, input, orgId, guard);
     const directory = await candidates.read(connection, orgId);
     const roles = new Map();
     const rules = next.map(item => {
@@ -338,6 +356,9 @@ async function previewScheme(input, orgId, guard) {
         after: item.policy, peopleCount: impact.peopleCount, roleCount: impact.roleCount };
     });
     return { revision: Number(state.revision), schemeId: scheme.id, capabilities,
+      relationshipRoleAssignment: relationship ? {
+        ...relationshipRole.assignment(relationship, orgId), beforeCapabilities: relationship.capabilities, afterCapabilities: capabilities
+      } : null,
       rules, roles: [...roles.values()], roleCount: roles.size,
       peopleCount: new Set([...roles.values()].map(item => item.personId)).size };
   });
@@ -369,17 +390,23 @@ async function schemeVersions(input, orgId, guard) {
   });
 }
 
+async function writePublishedScheme(connection, orgId, actor, scheme, capabilities, draft = capabilities) {
+  const version = Number(scheme.published_version) + 1;
+  await connection.query(`INSERT INTO authorization_scheme_versions
+    (id, org_id, scheme_id, version, capabilities_json, actor_context_id) VALUES (?, ?, ?, ?, ?, ?)`,
+  [crypto.randomUUID(), orgId, scheme.id, version, JSON.stringify(capabilities), actor.contextId]);
+  await connection.query(`UPDATE authorization_schemes SET published_version = ?, draft_capabilities_json = ?, version = version + 1
+    WHERE org_id = ? AND id = ?`, [version, JSON.stringify(draft), orgId, scheme.id]);
+  return version;
+}
+
 async function publishScheme(input, orgId, guard) {
   checkGuard(guard);
   return pool.withTransaction(async connection => {
-    const { actor, scheme, capabilities, next } = await prepareSchemePublication(connection, input, orgId, guard);
+    const { actor, scheme, capabilities, next, relationship } = await prepareSchemePublication(connection, input, orgId, guard);
     // 全部引用通过后才更新，任一失败整批回滚，发布历史只追加。
-    const version = Number(scheme.published_version) + 1;
-    await connection.query(`INSERT INTO authorization_scheme_versions
-      (id, org_id, scheme_id, version, capabilities_json, actor_context_id) VALUES (?, ?, ?, ?, ?, ?)`,
-    [crypto.randomUUID(), orgId, scheme.id, version, JSON.stringify(capabilities), actor.contextId]);
-    await connection.query(`UPDATE authorization_schemes SET published_version = ?, draft_capabilities_json = ?, version = version + 1
-      WHERE org_id = ? AND id = ?`, [version, JSON.stringify(capabilities), orgId, scheme.id]);
+    const version = await writePublishedScheme(connection, orgId, actor, scheme, capabilities);
+    if (relationship) await relationshipRole.syncExclusions(connection, orgId, relationship.enabled ? capabilities : []);
     for (const item of next) {
       await connection.query('UPDATE authorization_rules SET policy_json = ?, version = version + 1 WHERE org_id = ? AND id = ?',
         [JSON.stringify(item.storedPolicy), orgId, item.before.id]);
