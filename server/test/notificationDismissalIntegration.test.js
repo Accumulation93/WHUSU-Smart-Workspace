@@ -19,6 +19,7 @@ async function main() {
     await admin.query(fs.readFileSync(path.join(__dirname,'../db/init.sql'),'utf8'));
     await admin.query(fs.readFileSync(path.join(__dirname,'../db/deploy/20261031160000_unified_authorization.sql'),'utf8'));
     await admin.query(fs.readFileSync(path.join(__dirname,'../db/deploy/20261111100000_identity_nature_links.sql'),'utf8'));
+    await admin.query(fs.readFileSync(path.join(__dirname,'../db/deploy/20261111103000_publication_rule_natures.sql'),'utf8'));
     await admin.query(fs.readFileSync(path.join(__dirname,'../db/deploy/20261031173000_authorization_subject_versions.sql'),'utf8'));
     await admin.query(fs.readFileSync(path.join(__dirname,'../db/deploy/20261101013000_organization_venue_purposes.sql'),'utf8'));
     // 重现生产历史表与新增表的排序规则差异，不让测试库的统一默认值掩盖故障。
@@ -114,6 +115,7 @@ async function main() {
     const assertAudit=async(ids)=>{
       const response=await post('listNotifications');
       assert.equal(response.status,'success');
+      assert.equal(response.partial,false,JSON.stringify(response.failedOrganizations));
       assert.deepEqual(response.items.map(item=>item.id).sort(),ids.slice().sort());
       assert.equal(response.total,ids.length);
       assert.equal((await post('getNotificationUnreadCount')).count,ids.length);
@@ -169,14 +171,26 @@ async function main() {
     await notify('profile-late','hr_profile_approved','hr_profile','hr','hr-profile-review:profile:2026-10-20 00:00:00.100'); await assertAudit([]);
     await notify('profile-current','hr_profile_approved','hr_profile','hr','hr-profile-review:profile:2026-10-21 00:00:00.000'); await assertAudit(['profile-current']);
     await admin.query("DELETE FROM hr_profile_records WHERE id='profile'"); await assertAudit([]);
-    await admin.query("INSERT INTO score_activities(id,name,org_id) VALUES ('score','评分','org')");
-    await admin.query("INSERT INTO result_publications(id,activity_id,org_id,is_published) VALUES ('pub','score','org',1)");
+    await admin.query(`INSERT INTO hr_info(id,name,student_id,org_id) VALUES ('hr','人员','p','org');
+      INSERT INTO organization_memberships(id,person_id,legacy_hr_id,org_id) VALUES ('mp','p','hr','org');
+      INSERT INTO departments(id,org_id,name) VALUES ('pub-dept','org','评分部门');
+      INSERT INTO identities(id,org_id,name) VALUES ('pub-identity','org','评分身份');
+      INSERT IGNORE INTO assignment_natures(id,org_id,name) VALUES ('staff','org','在岗'),('volunteer','org','志愿');
+      INSERT INTO membership_assignments(id,membership_id,org_id,assignment_kind,department_id,identity_id)
+        VALUES ('job','mp','org','staff','pub-dept','pub-identity');
+      INSERT INTO score_activities(id,name,org_id) VALUES ('score','评分','org');
+      INSERT INTO result_publications(id,activity_id,org_id,is_published) VALUES ('pub','score','org',1);
+      INSERT INTO pub_view_rules(id,publication_id,grantee_department_id,grantee_identity_id,org_id,nature_ids)
+        VALUES ('pub-rule','pub','pub-dept','pub-identity','org',JSON_ARRAY('staff'));
+      INSERT INTO pub_view_rule_clauses(id,rule_id,scope_type,org_id) VALUES ('pub-clause','pub-rule','own_results','org')`);
     await notify('published','score_results_published','result_publication','pub'); await assertAudit(['published']);
+    assert.equal((await post('listNotifications')).items[0].displayFacts.businessTitle,'评分');
+    await admin.query("UPDATE pub_view_rules SET nature_ids=JSON_ARRAY('volunteer') WHERE id='pub-rule'");
+    await assertAudit(['published']);
+    assert.deepEqual((await post('listNotifications')).items[0].displayFacts,{});
     await admin.query("UPDATE result_publications SET is_published=0 WHERE id='pub'"); await assertAudit([]);
     await notify('score-start','score_activity_started','score_activity','score'); await assertAudit([]);
     // 日程按同一业务读取函数核对名单、取消、改期和结束，而不是只检查通知存在。
-    await admin.query("INSERT INTO hr_info(id,name,student_id,org_id) VALUES ('hr','人员','p','org')");
-    await admin.query("INSERT INTO organization_memberships(id,person_id,legacy_hr_id,org_id) VALUES ('mp','p','hr','org')");
     const now=Date.now(),start=now+5*60000,end=now+65*60000;
     const makeSpec=(a,b)=>require('../src/core/services/calendarOccurrences').normalizeSpec({title:'日程',startDate:new Date(a).toISOString().slice(0,10),endDate:new Date(b).toISOString().slice(0,10),startTime:new Date(a).toISOString().slice(11,16),endTime:new Date(b).toISOString().slice(11,16),recurrence:{frequency:'none'},reminders:[15]},0);
     const spec=makeSpec(start,end);

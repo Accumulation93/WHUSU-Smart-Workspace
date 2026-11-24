@@ -11,7 +11,7 @@ const { describeConfiguration } = require('../../shared/organizationCopyPresenta
 const ui = require('../../shared/locales/zh-CN/authorization');
 const base = { name: '例会场地', ruleType: 'person', sortOrder: 1, venueReference: 'venue', assignmentReference: 'job',
   references: [{ token: 'venue', kind: 'venue', label: '会议室' }, { token: 'job', kind: 'assignments', label: '测试成员 · 负责人 · 综合部' }] };
-test('借用规则指定岗位必填且关联类型不能互换，旧人员编号不成为授权', () => {
+test('借用规则必须指定工作角色，关联类型不能互换，旧人员编号不能用于授权', () => {
   assert.equal(adapter.normalize(base).assignmentReference, 'job');
   for (const patch of [{ assignmentReference: null }, { ruleType: 'unknown' }, { ruleType: 'admin' },
     { sortOrder: 2147483648 }, { references: [base.references[0], { ...base.references[1], kind: 'identity' }] },
@@ -20,12 +20,14 @@ test('借用规则指定岗位必填且关联类型不能互换，旧人员编�
   }
   assert.throws(() => adapter.normalize({ ...base, assignmentReference: null, approverHrId: 'legacy-person' }));
 });
-test('借用规则摘要展示真实岗位与审批方式，明确副本尚未生效', () => {
+test('借用规则摘要展示指定工作角色和审批方式，明确副本尚未生效', () => {
+  const copy = ui.configurationCopy;
+  assert.equal(copy.bookingRuleTypes.person, '指定工作角色审批');
   const view = describeConfiguration('venue.bookingRules', adapter.normalize(base), ui);
-  assert.equal(view.notice, ui.configurationCopy.draftNotice);
-  const lines = view.sections.flatMap(section => section.lines).join('\n');
-  assert(lines.includes('指定岗位审批'));
-  assert(lines.includes('测试成员 · 负责人 · 综合部'));
-  assert(lines.includes('会议室'));
-  assert(!lines.includes('job'));
+  assert.equal(view.notice, copy.draftNotice);
+  const lines = view.sections.flatMap(section => section.lines);
+  assert(lines.includes(copy.summaryRow(copy.bookingRuleType, copy.bookingRuleTypes.person)));
+  assert(lines.includes(copy.summaryRow(copy.referenceKinds.assignments, '测试成员 · 负责人 · 综合部')));
+  assert(lines.includes(copy.summaryRow(copy.referenceKinds.venue, '会议室')));
+  assert(!lines.join('\n').includes('job'));
 });

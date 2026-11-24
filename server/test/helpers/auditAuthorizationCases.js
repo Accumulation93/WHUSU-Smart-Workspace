@@ -24,7 +24,6 @@ module.exports = async function auditAuthorizationCases(pool, orgStorage, router
       'audit.verification.read', 'audit.verification.configure'],
     scopes: [{ kind: 'organization' }], fields: null };
   await model.saveRule({ name: '普通岗位审核模板', policy, expectedRevision: (await read()).revision }, 'submit-a', guard);
-  await pool.query("UPDATE authorization_organizations SET mode='enforced' WHERE org_id='submit-a'");
   const call = async (name, body, options = {}) => {
     const handler = router.stack.find(layer => layer.route.path === '/' + name).route.stack[0].handle;
     let result;
@@ -33,6 +32,16 @@ module.exports = async function auditAuthorizationCases(pool, orgStorage, router
     await orgStorage.run(options.org || 'submit-a', () => handler(request, response));
     return result;
   };
+  const legacy = (name, body = {}) => call(name, body, { legacy: true });
+  const oldCandidates = await legacy('listAuditVerificationCandidates');
+  assert.equal(oldCandidates.status, 'success', JSON.stringify(oldCandidates));
+  assert.equal(oldCandidates.candidates[0].id, 'audit-hr');
+  assert.equal((await legacy('saveVerificationPermission', { granteeHrId: 'audit-hr', action: 'unknown' })).status, 'invalid_params');
+  assert.equal((await legacy('saveVerificationPermission', { granteeHrId: 'audit-hr', action: 'grant' })).status, 'success');
+  assert.equal((await legacy('listVerificationPermissions')).permissions[0].granteeName, '授权测试成员');
+  assert.equal((await legacy('saveVerificationPermission', { granteeHrId: 'audit-hr', action: 'revoke' })).status, 'success');
+  assert.deepEqual((await legacy('listVerificationPermissions')).permissions, []);
+  await pool.query("UPDATE authorization_organizations SET mode='enforced' WHERE org_id='submit-a'");
   const form = { name: '普通岗位新增模板', description: '', starterType: 'conditions', starterConditions: [],
     steps: ['pass','sign','estamp','both','either'].map(actionType => ({ name: actionType, actionType,
       conditions: [{ conditionType: 'submitter' }], allowApproverDesignation: true })) };
@@ -80,14 +89,12 @@ module.exports = async function auditAuthorizationCases(pool, orgStorage, router
   assert.equal((await call('deleteStamp', { id: stamp.id })).status, 'success');
   assert.equal((await call('listStamps', {})).stamps.length, 0);
   assert.equal(Number((await pool.query('SELECT COUNT(*) AS count FROM stamp_assignment_grants WHERE stamp_id=?', [stamp.id]))[0][0].count), 0);
-  assert.equal((await call('listAuditVerificationCandidates', {})).candidates[0].id, 'audit-hr');
-  assert.equal((await call('saveVerificationPermission', { granteeHrId: 'audit-hr', action: 'grant' })).status, 'success');
-  assert.equal((await call('listVerificationPermissions', {})).permissions[0].granteeName, '授权测试成员');
-  assert.equal((await call('saveVerificationPermission', { granteeHrId: 'audit-hr', action: 'unknown' })).status, 'invalid_params');
-  assert.equal((await call('saveVerificationPermission', { granteeHrId: 'audit-hr', action: 'revoke' }, { legacy: true })).status, 'forbidden');
-  assert.equal((await call('listVerificationPermissions', {})).permissions.length, 1);
-  assert.equal((await call('saveVerificationPermission', { granteeHrId: 'audit-hr', action: 'revoke' })).status, 'success');
-  assert.equal((await call('listVerificationPermissions', {})).permissions.length, 0);
+  assert.equal((await call('listAuditVerificationCandidates', {})).status, 'authorization_upgrade_required');
+  for (const action of ['grant', 'revoke']) {
+    assert.equal((await call('saveVerificationPermission', { granteeHrId: 'audit-hr', action })).status, 'authorization_upgrade_required');
+    assert.equal((await legacy('saveVerificationPermission', { granteeHrId: 'audit-hr', action })).status, 'forbidden');
+  }
+  assert.deepEqual((await call('listVerificationPermissions', {})).permissions, []);
   await pool.query(`INSERT INTO audit_submissions(id,submission_number,submitted_by,title,org_id)
     VALUES ('audit-visible','AUTH-A','audit-hr','获准查看的申请','submit-a'),
       ('audit-hidden','AUTH-B','audit-hr','未获授权的申请','submit-a'),

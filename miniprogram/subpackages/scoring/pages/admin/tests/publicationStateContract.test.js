@@ -3,6 +3,8 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const vm = require('node:vm');
+const test = require('node:test');
 
 const publicationWxml = fs.readFileSync(path.resolve(__dirname, '../adminWorkbenchContent.wxml'), 'utf8');
 const publicationWxss = fs.readFileSync(path.resolve(__dirname, '../adminWorkbenchStyles.wxss'), 'utf8');
@@ -27,19 +29,75 @@ const refresh = source.slice(
   source.indexOf('async _refreshActiveOrganizationTab'),
   source.indexOf('onOrgTap()')
 );
-assert.match(refresh, /publicationForm:[\s\S]*activityId[\s\S]*return this\.loadPublicationData\(activityId\)/,
-  '组织切换后必须先绑定新组织当前活动，再读取公示数据');
+assert.match(refresh, /publications:\s*\(\) => this\.loadPublicationActivityOptions\(\)/,
+  '组织切换后公示入口必须使用本组织新加载的候选');
 
 const switchTab = source.slice(
   source.indexOf('switchTab(e)'),
   source.indexOf('goPortal()')
 );
-assert.match(
-  switchTab,
-  /selectedActivity[\s\S]*activityId = selectedActivity \? selectedActivityId : String\(this\.data\.currentActivityId \|\| ''\)/,
-  '公示页签重入必须保留仍属于当前组织的历史活动选择'
-);
-assert.doesNotMatch(switchTab, /loadPublicationData\(currentActivityId\)/,
-  '公示页签重入不得无条件切回当前活动');
+assert.match(switchTab, /if \(tab === 'publications'\)\s*\{\s*this\.loadPublicationActivityOptions\(\)/,
+  '公示页签重入使用同一个候选加载入口');
 
-console.log('评分管理端组织切换与公示活动状态重建测试通过');
+const behaviorFile = path.resolve(__dirname, '../modules/publicationBehavior.js');
+const context = {
+  module: { exports: {} },
+  Behavior: definition => definition,
+  require(name) {
+    if (name.endsWith('/orgSession')) return {
+      beginRequest: () => ({}), isRequestCurrent: page => page.requestCurrent, getSnapshot: () => ({})
+    };
+    if (name.includes('/locales/')) return require(path.resolve(path.dirname(behaviorFile), name));
+    return {};
+  }
+};
+vm.runInNewContext(fs.readFileSync(behaviorFile, 'utf8'), context, { filename: behaviorFile });
+
+function createPage(previousActivityId, list, currentActivityId) {
+  const calls = [];
+  const workbench = {
+    ...context.module.exports.methods,
+    requestCurrent: true,
+    data: {
+      authorizationEnforced: true,
+      publicationForm: { id: 'old-publication', activityId: previousActivityId, activityName: '', isPublished: true }
+    },
+    setData(patch) { Object.assign(this.data, patch); },
+    async callCloud(name) {
+      calls.push(name);
+      assert.strictEqual(name, 'listScorePublicationActivities');
+      return { status: 'success', list, currentActivityId };
+    }
+  };
+  return { workbench, calls };
+}
+
+test('候选重载保留获准的历史活动，组织切换后先绑定本组织选择再读公示', async () => {
+  for (const [previous, expected] of [['history', 'history'], ['other-organization', 'current']]) {
+    const { workbench, calls } = createPage(previous, [
+      { id: 'current', name: '当前活动', canOpen: true },
+      { id: 'history', name: '历史活动', canOpen: true }
+    ], 'current');
+    workbench.loadPublicationData = function(activityId) {
+      assert.strictEqual(this.data.publicationForm.activityId, activityId);
+      assert.strictEqual(this.data.publicationForm.id, '');
+      assert.strictEqual(this.data.publicationForm.isPublished, false);
+      calls.push(activityId);
+    };
+    await workbench.loadPublicationActivityOptions();
+    assert.deepStrictEqual(calls, ['listScorePublicationActivities', expected]);
+  }
+});
+
+test('只允许新建或导出时会绑定活动，且不读取公示详情', async () => {
+  for (const action of ['canCreate', 'canExport']) {
+    const { workbench, calls } = createPage('other-organization', [
+      { id: 'permitted', name: '获准操作的活动', canOpen: false, [action]: true }
+    ], 'other-organization');
+    await workbench.loadPublicationActivityOptions();
+    assert.deepStrictEqual(calls, ['listScorePublicationActivities']);
+    assert.strictEqual(workbench.data.publicationForm.activityId, 'permitted');
+    assert.strictEqual(workbench.data.publicationCanCreate, action === 'canCreate');
+    assert.strictEqual(workbench.data.publicationAccess.export, action === 'canExport');
+  }
+});

@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-function harness(actions, respond) {
+function harness(actions, respond, { enforced = true } = {}) {
   const filename = path.join(__dirname, '../../miniprogram/subpackages/scoring/pages/admin/modules/auditBehavior.js');
   const calls = [], toasts = [];
   const context = { module: { exports: {} }, Behavior: value => value,
@@ -15,12 +15,13 @@ function harness(actions, respond) {
       if (name.endsWith('/adminUtils')) return { showShortToast: value => toasts.push(value), getErrorText: error => error.message };
       if (name.endsWith('/orgSession')) return { beginRequest: () => ({}), isRequestCurrent: () => true };
       if (name.endsWith('/api')) return require(path.resolve(path.dirname(filename), name));
+      if (name.endsWith('/auditVerification')) return require(path.resolve(path.dirname(filename), name));
       if (name.includes('/locales/')) return require(path.resolve(path.dirname(filename), name));
       return {};
     } };
   vm.runInNewContext(fs.readFileSync(filename, 'utf8'), context, { filename });
   const page = { ...context.module.exports.methods,
-    data: { ...context.module.exports.data, authorizationEnforced: true,
+    data: { ...context.module.exports.data, authorizationEnforced: enforced,
       actionCapabilities: Object.fromEntries(actions.map(action => ['audit.verification.' + action, true])), loadingMap: {} },
     _hrList: [{ id: 'not-a-candidate', name: 'Unrelated member' }],
     setData(patch, callback) { Object.assign(this.data, patch); if (callback) callback(); },
@@ -30,14 +31,13 @@ function harness(actions, respond) {
   return { page, calls, toasts };
 }
 
-test('验签配置只读取专用候选，选中后不借用人事目录识别人', async () => {
-  const { page, calls } = harness(['configure'], async name => {
+test('旧模式验签配置使用专用候选并在保存后重新读取名单', async () => {
+  const { page, calls } = harness([], async name => {
     if (name === 'listAuditVerificationCandidates') return { status: 'success', candidates: [{ id: 'member', name: 'Candidate', assignments: [] }] };
     if (name === 'saveVerificationPermission') return { status: 'success' };
+    if (name === 'listVerificationPermissions') return { status: 'success', permissions: [{ granteeName: 'Candidate' }] };
     throw new Error('unexpected_request:' + name);
-  });
-  await page.loadVerificationPermissions();
-  assert.equal(calls.length, 0);
+  }, { enforced: false });
   await page.openAuditPersonnelPicker({ currentTarget: { dataset: { target: 'grantHrId' } } });
   assert.equal(page.data.auditPersonnelPickerOptions[0].name, 'Candidate');
   assert.equal(page._hrList[0].id, 'not-a-candidate');
@@ -47,20 +47,38 @@ test('验签配置只读取专用候选，选中后不借用人事目录识别�
   assert.equal(page.data.auditPersonnelPickerVisible, false);
   assert.equal(page.data.auditPersonnelPickerOptions.length, 0);
   await page.grantVerificationPermission();
-  assert.deepEqual(calls.map(row => row.name), ['listAuditVerificationCandidates', 'saveVerificationPermission']);
+  assert.deepEqual(calls.map(row => row.name), ['listAuditVerificationCandidates', 'saveVerificationPermission', 'listVerificationPermissions']);
   assert.equal(calls[1].body.granteeHrId, 'member');
   assert.equal(page.data.verificationGrantHrId, '');
 });
 
-test('验签只读不能配置或执行，慢候选显示加载并阻止重复点击', async () => {
-  const readonly = harness(['read'], async () => { throw new Error('unexpected_request'); });
+test('统一模式验签读取和执行独立，旧直接授权入口不再调用', async () => {
+  const readonly = harness(['read', 'configure'], async name => {
+    assert.equal(name, 'listVerificationPermissions');
+    return { status: 'success', permissions: [{ granteeName: 'Historical member' }] };
+  });
+  await readonly.page.loadVerificationPermissions();
   await readonly.page.grantVerificationPermission();
-  await readonly.page.revokeVerificationPermission({});
+  await readonly.page.revokeVerificationPermission({ currentTarget: { dataset: { hrId: 'member' } } });
   await readonly.page.verifySubmissionChain();
   await readonly.page.openAuditPersonnelPicker({ currentTarget: { dataset: { target: 'grantHrId' } } });
-  assert.equal(readonly.calls.length, 0);
+  assert.deepEqual(readonly.calls.map(row => row.name), ['listVerificationPermissions']);
+  assert.equal(readonly.page.data.verificationPermissions[0].granteeName, 'Historical member');
+  const verifier = harness(['verify'], async name => {
+    assert.equal(name, 'verifySignatureChain');
+    return { status: 'success', verificationVersion: 2, files: [] };
+  });
+  await verifier.page.loadVerificationPermissions();
+  verifier.page.data.verificationInputNumber = 'TEST-VERIFY';
+  await verifier.page.verifySubmissionChain();
+  assert.equal(verifier.calls.length, 1);
+  assert.equal(verifier.calls[0].body.submissionNumber, 'TEST-VERIFY');
+  assert.ok(verifier.page.data.verificationResult);
+});
+
+test('旧模式慢候选显示加载并阻止重复点击', async () => {
   let finish;
-  const source = harness(['configure'], () => new Promise(resolve => { finish = resolve; }));
+  const source = harness([], () => new Promise(resolve => { finish = resolve; }), { enforced: false });
   const event = { currentTarget: { dataset: { target: 'grantHrId' } } };
   const pending = source.page.openAuditPersonnelPicker(event);
   assert.equal(source.page.data.loadingMap.auditVerificationCandidates, true);

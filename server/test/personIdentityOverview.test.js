@@ -46,7 +46,7 @@ const pool = {
 
 const originalLoad = Module._load;
 Module._load = function(request, parent, isMain) {
-  if (request === '../../config/db') return pool;
+  if (/^(?:\.\.\/)+config\/db$/.test(request)) return pool;
   return originalLoad.call(this, request, parent, isMain);
 };
 const personIdentityOverview = require('../src/core/models/personIdentityOverview');

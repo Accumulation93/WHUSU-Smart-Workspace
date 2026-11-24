@@ -298,14 +298,6 @@ module.exports = async function auditVerificationAuthorizationCases(pool, orgSto
     assert.equal((await post('verifySignatureChain', { submissionId: 'audit-visible' })).status, 'forbidden');
     await removeRule(deny);
     await removeRule(verify);
-    const permission = require('../../src/modules/audit/models/verificationPermission');
-    // 既有显式验签名单仍为唯一配置来源；新禁止规则不能被旧业务名单绕过。
-    assert.equal((await orgStorage.run('submit-a', () => permission.create('verify-business', { granteeHrId: 'audit-hr' }, reference))).status, 'success');
-    assert.equal((await post('getAuditVerificationAccess')).canVerify, true);
-    const businessDeny = await addRule('业务名单也遵守禁止', ['audit.verification.verify'], 'deny');
-    assert.equal((await post('getAuditVerificationAccess')).canVerify, false);
-    await removeRule(businessDeny);
-    await orgStorage.run('submit-a', () => permission.removeByGrantee('audit-hr', reference));
     await pool.query("INSERT INTO audit_submission_files(id,submission_id,file_name,file_path,file_hash,org_id) VALUES ('authorized-file','audit-visible','document.pdf','unused','unused','submit-a'),('hidden-file','audit-hidden','document.pdf','unused','unused','submit-a'),('foreign-file','audit-foreign','document.pdf','unused','unused','submit-b')");
     const authorizeFile = require('../../src/modules/audit/utils/fileSecurity').getAuthorizedAuditFile;
     const request = { unifiedAuthorization: { reference },
@@ -324,14 +316,26 @@ module.exports = async function auditVerificationAuthorizationCases(pool, orgSto
     assert.equal((await file('hidden-file')).status, 'forbidden');
     await removeRule(fileDeny);
     await removeRule(fileVerification);
-    assert.equal((await orgStorage.run('submit-a', () => permission.create('verify-file-business', { granteeHrId: 'audit-hr' }, reference))).status, 'success');
+    // 隔离夹具模拟未转换的旧名单，必须经迁移绑定角色才能获得权限。
+    await pool.query("INSERT INTO audit_verification_permissions(id,grantee_hr_id,granted_by,org_id) VALUES ('verify-file-business','audit-hr','test-admin','submit-a')");
+    assert.equal((await post('getAuditVerificationAccess')).canVerify, false);
+    assert.equal((await file('hidden-file')).status, 'forbidden');
+    const legacyVerification = require('../../src/core/models/authorizationLegacyVerification');
+    await pool.withTransaction(connection => legacyVerification.bindForCutover(connection, 'submit-a'));
+    const historical = (await read()).rules.find(rule => rule.sourceKind === 'legacy_verification');
+    assert.match(historical.schemeId, /^compat-rule-/);
+    assert.equal((await post('getAuditVerificationAccess')).canVerify, true);
     assert.equal((await file('hidden-file')).status, 'success');
     const oldListDeny = await addRule('禁止旧验签名单读取附件', ['audit.verification.verify'], 'deny');
+    assert.equal((await post('getAuditVerificationAccess')).canVerify, false);
     assert.equal((await file('hidden-file')).status, 'forbidden');
     // 明确的申请读取权与验签权是两个动作，不把验签禁止扩大成全部文件禁止。
     assert.equal((await file('authorized-file')).status, 'success');
     await removeRule(oldListDeny);
-    await orgStorage.run('submit-a', () => permission.removeByGrantee('audit-hr', reference));
+    await removeRule(historical);
+    assert.equal((await post('getAuditVerificationAccess')).canVerify, false);
+    assert.equal((await file('hidden-file')).status, 'forbidden');
+    assert.deepEqual((await pool.query("SELECT id FROM audit_verification_permissions WHERE id='verify-file-business'"))[0], []);
     await pool.query("UPDATE membership_assignments SET status='inactive' WHERE id='audit-assignment'");
     assert.equal((await post('getSubmissionDetail', { submissionId: 'audit-visible' })).status, 'forbidden');
     assert.equal((await file('authorized-file')).status, 'forbidden');

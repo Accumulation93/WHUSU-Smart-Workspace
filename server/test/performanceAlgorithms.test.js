@@ -56,12 +56,27 @@ async function run() {
 
   const authorizationSource = fs.readFileSync(path.resolve(__dirname, '../src/modules/audit/models/todoAuthorization.js'), 'utf8');
   let authorizationReads = 0;
+  let actorReads = 0;
   const authorizationModule = { exports: {} };
   vm.runInNewContext(authorizationSource, { module: authorizationModule,
     require(name) {
       if (name === '../../../config/db') return { withTransaction: run => run({}) };
+      if (name === '../../../core/models/authorizationIdentity') return {
+        loadMessageActor: async (connection, reference, contextId) => {
+          actorReads++;
+          assert.strictEqual(reference.accountId, 'account');
+          assert.ok(contextId);
+          return { unifiedAuthorization: true };
+        }
+      };
       if (name === '../../../core/models/authorization') return {
-        read: async () => { authorizationReads++; return { mode: 'shadow' }; }
+        read: async (connection, organizationId, lock, unified) => {
+          authorizationReads++;
+          assert.ok(organizationId);
+          assert.strictEqual(lock, false);
+          assert.strictEqual(unified, true);
+          return { mode: 'shadow' };
+        }
       };
       return name === '../../../utils/requestWork' ? requestWork : {};
     }
@@ -73,17 +88,20 @@ async function run() {
     requestWork.getState().readOnly = true;
     const [audit, venue, scoring] = await Promise.all([readRole(), readRole(), readRole()]);
     assert.strictEqual(authorizationReads, 1);
+    assert.strictEqual(actorReads, 1);
     assert.strictEqual(audit, venue);
     assert.strictEqual(audit, scoring);
     await prepareRelated('org-b', 'assignment-a', reference);
     await prepareRelated('org-a', 'assignment-b', reference);
     await prepareRelated('org-a', 'assignment-a', { ...reference, sessionId: 'different' });
     assert.strictEqual(authorizationReads, 4);
+    assert.strictEqual(actorReads, 4);
   });
   await requestWork.run(async () => {
     await readRole();
     await readRole();
     assert.strictEqual(authorizationReads, 6);
+    assert.strictEqual(actorReads, 6);
   });
 
   const patterns = [['daily', []], ['weekly', [1, 1, 5, 7]], ['monthly', [1, 28, 29, 30, 31]],

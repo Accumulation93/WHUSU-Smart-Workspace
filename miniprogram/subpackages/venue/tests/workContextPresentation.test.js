@@ -36,7 +36,7 @@ const structuredLabel = presentation.formatAssignmentLabel({
   identityCategory: '部门负责人',
   workGroup: '项目组'
 });
-assert.strictEqual(structuredLabel, '本会岗位 · 组织部 · 部门负责人 · 项目组');
+assert.strictEqual(structuredLabel, '本会工作角色 · 组织部 · 部门负责人 · 项目组');
 
 assert.strictEqual(
   presentation.formatAssignmentLabel({ assignmentLabel: '主席团成员 · 主席团' }),
@@ -71,7 +71,7 @@ const approverCandidates = presentation.decorateApproverCandidates([{
     assignmentLabel: '委员 · 组织部'
   }]
 }]);
-assert.strictEqual(approverCandidates.length, 2, '每个岗位必须形成独立候选项');
+assert.strictEqual(approverCandidates.length, 2, '每个工作角色必须形成独立候选项');
 assert.strictEqual(approverCandidates[0].assignmentId, 'assignment-leader');
 assert.strictEqual(approverCandidates[0]._selectionText, '测试成员 · 部门负责人 · 组织部');
 assert.ok(approverCandidates[1]._searchText.indexOf('委员 · 组织部') >= 0);

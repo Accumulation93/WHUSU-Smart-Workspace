@@ -25,6 +25,7 @@ const NAVBAR_TITLE_BINDING = /<ui-navbar\b[^>]*\btitle="\{\{\s*[A-Za-z_$][\w$]*(
  * 页面容器必须按顶栏高度补偿，否则页面底部会多出一段能拖动的空白。
  */
 const NAVBAR_HEIGHT_COMPENSATION = /(?:min-height|height):\s*calc\(100vh\s*-\s*\{\{\s*navTopPx\s*\}\}px\)/;
+const LEGACY_ADMIN_ROUTE = 'subpackages/scoring/pages/admin/admin';
 
 assert.strictEqual(
   app.window && app.window.navigationStyle,
@@ -39,19 +40,27 @@ assert.ok(
 routes.forEach((route) => {
   const jsonPath = path.join(miniRoot, `${route}.json`);
   const pageConfig = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+  const wxml = readMarkup(path.join(miniRoot, `${route}.wxml`));
+  let pageScript = fs.readFileSync(path.join(miniRoot, `${route}.js`), 'utf8');
+  if (route === LEGACY_ADMIN_ROUTE) {
+    // 旧链接页只转发到工作台，转发失败时允许重试。
+    assert.ok(!/<(?:ui-navbar|workspace-hero|workspace-navigation)\b/.test(wxml));
+    assert.match(pageScript, /this\._target = '\/subpackages\/workspace\/pages\/admin\/admin'/);
+    assert.match(pageScript, /wx\.redirectTo\(\{ url: this\._target, fail:/);
+    assert.match(wxml, /bindtap="openManagement"/);
+    return;
+  }
   assert.strictEqual(pageConfig.navigationStyle, 'custom', `${route} 必须声明自定义导航，才能渲染统一顶栏`);
 
   const registered = (pageConfig.usingComponents || {})['ui-navbar'];
   assert.strictEqual(registered, NAVBAR_COMPONENT, `${route} 必须注册统一顶栏组件 ui-navbar`);
 
-  const wxml = readMarkup(path.join(miniRoot, `${route}.wxml`));
   assert.ok(NAVBAR_TITLE_BINDING.test(wxml), `${route} 必须渲染 ui-navbar 并绑定语言系统的标题`);
   assert.ok(!/<workspace-navigation\b/.test(wxml), `${route} 不得渲染旧的自定义导航组件`);
   assert.ok(NAVBAR_HEIGHT_COMPENSATION.test(wxml)
     || /embedded\s*\?\s*''\s*:\s*'min-height: calc\(100vh - '\s*\+\s*navTopPx\s*\+\s*'px\)'/.test(wxml),
   `${route} 最外层容器必须按顶栏高度补偿 100vh，避免底部多出空白`);
 
-  let pageScript = fs.readFileSync(path.join(miniRoot, `${route}.js`), 'utf8');
   const delegated = pageScript.match(/const\s+(\w+Behavior)\s*=\s*require\(['"]([^'"]+)['"]\)/);
   if (delegated && pageScript.includes('behaviors: [' + delegated[1] + ']')) {
     assert(/onResize\(\)\s*\{\s*this\.applyNavigationBarMetrics\(\)/.test(pageScript), route + '须将窗口变化转交真实Behavior');
@@ -61,4 +70,4 @@ routes.forEach((route) => {
   assert.ok(/navTopPx\s*:/.test(pageScript), `${route} 必须在 data 里维护 navTopPx`);
 });
 
-console.log(`导航测试通过：${routes.length} 个页面全部使用统一自绘顶栏 ui-navbar。`);
+console.log(`导航测试通过：${routes.length - 1} 个页面使用统一自绘顶栏，旧评分管理链接继续跳转到工作台。`);

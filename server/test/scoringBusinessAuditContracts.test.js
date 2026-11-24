@@ -51,11 +51,14 @@ const publicationTab = adminPage.slice(
   adminPage.lastIndexOf("if (tab === 'publications')"),
   adminPage.indexOf('// ── Audit tabs ──', adminPage.lastIndexOf("if (tab === 'publications')"))
 );
-assert.match(publicationTab, /selectedActivity \? selectedActivityId/,
-  '重新进入结果公示必须保留仍有效的历史活动选择');
+assert.match(publicationTab, /this\.loadPublicationActivityOptions\(\)/,
+  '重新进入结果公示必须走保留有效历史活动选择的候选加载入口');
 
 const scorePage = read('../miniprogram/subpackages/scoring/pages/score/score.js');
 assert.match(scorePage, /self\.data\.readOnly \|\| self\.data\.submitting/,
   '触屏与物理键盘同时触发时必须阻止重复提交');
+
+// 执行同一入口的真实选择行为，避免重新绑定已搬迁实现中的局部变量。
+require('../../miniprogram/subpackages/scoring/pages/admin/tests/publicationStateContract.test.js');
 
 console.log('评分全功能业务审计关键契约测试通过');
