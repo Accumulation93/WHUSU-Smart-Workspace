@@ -23,16 +23,18 @@
           <UiIcon name="search" tone="muted" size-role="row-leading" />
           <input v-model="query" class="search-input" :placeholder="tab === 'schemes' ? ui.searchIdentities : ui.allocation.search" :aria-label="tab === 'schemes' ? ui.searchIdentities : ui.allocation.search" />
         </label>
-        <div v-if="tab === 'rules' && !showRules" class="stack-tight" role="group" :aria-label="ui.allocation.recipient">
-          <span class="field-label">{{ ui.allocation.recipient }}</span>
-          <div class="row row-wrap authorization-filter-row">
-            <button v-for="filter in allocationFilters" :key="filter" type="button" class="btn btn-small" :class="allocationFilter === filter ? 'btn-primary' : 'btn-secondary'" :aria-pressed="allocationFilter === filter" @click="allocationFilter = filter">{{ ui.allocation[filter] }}</button>
+        <div v-if="tab === 'rules'" class="stack-tight">
+          <span v-if="!showRules" class="field-label">{{ ui.allocation.recipient }}</span>
+          <div class="row row-wrap authorization-filter-row" :role="showRules ? undefined : 'group'" :aria-label="showRules ? undefined : ui.allocation.recipient">
+            <template v-if="!showRules">
+              <button v-for="filter in allocationFilters" :key="filter" type="button" class="btn btn-small" :class="allocationFilter === filter ? 'btn-primary' : 'btn-secondary'" :aria-pressed="allocationFilter === filter" @click="allocationFilter = filter">{{ ui.allocation[filter] }}</button>
+            </template>
+            <button v-if="!state.roleBindingOnly" type="button" class="btn btn-secondary btn-small" @click="toggleRules">{{ showRules ? ui.byRecipient : ui.advancedRules }}</button>
+            <button v-if="state.rules.some(rule => rule.canEdit !== false)" type="button" class="btn btn-secondary btn-small" @click="toggleSelection">{{ selecting ? ui.finishSelection : ui.batchSelect }}</button>
           </div>
         </div>
-        <div class="authorization-tools">
-          <button v-if="tab === 'rules' && !state.roleBindingOnly" type="button" class="btn btn-secondary btn-small" @click="toggleRules">{{ showRules ? ui.byRecipient : ui.advancedRules }}</button>
-          <button v-if="tab === 'rules' && state.rules.some(rule => rule.canEdit !== false)" type="button" class="btn btn-secondary btn-small" @click="toggleSelection">{{ selecting ? ui.finishSelection : ui.batchSelect }}</button>
-          <button v-if="canCopy" type="button" class="btn btn-secondary btn-small" @click="router.push({ name: 'organizationCopy' })">{{ ui.configurationCopy.title }}</button>
+        <div v-if="canCopy" class="authorization-tools">
+          <button type="button" class="btn btn-secondary btn-small" @click="router.push({ name: 'organizationCopy' })">{{ ui.configurationCopy.title }}</button>
         </div>
       </section>
       <template v-if="tab === 'rules'">

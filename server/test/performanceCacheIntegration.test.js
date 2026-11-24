@@ -47,7 +47,11 @@ async function run() {
       Buffer.from('\n'),
       fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261111100000_identity_nature_links.sql')),
       Buffer.from('\n'),
-      fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261111101000_business_rule_natures.sql'))
+      fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261111101000_business_rule_natures.sql')),
+      Buffer.from('\n'),
+      fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261122170000_authorization_grant_sources.sql')),
+      Buffer.from('\n'),
+      fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261124131000_bind_member_relationship_permissions_to_roles.sql'))
     ]);
     for (let index = 0; index < 2; index += 1) {
       const applied = spawnSync(process.env.MYSQL_BIN || 'mysql', ['--protocol=TCP', '--host=' + adminOptions.host,

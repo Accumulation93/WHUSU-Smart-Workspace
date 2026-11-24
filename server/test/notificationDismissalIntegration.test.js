@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const mysql = require('mysql2/promise');
 const crypto = require('node:crypto');
+const applyMemberRelationshipRoleMigration = require('./helpers/applyMemberRelationshipRoleMigration');
 
 async function main() {
   const database = 'notification_dismissal_test_' + process.pid + '_' + Date.now();
@@ -41,6 +42,8 @@ async function main() {
       const [tables,triggers]=lifecycleMigration.split('DELIMITER $$'); await admin.query(tables);
       for (const sql of triggers.split('DELIMITER ;')[0].split('$$').map(value=>value.trim()).filter(Boolean)) await admin.query(sql);
     }
+    await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261122170000_authorization_grant_sources.sql'), 'utf8'));
+    await applyMemberRelationshipRoleMigration(admin);
     Object.assign(process.env,{DB_HOST:'127.0.0.1',DB_PORT:'3362',DB_NAME:database,DB_USER:username,DB_PASSWORD:password,AUTH_IDENTITY_SECRET:'notification-dismissal-test-secret-32bytes'});
     pool = require('../src/config/db');
     await require('../src/core/models/cacheVersions').ensureReady();

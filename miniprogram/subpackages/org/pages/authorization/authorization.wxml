@@ -41,13 +41,11 @@
       <view class="permission-section-desc">{{!unified ? ui.tabHelp[tab] : tab === 'schemes' ? ui.unified.landingRoleHelp : hasPublishedSchemes ? ui.unified.landingRuleHelp : canManage ? ui.unified.landingNoPublishedRole : ui.unified.landingAskForPublishedRole}}</view>
       <view class="ui-list-filter-search"><ui-icon name="search" tone="muted" sizeRole="row-leading" /><input class="ui-list-filter-input" value="{{keyword}}" bindinput="search" placeholder="{{tab === 'schemes' ? ui.searchIdentities : ui.allocation.search}}" /></view>
       <block wx:if="{{tab === 'rules'}}">
-        <block wx:if="{{!showRules}}">
-          <view class="authorization-label">{{ui.allocation.recipient}}</view>
-          <view class="authorization-filter-row">
-            <button wx:for="{{allocationFilters}}" wx:key="*this" class="{{allocationFilter === item ? 'primary-btn' : 'secondary-btn'}} ui-motion-button" aria-pressed="{{allocationFilter === item}}" data-filter="{{item}}" bindtap="filterAllocations" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.allocation[item]}}</button>
-          </view>
-        </block>
+        <view wx:if="{{!showRules}}" class="authorization-label">{{ui.allocation.recipient}}</view>
         <view class="authorization-filter-row">
+          <block wx:if="{{!showRules}}">
+            <button wx:for="{{allocationFilters}}" wx:key="*this" class="{{allocationFilter === item ? 'primary-btn' : 'secondary-btn'}} ui-motion-button" aria-pressed="{{allocationFilter === item}}" data-filter="{{item}}" bindtap="filterAllocations" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{ui.allocation[item]}}</button>
+          </block>
           <button wx:if="{{!roleBindingOnly}}" class="secondary-btn ui-motion-button" bindtap="toggleRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{showRules ? ui.byRecipient : ui.advancedRules}}</button>
           <button wx:if="{{hasEditableAllocations}}" class="secondary-btn ui-motion-button" bindtap="toggleSelection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{selecting ? ui.finishSelection : ui.batchSelect}}</button>
         </view>

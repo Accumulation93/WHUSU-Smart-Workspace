@@ -13,6 +13,7 @@ async function openRecipientGrant(page) {
 
 test('one card per allocation keeps large lists paged and separates recipients from data scope', async ({ page }) => {
   const { state } = await setup(page);
+  state.roleBindingOnly = true;
   const assignments = Array.from({ length: 20 }, (_, index) => ({ ...assignment, assignmentId: 'job-' + index, departmentName: 'Department ' + index }));
   state.catalog = Array.from({ length: 30 }, (_, index) => ({ ...capability, key: 'venue.operation' + index + '.read' }));
   state.schemes = [{ id: 'published', name: 'Published permissions', publishedVersion: 1, capabilities: [state.catalog[0].key], publishedCapabilities: [state.catalog[0].key] }];
@@ -31,9 +32,32 @@ test('one card per allocation keeps large lists paged and separates recipients f
   await page.goto('/web/admin/authorization');
   const cards = page.locator('.authorization-allocation');
   await expect(cards).toHaveCount(20);
-  const filterButtons = page.getByRole('group', { name: ui.allocation.recipient, exact: true }).getByRole('button');
-  const filterRows = await filterButtons.evaluateAll(buttons => new Set(buttons.map(button => Math.round(button.getBoundingClientRect().top))).size);
-  expect(filterRows).toBeLessThanOrEqual(2);
+  const filters = page.getByRole('group', { name: ui.allocation.recipient, exact: true });
+  const batch = filters.getByRole('button', { name: ui.batchSelect, exact: true });
+  await expect(batch).toBeVisible();
+  const filterButtons = filters.getByRole('button');
+  await expect(filterButtons).toHaveCount(6);
+  const layout = await filterButtons.evaluateAll(buttons => {
+    const container = buttons[0].parentElement.getBoundingClientRect();
+    const boxes = buttons.map(button => button.getBoundingClientRect());
+    return {
+      rows: new Set(boxes.map(box => Math.round(box.top))).size,
+      inside: boxes.every(box => box.left >= container.left - 1 && box.right <= container.right + 1)
+    };
+  });
+  expect(layout.inside).toBe(true);
+  const width = page.viewportSize().width;
+  expect(layout.rows).toBe(width < 520 ? 2 : 1);
+  await batch.click();
+  const batchActions = [ui.selectShown, ui.clearSelection, ui.deleteSelected]
+    .map(name => page.getByRole('button', { name, exact: true }));
+  const batchRows = await Promise.all(batchActions.map(async button => {
+    await expect(button).toBeVisible();
+    return Math.round((await button.boundingBox()).y);
+  }));
+  expect(new Set(batchRows).size).toBe(1);
+  await page.screenshot({ path: test.info().outputPath('allocation-controls.png'), animations: 'disabled' });
+  await filters.getByRole('button', { name: ui.finishSelection, exact: true }).click();
   await expect(cards.locator('.policy-groups')).toHaveCount(0);
   await expect(cards.first()).toContainText(ui.allocation.relationshipDataScope);
   await expect(cards.nth(1)).toContainText('Department 0 · Member');

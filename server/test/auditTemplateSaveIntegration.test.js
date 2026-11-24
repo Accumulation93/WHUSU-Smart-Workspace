@@ -31,6 +31,9 @@ const options = {
       await fixture.query(`CREATE TABLE cache_domain_versions (org_id VARCHAR(64), domain VARCHAR(32),
         version BIGINT UNSIGNED NOT NULL, PRIMARY KEY (org_id, domain))`);
       await fixture.query(fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261031160000_unified_authorization.sql'), 'utf8'));
+      for (const name of ['20261101023000_organization_config_copy.sql', '20261124130000_merge_duplicate_authorization_roles.sql']) {
+        await fixture.query(fs.readFileSync(path.resolve(__dirname, '../db/deploy', name), 'utf8'));
+      }
       await fixture.query(fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261111100000_identity_nature_links.sql'), 'utf8'));
       await fixture.query(fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261111101000_business_rule_natures.sql'), 'utf8'));
       await fixture.query(fs.readFileSync(path.resolve(__dirname, '../db/deploy/20261111102000_scoring_rule_natures.sql'), 'utf8'));

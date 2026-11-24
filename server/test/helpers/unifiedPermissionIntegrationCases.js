@@ -3,6 +3,68 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const applyMemberRelationshipRoleMigration = require('./applyMemberRelationshipRoleMigration');
+
+async function verifyLegacyMemberRoleWrites(admin, relationshipRoles, capability) {
+  const organizationId = 'created-by-previous-release';
+  const actorContextId = 'legacy-toggle-author';
+  // 已上线旧进程和旧默认组织入口都只插入组织行，不创建基础权限角色。
+  await admin.query('INSERT INTO organizations (id, name) VALUES (?, ?)', [organizationId, 'Legacy release organization']);
+  const schemeId = relationshipRoles.schemeIdFor(organizationId);
+  const role = () => relationshipRoles.read(admin, organizationId);
+  assert.equal((await role()).schemeId, schemeId);
+  assert.deepEqual(new Set((await role()).capabilities), new Set(relationshipRoles.CAPABILITIES));
+  const draftCapability = 'audit.submissions.read';
+  await admin.query('UPDATE authorization_schemes SET draft_capabilities_json = JSON_ARRAY(?) WHERE org_id = ? AND id = ?',
+    [draftCapability, organizationId, schemeId]);
+
+  // 重演旧版本的实际写入顺序，包括版本加一和原来的审计记录。
+  const legacyToggle = async (enabled, commit) => {
+    await admin.beginTransaction();
+    try {
+      await admin.query('SELECT revision FROM authorization_organizations WHERE org_id = ? FOR UPDATE', [organizationId]);
+      if (enabled) {
+        await admin.query('DELETE FROM authorization_basic_role_exclusions WHERE org_id = ? AND capability_key = ?',
+          [organizationId, capability]);
+      } else {
+        await admin.query('INSERT INTO authorization_basic_role_exclusions (org_id, capability_key) VALUES (?, ?)',
+          [organizationId, capability]);
+      }
+      await admin.query('UPDATE authorization_organizations SET revision = revision + 1 WHERE org_id = ?', [organizationId]);
+      await admin.query(`INSERT INTO authorization_changes (id, org_id, actor_context_id, action, target_id, before_json, after_json)
+        VALUES (UUID(), ?, ?, 'basic_permission_toggle', ?, ?, ?)`,
+      [organizationId, actorContextId, capability, JSON.stringify({ enabled: !enabled }), JSON.stringify({ enabled })]);
+      if (commit) await admin.commit();
+      else await admin.rollback();
+    } catch (error) {
+      await admin.rollback();
+      throw error;
+    }
+  };
+  const versions = async () => (await admin.query(`SELECT version, capabilities_json, actor_context_id
+    FROM authorization_scheme_versions WHERE org_id = ? AND scheme_id = ? ORDER BY version`, [organizationId, schemeId]))[0];
+  const draft = async () => (await admin.query(`SELECT draft_capabilities_json FROM authorization_schemes
+    WHERE org_id = ? AND id = ?`, [organizationId, schemeId]))[0][0].draft_capabilities_json;
+  const existingRole = await relationshipRoles.read(admin, 'org');
+  const originalVersions = await versions();
+  await legacyToggle(false, false);
+  assert.deepEqual(await versions(), originalVersions);
+  assert.equal((await role()).capabilities.includes(capability), true);
+  await legacyToggle(false, true);
+  assert.equal((await role()).capabilities.includes(capability), false);
+  assert.deepEqual(await draft(), [draftCapability]);
+  await legacyToggle(true, true);
+  assert.equal((await role()).capabilities.includes(capability), true);
+  assert.deepEqual(await draft(), [draftCapability, capability]);
+  const updatedVersions = await versions();
+  assert.deepEqual(updatedVersions.map(item => item.version), [1, 2, 3]);
+  assert.deepEqual(updatedVersions[0], originalVersions[0]);
+  assert.equal(updatedVersions[1].capabilities_json.includes(capability), false);
+  assert.equal(updatedVersions[2].capabilities_json.includes(capability), true);
+  assert.equal(updatedVersions[1].actor_context_id, actorContextId);
+  assert.equal(updatedVersions[2].actor_context_id, actorContextId);
+  assert.deepEqual(await relationshipRoles.read(admin, 'org'), existingRole);
+}
 
 module.exports = async function unifiedPermissionIntegrationCases(admin, post) {
   const model = require('../../src/core/models/authorization');
@@ -20,10 +82,8 @@ module.exports = async function unifiedPermissionIntegrationCases(admin, post) {
   await admin.query('INSERT INTO authorization_basic_role_exclusions (org_id, capability_key) VALUES (?, ?)', [org, previousDisabled]);
   await admin.query(`INSERT INTO authorization_schemes (id, org_id, name, draft_capabilities_json)
     VALUES ('prior-member-name', ?, '成员基础权限', JSON_ARRAY('audit.submissions.read'))`, [org]);
-  const memberMigration = fs.readFileSync(path.join(__dirname,
-    '../../db/deploy/20261124131000_bind_member_relationship_permissions_to_roles.sql'), 'utf8');
-  await admin.query(memberMigration);
-  await admin.query(memberMigration);
+  await applyMemberRelationshipRoleMigration(admin);
+  await applyMemberRelationshipRoleMigration(admin);
   await admin.query("UPDATE authorization_runtime_transition SET phase='enforced',minimum_protocol=3 WHERE id=1");
   await admin.query("UPDATE authorization_organizations SET mode='enforced' WHERE org_id='org'");
   await admin.query("UPDATE auth_sessions SET context_type='admin',context_subject_id='grant',role='admin' WHERE id='session'");
@@ -55,6 +115,7 @@ module.exports = async function unifiedPermissionIntegrationCases(admin, post) {
     subject: 'organizationMembers', scope: 'businessRelationship', enabled: true });
   const relationshipRoles = require('../../src/core/models/authorizationRelationshipRole');
   assert.deepEqual(new Set(memberRole.publishedCapabilities), new Set(relationshipRoles.CAPABILITIES.filter(key => key !== previousDisabled)));
+  await verifyLegacyMemberRoleWrites(admin, relationshipRoles, previousDisabled);
   const badBinding = await post('previewAuthorizationRule', { ...body, bindingModel: 'role', schemeId: memberRole.id,
     expectedRevision: await revision() });
   assert.equal((await badBinding.json()).status, 'authorization_forbidden');
@@ -185,9 +246,9 @@ module.exports = async function unifiedPermissionIntegrationCases(admin, post) {
   await admin.query('DELETE FROM authorization_basic_role_exclusions WHERE org_id = ? AND capability_key = ?',
     [org, 'notifications.items.read']);
   assert.deepEqual([...(await model.read(admin, org, false, true)).disabledBasic], [previousDisabled]);
-  await admin.query(memberMigration);
+  await applyMemberRelationshipRoleMigration(admin);
   assert.equal((await model.listSchemes(admin, org)).find(role => role.id === memberRole.id).publishedVersion, 4);
-  console.log('成员基础角色：重复迁移、旧关闭状态、名称区分、旧开关改正式发布版本、空草稿和发布、回退、按本人业务关系、来源展示及组织隔离通过。');
+  console.log('成员基础角色：重复迁移、旧关闭状态、旧进程开关与新建组织、名称区分、旧开关改正式发布版本、空草稿和发布、回退、按本人业务关系、来源展示及组织隔离通过。');
   const root = { accountId: 'account', personId: 'person', sessionId: 'session', contextId: 'context', organizationId: org };
   assert.equal((await createAuthorizationSession(admin, root)).isSuper, true);
   const legacyCreate = await post('saveAdmin', { name: 'Compatibility candidate', studentId: 'legacy-identity-test', adminLevel: 'admin' });
