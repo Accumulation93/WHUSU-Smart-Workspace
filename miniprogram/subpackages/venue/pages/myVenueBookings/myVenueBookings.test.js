@@ -56,7 +56,7 @@ for (const lifecycle of ['onHide', 'onUnload']) {
     let page;
 
     runInNewContext(pageJs, {
-      Page(definition) { page = definition; },
+      Page: definition => { page = definition; },
       require(request) {
         if (request === '../../../../utils/api') {
           return {
