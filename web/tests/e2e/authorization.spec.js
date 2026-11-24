@@ -113,24 +113,66 @@ async function setup(page, ordinary = false) {
   return { state, calls };
 }
 
-test('new assignments only offer reusable published roles, while temporary roles remain visible', async ({ page }) => {
-  const { state } = await setup(page);
+test('a generated role can be edited, published and assigned like other published roles', async ({ page }) => {
+  const { state, calls } = await setup(page);
   Object.assign(state, { mode: 'enforced', unifiedIdentity: true, roleBindingOnly: true });
+  const generatedRole = { id: 'compat-rule-fixture', name: 'Previous assignment', version: 1, publishedVersion: 1,
+    capabilities: [capability.key], publishedCapabilities: [capability.key], compatibilityOnly: true, canEdit: true, canPublish: true };
   state.schemes = [
     { id: 'normal-role', name: 'Venue operations', publishedVersion: 1, capabilities: [capability.key], publishedCapabilities: [capability.key] },
-    { id: 'compat-rule-fixture', name: 'Previous assignment', publishedVersion: 1, capabilities: [capability.key],
-      publishedCapabilities: [capability.key], compatibilityOnly: true, canEdit: false, canPublish: false }
+    generatedRole,
+    { id: 'draft-role', name: 'Unpublished role', publishedVersion: 0, capabilities: [capability.key], publishedCapabilities: [] }
   ];
+  let edited;
+  let published;
+  await page.route('**/api/saveAuthorizationScheme', route => {
+    edited = route.request().postDataJSON();
+    Object.assign(generatedRole, { name: edited.name, version: 2 });
+    return route.fulfill({ json: { status: 'success', scheme: generatedRole } });
+  });
+  await page.route('**/api/previewAuthorizationScheme', route => route.fulfill({ json: {
+    status: 'success', schemeId: generatedRole.id, revision: state.revision,
+    capabilities: [capability.key], rules: [], roles: [], peopleCount: 0, roleCount: 0
+  } }));
+  await page.route('**/api/getAuthorizationSchemeVersions', route => route.fulfill({ json: { status: 'success', versions: [] } }));
+  await page.route('**/api/previewAuthorizationRule', route => {
+    const payload = route.request().postDataJSON();
+    return route.fulfill({ json: { status: 'success', previewToken: 'generated-role-preview',
+      rule: { policy: payload.policy }, impact: { peopleCount: 1, roleCount: 1,
+        roles: [{ ...assignment, role: 'user', subjectId: assignment.assignmentId, before: null, after: payload.policy }] } } });
+  });
+  await page.route('**/api/publishAuthorizationScheme', route => {
+    published = route.request().postDataJSON();
+    Object.assign(generatedRole, { version: 3, publishedVersion: 2 });
+    return route.fulfill({ json: { status: 'success', publishedVersion: 2, version: 3 } });
+  });
   await page.goto('/web/admin/authorization?tab=schemes');
-  const oldRole = page.locator('.authorization-scheme').filter({ hasText: 'Previous assignment' });
-  await expect(oldRole.getByText(ui.unified.temporaryRoleLabel, { exact: true })).toBeVisible();
-  await oldRole.locator(':scope > summary').click();
-  await expect(oldRole.getByText(ui.unified.temporaryRoleHelp)).toBeVisible();
-  await expect(oldRole.getByRole('button', { name: ui.publish, exact: true })).toHaveCount(0);
-  await page.goto('/web/admin/authorization/edit?kind=rule&advanced=1');
+  const role = name => page.locator('.authorization-scheme').filter({ hasText: name });
+  await expect(role('Previous assignment').getByText(ui.schemeVersion(1), { exact: true })).toBeVisible();
+  await role('Previous assignment').locator(':scope > summary').click();
+  await role('Previous assignment').getByRole('button', { name: ui.edit, exact: true }).click();
+  await page.getByLabel(ui.schemeName, { exact: true }).fill('Renamed venue role');
+  await page.getByRole('button', { name: ui.saveDraft, exact: true }).click();
+  await expect(role('Renamed venue role')).toBeVisible();
+  expect(edited.id).toBe(generatedRole.id);
+  await role('Renamed venue role').locator(':scope > summary').click();
+  await role('Renamed venue role').getByRole('button', { name: ui.publish, exact: true }).click();
+  await page.getByRole('button', { name: ui.confirmPublish, exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/authorization$/);
+  expect(published.id).toBe(generatedRole.id);
+  await page.goto('/web/admin/authorization/edit?kind=rule');
+  await page.getByRole('button', { name: ui.unified.selectRecipientPosts, exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: /Example member/ }).click();
+  await page.getByRole('dialog').locator('footer button').last().click();
   const picker = page.getByRole('combobox', { name: ui.useScheme });
-  await expect(picker.locator('option')).toHaveText([ui.identityPlaceholder, 'Venue operations']);
-  await expect(page.getByRole('searchbox', { name: ui.unified.permissionSearchPlaceholder })).toHaveCount(0);
+  await expect(picker.locator('option')).toHaveText([ui.identityPlaceholder, 'Venue operations', 'Renamed venue role']);
+  await picker.selectOption(generatedRole.id);
+  await page.getByRole('button', { name: ui.ownRecords, exact: true }).click();
+  await page.getByRole('button', { name: ui.previewChanges, exact: true }).click();
+  await page.getByRole('button', { name: ui.confirmChanges, exact: true }).click();
+  await expect(page.locator('.authorization-recipient > summary').getByText('Example member', { exact: true })).toBeVisible();
+  expect(calls.saved.schemeId).toBe(generatedRole.id);
+  expect(calls.saved.bindingModel).toBe('role');
 });
 
 test('permission groups select an entire task and keep unrelated selections when searching', async ({ page }) => {

@@ -80,6 +80,31 @@ test('sharing freezes the named source and organization until confirmed', async 
   expect(shares[0]).toEqual({ kind: 'venue.purposes', sourceRecordId: 'source-a', targetOrganizationId: 'target-org' });
 });
 
+test('generated roles are offered and shared through the normal configuration workspace', async ({ page }) => {
+  await setup(page);
+  await page.route('**/api/getCurrentAuthorizationAccess', route => route.fulfill({ json: {
+    status: 'success', mode: 'enforced', organizationId: 'org-1', contextId: 'ctx-admin', role: 'admin',
+    capabilities: ['authorization.schemes.share'], grantedCapabilities: ['authorization.schemes.share']
+  } }));
+  const role = { id: 'compat-rule-generated', name: 'Migrated venue role', version: 1, compatibilityOnly: true };
+  await page.route('**/api/getOrganizationConfigurationWorkspace', route => {
+    expect(route.request().postDataJSON().kind).toBe('authorization.schemes');
+    return route.fulfill({ json: { status: 'success', items: [role], organizations: [{ id: 'target-org', name: 'Target organization' }] } });
+  });
+  let shared;
+  await page.route('**/api/shareOrganizationConfiguration', route => {
+    shared = route.request().postDataJSON();
+    return route.fulfill({ json: { status: 'success', id: 'share-generated' } });
+  });
+  await page.goto('/web/admin/organization-copy');
+  await expect(page.getByLabel(text.kind, { exact: true })).toHaveValue('authorization.schemes');
+  const row = page.locator('article').filter({ hasText: role.name });
+  await row.getByLabel(text.target, { exact: true }).selectOption('target-org');
+  await row.getByRole('button', { name: text.share, exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: text.share, exact: true }).click();
+  await expect.poll(() => shared).toEqual({ kind: 'authorization.schemes', sourceRecordId: role.id, targetOrganizationId: 'target-org' });
+});
+
 test('booking time remains a draft until its limits and target are confirmed', async ({ page }) => {
   const calls = await setup(page);
   await page.route('**/api/getOrganizationConfigurationDraft', route => route.fulfill({ json: {

@@ -8,17 +8,17 @@ const { createRequire } = require('node:module');
 const editor = require('../../shared/authorizationEditor');
 const copy = require('../../shared/locales/zh-CN/authorization');
 
-function pageHarness(api, options = {}, pageName = 'authorizationEditor') {
+function pageHarness(api, options = {}, pageName = 'authorizationEditor', access = { mode: 'shadow', grantedCapabilities: [] }) {
   const file = path.join(__dirname, '../../miniprogram/subpackages/org/pages', pageName, pageName + '.js');
   const localRequire = createRequire(file);
   let definition, generation = 0;
   const navigation = [];
   const context = { Page(value) { definition = value; }, wx: { navigateBack() {}, pageScrollTo() {} },
     require(request) {
-      if (request.endsWith('/utils/authorizationAccess')) return { readCurrentAuthorizationAccess: async () => ({ mode: 'shadow', grantedCapabilities: [] }) };
+      if (request.endsWith('/utils/authorizationAccess')) return { readCurrentAuthorizationAccess: async () => access };
       if (request.endsWith('/utils/api')) return { callFunction: api, getErrorText: error => error.message, createLocalError: message => new Error(message),
         createResultError: (result, fallback) => Object.assign(new Error(fallback), { code: result.code || result.status }), showShortToast() {} };
-      if (request.endsWith('/utils/orgSession')) return { consume() {}, getSnapshot() { return { role: 'admin' }; }, beginRequest() { return generation; }, invalidateRequests() { generation++; }, isRequestCurrent(_page, request) { return request === generation; } };
+      if (request.endsWith('/utils/orgSession')) return { consume() {}, getSnapshot() { return { role: 'admin' }; }, beginRequest() { return generation; }, invalidateRequests() { generation++; }, isRequestCurrent(_page, request) { return request === generation; }, isCurrent() { return true; } };
       if (request.endsWith('/utils/navigationBarMetrics')) return { getNavigationBarMetrics: () => ({ totalHeight: 88 }) };
       if (request.endsWith('/utils/trustedNavigation')) return { navigateToTrustedRoute: url => navigation.push(url) };
       if (request.endsWith('/utils/dateTime')) return { formatListTime: value => value, formatDetailTime: value => value, splitSystemDateTime: value => ({ date: value.slice(0, 10), time: value.slice(11, 16) }), systemDateTimeToIsoUtc: (date, time) => date + 'T' + time + ':00.000Z' };
@@ -28,7 +28,7 @@ function pageHarness(api, options = {}, pageName = 'authorizationEditor') {
   const page = Object.assign({}, definition, { navigation, data: JSON.parse(JSON.stringify(definition.data)),
     setData(patch) {
       for (const [key, value] of Object.entries(patch)) {
-        const parts = key.split('.'); let target = this.data;
+        const parts = key.replace(/\[(\d+)\]/g, '.$1').split('.'); let target = this.data;
         for (const part of parts.slice(0, -1)) target = target[part];
         target[parts[parts.length - 1]] = value;
       }
@@ -113,6 +113,76 @@ test('授权身份三步配置保存回读，复杂授权不因切换视图丢�
   assert.equal(home.data.recipientCards[0].name, '成员甲');
   assert.equal(home.data.recipientCards[0].grants[0].identityName, '场地查看员');
   home.onHide(); assert.equal(home.data.recipientCards.length, 0);
+});
+
+test('迁移生成的角色正常进入原生编辑、发布、分配和复制流程', async () => {
+  const source = fixture();
+  Object.assign(source.state, { mode: 'enforced', unifiedIdentity: true, roleBindingOnly: true });
+  const role = { id: 'compat-rule-generated', name: '既有场地授权', version: 1, publishedVersion: 1, compatibilityOnly: true,
+    canEdit: true, canPublish: true, capabilities: ['venue.bookings.read'], publishedCapabilities: ['venue.bookings.read'] };
+  source.state.schemes = [role, { id: 'draft-only', name: '未发布草稿', publishedVersion: 0, capabilities: ['venue.bookings.read'] }];
+  const calls = [];
+  const api = async input => {
+    const { name, data } = input;
+    calls.push({ name, data });
+    if (name === 'saveAuthorizationScheme') {
+      Object.assign(role, { name: data.name, version: 2 });
+      return { status: 'success', scheme: role };
+    }
+    if (name === 'previewAuthorizationScheme') return { status: 'success', rules: [], roles: [],
+      peopleCount: 0, roleCount: 0, capabilities: role.capabilities };
+    if (name === 'getAuthorizationSchemeVersions') return { status: 'success', versions: [] };
+    if (name === 'publishAuthorizationScheme') {
+      Object.assign(role, { version: 3, publishedVersion: 2 });
+      return { status: 'success', publishedVersion: 2 };
+    }
+    if (name === 'getOrganizationConfigurationWorkspace') return { status: 'success', items: [{ id: role.id, name: role.name }],
+      organizations: [{ id: 'org-b', name: '目标组织' }] };
+    if (name === 'shareOrganizationConfiguration') return { status: 'success', id: 'share-generated' };
+    if (name === 'previewAuthorizationRule') return { ...await source.api(input), previewToken: 'generated-role-preview' };
+    return source.api(input);
+  };
+  const access = { mode: 'enforced', grantedCapabilities: ['authorization.schemes.share'] };
+  const home = pageHarness(api, { tab: 'schemes' }, 'authorization', access);
+  await home.load();
+  assert.equal(home.data.hasPublishedSchemes, true);
+  assert.equal(home.data.schemes[0].versionText, copy.schemeVersion(1));
+  assert.equal(home.data.canCopy, true);
+  home.edit({ currentTarget: { dataset: { kind: 'scheme', id: role.id } } });
+  home.changes({ currentTarget: { dataset: { kind: 'publish', id: role.id } } });
+  home.openOrganizationCopy();
+  assert.deepEqual(home.navigation, [
+    '/subpackages/org/pages/authorizationEditor/authorizationEditor?kind=scheme&id=' + role.id,
+    '/subpackages/org/pages/authorizationChanges/authorizationChanges?kind=publish&id=' + role.id,
+    '/subpackages/org/pages/organizationCopy/organizationCopy'
+  ]);
+
+  const edit = pageHarness(api, { kind: 'scheme', id: role.id }); await edit.load();
+  edit.setData({ 'draft.name': '迁移角色改名' });
+  await edit.review();
+  assert.equal(calls.find(call => call.name === 'saveAuthorizationScheme').data.id, role.id);
+  const changes = pageHarness(api, { kind: 'publish', id: role.id }, 'authorizationChanges'); await changes.load();
+  assert.equal(changes.data.ready, true);
+  await changes.confirm();
+  assert.equal(calls.find(call => call.name === 'publishAuthorizationScheme').data.version, 2);
+
+  const allocate = pageHarness(api); await allocate.load();
+  assert.deepEqual(Array.from(allocate.data.schemes, scheme => scheme.id), ['', role.id]);
+  allocate.openPersonnel({ currentTarget: { dataset: { kind: 'assignments' } } });
+  allocate.confirmPersonnel({ detail: { keys: ['job-a'] } });
+  allocate.selectScheme({ detail: { value: 1 } });
+  allocate.toggleScope({ currentTarget: { dataset: { kind: 'self' } } });
+  await allocate.review(); await allocate.save();
+  assert.equal(source.state.rules[0].schemeId, role.id);
+  assert.equal(source.state.rules[0].bindingModel, 'role');
+
+  const workspace = pageHarness(api, { kind: 'authorization.schemes' }, 'organizationCopy', access);
+  await workspace.load();
+  workspace.chooseTarget({ currentTarget: { dataset: { index: 0 } }, detail: { value: 0 } });
+  workspace.share({ currentTarget: { dataset: { index: 0 } } });
+  await workspace.confirm();
+  assert.deepEqual(JSON.parse(JSON.stringify(calls.find(call => call.name === 'shareOrganizationConfiguration').data)),
+    { kind: 'authorization.schemes', sourceRecordId: role.id, targetOrganizationId: 'org-b' });
 });
 
 test('受限资格继承记录、字段和期限，实际原生方法保存回读且不混合第二资格', async () => {

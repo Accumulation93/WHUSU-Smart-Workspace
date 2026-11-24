@@ -357,7 +357,7 @@ function delegationDirectory(directory, option) {
 }
 
 function assignableSchemes(schemes, option, catalog = [], draft, unified = false) {
-  return schemes.filter(item => item.publishedVersion && (!item.compatibilityOnly || draft && draft.id && draft.schemeId === item.id) && (!option
+  return schemes.filter(item => item.publishedVersion && (!option
     || item.publishedCapabilities.every(key => option.envelope.capabilities.includes(key)))
     && (draft && draft.schemeId === item.id || item.publishedCapabilities.every(key => {
       const definition = catalog.find(row => row.key === key);

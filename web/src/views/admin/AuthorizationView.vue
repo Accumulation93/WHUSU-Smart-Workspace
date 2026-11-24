@@ -116,9 +116,8 @@
         <p class="muted">{{ ui.schemeLifecycleHelp }}</p>
         <p v-if="!schemes.length" class="empty-state">{{ ui.noSchemes }}</p>
         <details v-for="scheme in schemes" :key="scheme.id" :open="!!opened['scheme:' + scheme.id]" class="card authorization-scheme" @toggle.stop="trackOpen($event, 'scheme:' + scheme.id)">
-          <summary><strong class="section-title">{{ scheme.name }}</strong><span class="chip chip-blue">{{ scheme.compatibilityOnly ? ui.unified.temporaryRoleLabel : scheme.publishedVersion ? ui.schemeVersion(scheme.publishedVersion) : ui.draft }}</span><span class="muted">{{ ui.effectiveCount((scheme.publishedVersion ? scheme.publishedCapabilities : scheme.capabilities).length) }}</span><UiIcon class="disclosure-chevron" name="chevron-right" size-role="row-leading" /></summary>
+          <summary><strong class="section-title">{{ scheme.name }}</strong><span class="chip chip-blue">{{ scheme.publishedVersion ? ui.schemeVersion(scheme.publishedVersion) : ui.draft }}</span><span class="muted">{{ ui.effectiveCount((scheme.publishedVersion ? scheme.publishedCapabilities : scheme.capabilities).length) }}</span><UiIcon class="disclosure-chevron" name="chevron-right" size-role="row-leading" /></summary>
           <template v-if="opened['scheme:' + scheme.id]">
-          <p v-if="scheme.compatibilityOnly" class="muted">{{ ui.unified.temporaryRoleHelp }}</p>
           <p v-if="scheme.draftRestrictedCapabilities?.length" class="notice-line">{{ ui.unified.schemeBlockedStatus }}</p>
           <details v-for="version in schemeVersions(scheme)" :key="version.key" :open="!!opened[version.key]" class="glass-panel" @toggle.stop="trackOpen($event, version.key)">
             <summary>{{ version.title }}</summary>
@@ -200,7 +199,7 @@ const tabs = computed(() => state.value.canManage === false ? ['effective']
   : state.value.unifiedIdentity ? ['schemes', 'rules', 'effective'] : ['rules', 'schemes', 'effective']);
 const tab = ref(useRoute().query.tab === 'schemes' ? 'schemes' : 'rules');
 const state = ref({ rules: [], schemes: [], catalog: [] });
-const hasPublishedRole = computed(() => state.value.schemes.some(item => item.publishedVersion && !item.compatibilityOnly));
+const hasPublishedRole = computed(() => state.value.schemes.some(item => item.publishedVersion));
 const basicBusy = ref(false);
 const canCopy = ref(false);
 const directory = ref({ assignments: [], adminGrants: [] });

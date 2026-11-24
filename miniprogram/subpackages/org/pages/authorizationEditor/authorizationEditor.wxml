@@ -86,7 +86,7 @@
       </view>
       <view class="permission-card">
         <view class="permission-section-title">{{!advanced ? ui.stepIdentity : kind === 'scheme' ? ui.schemeCapabilitiesTitle : kind === 'delegation' ? ui.delegationCapabilities : draft.policy.effect === 'deny' ? ui.denyCapabilitiesTitle : ui.allowCapabilitiesTitle}}</view>
-        <view class="permission-admin-meta">{{compatibilityRole ? ui.unified.temporaryRoleHelp : draft.schemeId ? ui.unified.publishedRoleReadOnlyHelp : kind === 'scheme' ? ui.unified.schemePickHelp : kind === 'delegation' ? ui.unified.delegationPickHelp : roleBindingOnly ? ui.unified.landingRuleHelp : draft.policy.effect === 'deny' ? ui.unified.customDenyPickHelp : advanced ? ui.unified.customAllowPickHelp : ui.unified.landingRuleHelp}}</view>
+        <view class="permission-admin-meta">{{kind === 'scheme' ? ui.unified.schemePickHelp : kind === 'delegation' ? ui.unified.delegationPickHelp : draft.schemeId ? ui.unified.publishedRoleReadOnlyHelp : roleBindingOnly ? ui.unified.landingRuleHelp : draft.policy.effect === 'deny' ? ui.unified.customDenyPickHelp : advanced ? ui.unified.customAllowPickHelp : ui.unified.landingRuleHelp}}</view>
         <view wx:if="{{schemeRestrictedOperations.length}}" class="authorization-permission-group">
           <view class="authorization-permission-group-head">
             <view class="authorization-permission-heading">

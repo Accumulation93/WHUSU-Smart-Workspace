@@ -101,7 +101,6 @@ Page({
     const scopedDirectory = editor.delegationDirectory(this._directory, delegation);
     const schemes = [{ id: '', name: this.data.roleBindingOnly ? ui.identityPlaceholder : ui.selectOperations }]
       .concat(editor.assignableSchemes(this._state.schemes, delegation, this._state.catalog, draft, unified));
-    const compatibilityRole = this._state.schemes.some(item => item.id === draft.schemeId && item.compatibilityOnly);
     const recipients = presentation.policySections({ subjects: draft.audience || [] }, this._directory, this._state.catalog, ui).subjects;
     const recipientNames = [];
     for (const subject of recipients) recipientNames.push(...subject.lines);
@@ -117,7 +116,7 @@ Page({
     }
     const schemeRestrictedOperations = (this._blockedSchemeKeys || []).filter(key => draft.policy.capabilities.includes(key))
       .map(key => ({ key, label: presentation.capabilityLabel(key, this._state.catalog, ui) }));
-    this.setData({ draft, schemes, compatibilityRole, selectionText, delegation: delegation || null, formAvailable: !this.data.requiresDelegation || !!delegation && (this.data.kind === 'scheme' || !delegation.includesOwnRole),
+    this.setData({ draft, schemes, selectionText, delegation: delegation || null, formAvailable: !this.data.requiresDelegation || !!delegation && (this.data.kind === 'scheme' || !delegation.includesOwnRole),
       delegationIndex: delegation ? this.data.delegationOptions.findIndex(item => item.id === delegation.id) : 0,
       delegationSections: delegation ? presentation.policySections(delegation.envelope, this._directory, this._state.catalog, ui) : null,
       inheritedSubjects: !!(delegation && delegation.envelope.subjects.some(item => item.kind === 'assignmentScope')),
@@ -386,7 +385,7 @@ Page({
         showShortToast(ui.saveSuccess); wx.navigateBack();
       } else {
         if (this.data.kind === 'rule' && this.data.roleBindingOnly
-          && (!this.data.draft.schemeId || this.data.compatibilityRole)) throw createLocalError(ui.chooseIdentity);
+          && !this.data.draft.schemeId) throw createLocalError(ui.chooseIdentity);
         const draft = this.data.kind === 'rule' && !this.data.advanced
           ? editor.prepareSimpleDraft(this.data.draft, this.data.schemes, ui, this._delegation) : this.data.draft;
         const payload = this.data.kind === 'delegation' ? editor.delegationRequest(draft, this._state.revision, this._state.catalog, this.data.unified)

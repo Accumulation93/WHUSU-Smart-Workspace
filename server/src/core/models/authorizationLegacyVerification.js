@@ -2,7 +2,7 @@
 
 const { createHash, randomUUID } = require('node:crypto');
 const { listActiveAssignments } = require('../../modules/audit/services/auditAssignmentContext');
-const compatibilityRoles = require('./authorizationCompatibilityRole');
+const roleBackfill = require('./authorizationRoleBackfill');
 
 const SOURCE = 'legacy_verification';
 const MIGRATION_CONTEXT = 'migration:20261124123000';
@@ -29,7 +29,7 @@ async function readAssignmentIds(connection, organizationId, entries) {
 }
 
 async function project(connection, organizationId, rows, rules, lock) {
-  const sources = rows.filter(row => row.source_kind === SOURCE && compatibilityRoles.isCompatibilityRole(row.scheme_id));
+  const sources = rows.filter(row => row.source_kind === SOURCE && row.scheme_id === roleBackfill.idForRule(organizationId, row.id));
   if (!sources.length) return rules;
   const [entries] = await connection.query(`SELECT p.id, h.id AS hrId
     FROM audit_verification_permissions p JOIN hr_info h ON h.org_id=p.org_id AND h.id=p.grantee_hr_id
@@ -41,8 +41,20 @@ async function project(connection, organizationId, rows, rules, lock) {
     const entry = sourceById.get(row.source_ref);
     if (entry) assignmentsByRule.set(row.id, directory.get(entry.hrId));
   }
-  return rules.map(rule => assignmentsByRule.has(rule.id)
-    ? { ...rule, policy: { ...rule.policy, subjects: subjects(rule.id, assignmentsByRule.get(rule.id)) } } : rule);
+  const detached = sources.filter(row => !assignmentsByRule.has(row.id)).map(row => row.id);
+  const inactive = new Set(detached);
+  if (detached.length) {
+    // 旧版本编辑时删除了名单，但保留了迁移标记。它留下的显式分配仍按写入内容生效。
+    const [edited] = await connection.query(`SELECT target_id AS id FROM authorization_changes
+      WHERE org_id = ? AND action = 'rule_update' AND target_id IN (?)`, [organizationId, detached]);
+    for (const row of edited) inactive.delete(row.id);
+  }
+  return rules.map(rule => {
+    if (assignmentsByRule.has(rule.id)) {
+      return { ...rule, policy: { ...rule.policy, subjects: subjects(rule.id, assignmentsByRule.get(rule.id)) } };
+    }
+    return inactive.has(rule.id) ? { ...rule, policy: { ...rule.policy, enabled: false } } : rule;
+  });
 }
 
 // 仅在旧模式切换事务内调用，组织与旧写入已经串行化。
@@ -61,7 +73,7 @@ async function bindForCutover(connection, organizationId) {
     const policy = { id, organizationId, effect: 'allow', enabled: true, capabilities: ['audit.verification.verify'],
       subjects: subjects(id, directory.get(entry.hrId)), scopes: [{ kind: 'organization' }],
       fields: null, startsAt: null, endsAt: null };
-    const schemeId = await compatibilityRoles.bind(connection, organizationId, { id, name, policy }, MIGRATION_CONTEXT);
+    const schemeId = await roleBackfill.bind(connection, organizationId, { id, name, policy }, MIGRATION_CONTEXT);
     await connection.query(`INSERT INTO authorization_rules (id, org_id, name, policy_json, scheme_id, source_kind, source_ref)
       VALUES (?, ?, ?, ?, ?, ?, ?)`, [id, organizationId, name, JSON.stringify(policy), schemeId, SOURCE, entry.id]);
     await connection.query(`INSERT INTO authorization_changes (id, org_id, actor_context_id, action, target_id, before_json, after_json)

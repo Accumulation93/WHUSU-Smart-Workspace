@@ -41,10 +41,98 @@ module.exports = async function unifiedPermissionIntegrationCases(admin, post) {
   assert(reopened.rules.some(rule => rule.id === saved.rule.id && rule.policy.subjects[0].ids[0] === 'assignment'));
   assert.equal(reopened.unifiedIdentity, true);
   assert.equal(reopened.roleBindingOnly, true);
-  const temporary = reopened.schemes.find(item => item.id === saved.rule.schemeId);
-  assert.deepEqual([temporary.compatibilityOnly, temporary.canEdit, temporary.canPublish], [true, false, false]);
-  assert.equal((await (await post('previewAuthorizationRule', { ...body, expectedRevision: await revision(),
-    schemeId: saved.rule.schemeId })).json()).status, 'authorization_forbidden');
+  const generatedRole = reopened.schemes.find(item => item.id === saved.rule.schemeId);
+  assert.deepEqual([generatedRole.canEdit, generatedRole.canPublish, generatedRole.publishedVersion], [true, true, 1]);
+  assert.deepEqual(generatedRole.publishedCapabilities, body.policy.capabilities);
+  const recipient = 'script-role-recipient';
+  await admin.query(`INSERT INTO persons(id,name,student_id,normalized_student_id) VALUES (?,?,?,?);
+    INSERT INTO accounts(id,person_id,status) VALUES (?,?,'verified');
+    INSERT INTO hr_info(id,name,student_id,org_id) VALUES (?,?,?,?);
+    INSERT INTO organization_memberships(id,person_id,org_id,legacy_hr_id) VALUES (?,?,?,?);
+    INSERT INTO membership_assignments(id,membership_id,org_id,assignment_kind,department_id,identity_id)
+      VALUES (?,?,?,'staff','department','identity');
+    INSERT INTO auth_sessions(id,account_id,openid_hash,context_id,context_type,context_subject_id,organization_id,role,token_version,expires_at)
+      VALUES (?,?,'',?,'assignment',?,?,'user',1,UTC_TIMESTAMP()+INTERVAL 1 DAY)`,
+  [recipient, recipient, recipient, recipient,
+    recipient, recipient,
+    recipient, recipient, recipient, org,
+    recipient, recipient, org, recipient,
+    recipient, recipient, org,
+    recipient, recipient, recipient, recipient, org]);
+  const right = (capability, reference) => createAuthorizationSession(admin, reference).then(session =>
+    session.check({ capability, resource: { type: 'audit.submissions', id: 'example', organizationId: org }, businessAllowed: true }).allowed);
+  const recipientReference = { accountId: recipient, personId: recipient, sessionId: recipient, contextId: recipient, organizationId: org };
+  assert.equal(await right('audit.submissions.read', recipientReference), false);
+  const additionalRequest = { ...body, bindingModel: 'role', expectedRevision: await revision(), schemeId: generatedRole.id,
+    name: 'Independent allocation from generated role',
+    policy: { ...body.policy, subjects: [{ kind: 'assignments', ids: [recipient] }] } };
+  const reassignPreview = await (await post('previewAuthorizationRule', additionalRequest)).json();
+  assert.equal(reassignPreview.status, 'success');
+  const assigned = await (await post('saveAuthorizationRule', { ...additionalRequest, previewToken: reassignPreview.previewToken })).json();
+  assert.equal(assigned.status, 'success');
+  assert.equal(assigned.rule.schemeId, generatedRole.id);
+  assert.equal(await right('audit.submissions.read', recipientReference), true);
+  const editedCapabilities = ['audit.submissions.approve', 'audit.submissions.read'];
+  const edited = await (await post('saveAuthorizationScheme', { identityModel, id: generatedRole.id,
+    version: generatedRole.version, name: 'Edited generated role', capabilities: editedCapabilities })).json();
+  assert.equal(edited.status, 'success');
+  assert.equal(await right('audit.submissions.approve', recipientReference), false);
+  const publish = { identityModel, id: generatedRole.id, version: edited.scheme.version, expectedRevision: await revision() };
+  const changePreview = await (await post('previewAuthorizationScheme', publish)).json();
+  assert.equal(changePreview.status, 'success');
+  assert.deepEqual(changePreview.rules.map(rule => rule.id).sort(), [saved.rule.id, assigned.rule.id].sort());
+  assert.equal((await (await post('publishAuthorizationScheme', publish)).json()).publishedVersion, 2);
+  assert.equal(await right('audit.submissions.approve', recipientReference), true);
+  const publishedRules = (await (await post('getAuthorizationManagement', {})).json()).rules;
+  const historical = publishedRules.find(rule => rule.id === saved.rule.id);
+  assert.equal(historical.schemeId, generatedRole.id);
+  assert.deepEqual(historical.policy, { ...saved.rule.policy, capabilities: editedCapabilities });
+
+  const availableSources = await (await post('getOrganizationConfigurationWorkspace', {
+    kind: 'authorization.schemes', tab: 'source', after: ''
+  })).json();
+  assert.equal(availableSources.status, 'success');
+  assert(availableSources.items.some(item => item.id === generatedRole.id));
+  const copiedOffer = await (await post('shareOrganizationConfiguration', {
+    kind: 'authorization.schemes', sourceRecordId: generatedRole.id, targetOrganizationId: 'other'
+  })).json();
+  assert.equal(copiedOffer.status, 'success');
+  const [[targetSession]] = await admin.query("SELECT context_subject_id FROM auth_sessions WHERE id='target-session'");
+  await admin.query("UPDATE auth_sessions SET context_subject_id='grant' WHERE id='target-session'");
+  try {
+    const copiedDraft = await (await post('receiveOrganizationConfiguration', {
+      shareId: copiedOffer.id, shareVersion: 1, requestId: 'generated-role-copy'
+    }, false, true)).json();
+    assert.equal(copiedDraft.status, 'success');
+    const copiedResult = await (await post('applyOrganizationConfigurationDraft', {
+      id: copiedDraft.id, version: 1
+    }, false, true)).json();
+    assert.equal(copiedResult.status, 'success');
+    const copiedRole = (await model.listSchemes(admin, 'other')).find(role => role.id === copiedResult.resultId);
+    assert.notEqual(copiedRole.id, generatedRole.id);
+    assert.equal(copiedRole.publishedVersion, 0);
+    assert.deepEqual(copiedRole.capabilities, editedCapabilities);
+    assert.equal((await model.read(admin, 'other')).rules.some(rule => rule.schemeId === copiedRole.id), false);
+  } finally {
+    await admin.query("UPDATE auth_sessions SET context_subject_id=? WHERE id='target-session'", [targetSession.context_subject_id]);
+  }
+  const legacyUpdate = async (rule, capabilities) => {
+    const request = { ...body, id: rule.id, version: rule.version, expectedRevision: await revision(),
+      policy: { ...rule.policy, capabilities } };
+    const candidate = await (await post('previewAuthorizationRule', request)).json();
+    assert.equal(candidate.status, 'success');
+    const result = await (await post('saveAuthorizationRule', { ...request, previewToken: candidate.previewToken })).json();
+    assert.equal(result.status, 'success');
+    return result.rule;
+  };
+  const retained = await legacyUpdate(historical, editedCapabilities);
+  assert.equal(retained.schemeId, generatedRole.id);
+  const rebound = await legacyUpdate(retained, body.policy.capabilities);
+  assert.notEqual(rebound.schemeId, generatedRole.id);
+  assert.equal(await right('audit.submissions.approve', recipientReference), true);
+  const unchanged = (await model.listSchemes(admin, org)).find(role => role.id === generatedRole.id);
+  assert.equal(unchanged.publishedVersion, 2);
+  assert.deepEqual(unchanged.publishedCapabilities, editedCapabilities);
   assert.equal((await post('setAuthorizationBasicCapability', { identityModel, capability: 'notifications.items.read',
     enabled: false, expectedRevision: await revision() })).status, 200);
   assert((await model.read(admin, org, false, true)).disabledBasic.has('notifications.items.read'));
@@ -92,6 +180,8 @@ module.exports = async function unifiedPermissionIntegrationCases(admin, post) {
   assert.deepEqual(repaired.find(scheme => scheme.id === 'special-only-draft').capabilities, [special]);
   assert.deepEqual(repaired.find(scheme => scheme.id === 'referenced-draft').capabilities, [general, special]);
   assert.deepEqual(repaired.find(scheme => scheme.id === 'published-legacy-role').capabilities, [general, special]);
+  assert.equal((await (await post('previewAuthorizationRule', { ...body, bindingModel: 'role',
+    schemeId: 'repairable-draft', expectedRevision: await revision() })).json()).status, 'authorization_scheme_unpublished');
 
   const publishedRequest = { identityModel, id: 'repairable-draft', version: 2, expectedRevision: await revision() };
   const publicationPreview = await (await post('previewAuthorizationScheme', publishedRequest)).json();

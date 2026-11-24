@@ -2,7 +2,6 @@
 
 const { CATALOG } = require('../services/authorizationCatalog');
 const model = require('./authorization');
-const { isCompatibilityRole } = require('./authorizationCompatibilityRole');
 const { createGuard } = require('../services/authorizationManagement');
 function fail(code) { throw Object.assign(new Error(code), { code }); }
 function normalize(raw) {
@@ -18,7 +17,6 @@ module.exports = {
     return {};
   },
   async source(connection, orgId, id) {
-    if (isCompatibilityRole(id)) fail('config_copy_missing');
     const [rows] = await connection.query(`SELECT s.name, v.capabilities_json FROM authorization_schemes s
       JOIN authorization_scheme_versions v ON v.org_id = s.org_id AND v.scheme_id = s.id AND v.version = s.published_version
       WHERE s.org_id = ? AND s.id = ? FOR SHARE`, [orgId, id]);
@@ -30,7 +28,7 @@ module.exports = {
     const payload = normalize(raw);
     await model.lockOrganization(connection, orgId);
     const [duplicates] = await connection.query(`SELECT id FROM authorization_schemes
-      WHERE org_id = ? AND name = ? AND id NOT LIKE 'compat-rule-%' FOR UPDATE`, [orgId, payload.name]);
+      WHERE org_id = ? AND name = ? FOR UPDATE`, [orgId, payload.name]);
     if (duplicates.length) fail('config_copy_duplicate');
     // 复用原方案保存的委托边界；复制不发布、不复制绑定规则或分配权。
     const scheme = await model.saveScheme(payload, orgId, createGuard(reference), connection);

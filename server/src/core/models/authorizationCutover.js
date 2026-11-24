@@ -2,7 +2,7 @@
 
 const pool = require('../../config/db');
 const legacy = require('./authorizationLegacyMigration');
-const compatibilityRoles = require('./authorizationCompatibilityRole');
+const roleBackfill = require('./authorizationRoleBackfill');
 const legacyVerification = require('./authorizationLegacyVerification');
 const { authorizationError } = require('../services/authorizationError');
 const PROTOCOL = 1;
@@ -39,7 +39,7 @@ async function activate(release, verifyDeployment) {
       connection, release.compatibleSha, async () => true);
     for (const organization of organizations) {
       await legacyVerification.bindForCutover(connection, organization.id);
-      await compatibilityRoles.bindOrganization(connection, organization.id, 'migration:20261123120000');
+      await roleBackfill.bindOrganization(connection, organization.id, 'migration:20261123120000');
     }
     await connection.query("UPDATE authorization_organizations SET mode='enforced',revision=revision+1,legacy_migrated_at=UTC_TIMESTAMP(3)");
     await connection.query(`UPDATE authorization_runtime_transition SET phase='enforced',minimum_protocol=?,compatible_sha=?,fallback_sha=?,

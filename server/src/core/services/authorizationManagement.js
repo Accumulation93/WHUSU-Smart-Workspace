@@ -202,9 +202,9 @@ async function readManagement(connection, reference) {
       .map(rule => ({ ...rule, canEdit: canEditRule(rule.policy) })),
     schemes: (actor.isSuper ? schemes : schemes.filter(scheme => schemeAllowed(scheme.capabilities, envelopes)
       || scheme.publishedVersion && schemeAllowed(scheme.publishedCapabilities, envelopes)))
-      .map(scheme => ({ ...scheme, canEdit: !scheme.compatibilityOnly && (actor.isSuper || schemeAllowed(scheme.capabilities, envelopes)),
+      .map(scheme => ({ ...scheme, canEdit: actor.isSuper || schemeAllowed(scheme.capabilities, envelopes),
         draftRestrictedCapabilities: actor.isSuper ? specialCapabilities(scheme.capabilities, actor.unifiedAuthorization) : [],
-        canPublish: !scheme.compatibilityOnly && canPublishScheme(scheme) })),
+        canPublish: canPublishScheme(scheme) })),
     delegations,
     basicCapabilities: actor.unifiedAuthorization === true ? [...CATALOG.values()]
       .filter(item => item.businessRoles.includes('user'))

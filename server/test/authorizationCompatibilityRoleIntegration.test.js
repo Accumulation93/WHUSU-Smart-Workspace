@@ -5,12 +5,12 @@ const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const path = require('node:path');
 const mysql = require('mysql2/promise');
-const roles = require('../src/core/models/authorizationCompatibilityRole');
+const roles = require('../src/core/models/authorizationRoleBackfill');
 
 const schema = name => readFileSync(path.join(__dirname, '../db/deploy', name), 'utf8');
 const migration = '20261123120000_bind_existing_authorization_rules_to_roles.sql';
 
-test('temporary roles preserve existing grants and restrictions across two database migrations', async () => {
+test('migration-generated roles preserve existing grants and restrictions across two database migrations', async () => {
   const connection = await mysql.createConnection({ host: process.env.DEPLOY_TEST_DB_HOST || '127.0.0.1',
     port: Number(process.env.DEPLOY_TEST_DB_PORT || 3362), user: process.env.TEST_DB_ADMIN_USER || 'root',
     password: process.env.TEST_DB_ADMIN_PASSWORD || '', multipleStatements: true });
@@ -50,10 +50,11 @@ test('temporary roles preserve existing grants and restrictions across two datab
       if (rule.org_id === 'shadow') assert.equal(scheme_id, null);
       else assert.equal(scheme_id, roles.idForRule(rule.org_id, rule.id));
     }
-    const [versions] = await connection.query('SELECT id, version, capabilities_json FROM authorization_scheme_versions ORDER BY id');
+    const [versions] = await connection.query('SELECT scheme_id, version, capabilities_json FROM authorization_scheme_versions ORDER BY id');
     assert.equal(versions.length, 3);
-    assert.ok(versions.every(row => row.version === 1 && roles.isCompatibilityRole(row.id)
-      && JSON.stringify(row.capabilities_json) === '["hr.people.read"]'));
+    assert.deepEqual(versions.map(row => row.scheme_id).sort(),
+      after.filter(row => row.org_id === 'active').map(row => roles.idForRule(row.org_id, row.id)).sort());
+    assert.ok(versions.every(row => row.version === 1 && JSON.stringify(row.capabilities_json) === '["hr.people.read"]'));
 
     await connection.query("CREATE TABLE hr_info (id VARCHAR(64), org_id VARCHAR(64), name VARCHAR(80))");
     await connection.query("CREATE TABLE organization_memberships (id VARCHAR(64), org_id VARCHAR(64), legacy_hr_id VARCHAR(64), status VARCHAR(10))");

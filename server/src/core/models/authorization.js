@@ -7,7 +7,7 @@ const { CATALOG } = require('../services/authorizationCatalog');
 const candidates = require('./authorizationCandidates');
 const { describeRuleImpact, describeDelegationImpact } = require('../services/authorizationImpact');
 const grants = require('./authorizationGrantSources');
-const compatibilityRoles = require('./authorizationCompatibilityRole');
+const roleBackfill = require('./authorizationRoleBackfill');
 const legacyVerification = require('./authorizationLegacyVerification');
 const parse = value => typeof value === 'string' ? JSON.parse(value) : value;
 
@@ -109,7 +109,6 @@ async function listSchemes(connection, orgId) {
       ON v.org_id = s.org_id AND v.scheme_id = s.id AND v.version = s.published_version
     WHERE s.org_id = ? ORDER BY s.name, s.id`, [orgId]);
   return rows.map(row => ({ id: row.id, name: row.name, version: Number(row.version),
-    compatibilityOnly: compatibilityRoles.isCompatibilityRole(row.id),
     publishedVersion: Number(row.published_version), capabilities: parse(row.draft_capabilities_json),
     publishedCapabilities: row.published_capabilities_json == null ? [] : parse(row.published_capabilities_json) }));
 }
@@ -123,12 +122,11 @@ async function prepareRuleChange(connection, input, orgId, guard) {
   const state = await lockOrganization(connection, orgId);
   if (Number(state.revision) !== revision(input.expectedRevision)) fail('authorization_conflict');
   const [rows] = await connection.query('SELECT * FROM authorization_rules WHERE id = ? AND org_id = ? FOR UPDATE', [id, orgId]);
-  const before = rows[0] ? decode(rows[0]) : null;
-  if (input.id && (!before || before.version !== revision(input.version))) fail('authorization_conflict');
-  if (state.mode === 'enforced' && input.bindingModel === 'role'
-    && (!input.schemeId || compatibilityRoles.isCompatibilityRole(input.schemeId))) fail('authorization_role_required');
+  if (input.id && (!rows[0] || Number(rows[0].version) !== revision(input.version))) fail('authorization_conflict');
+  const stored = rows.map(decode);
+  const [before = null] = state.mode === 'enforced' ? await legacyVerification.project(connection, orgId, rows, stored, true) : stored;
+  if (state.mode === 'enforced' && input.bindingModel === 'role' && !input.schemeId) fail('authorization_role_required');
   if (input.schemeId) {
-    if (compatibilityRoles.isCompatibilityRole(input.schemeId) && input.schemeId !== before?.schemeId) fail('authorization_forbidden');
     normalized.capabilities = await publishedCapabilities(connection, orgId, input.schemeId);
   }
   const policy = normalizePolicy(normalized, CATALOG);
@@ -137,9 +135,11 @@ async function prepareRuleChange(connection, input, orgId, guard) {
   if (input.assignmentMode === 'dynamic' && !policy.subjects.every(subject => subject.kind === 'assignmentScope')) fail('invalid_authorization_selection');
   await guard.validateReferences(connection, policy);
   const source = await guard.validateChange(connection, before && before.policy, policy);
-  const schemeId = input.schemeId || (state.mode === 'enforced' ? compatibilityRoles.idForRule(orgId, id) : null);
+  const generatedRole = !input.schemeId && state.mode === 'enforced'
+    ? await roleBackfill.selectRole(connection, orgId, { id, policy }, before?.schemeId) : null;
+  const schemeId = input.schemeId || generatedRole?.id || null;
   const after = { id, name: ruleName, policy, schemeId, version: before ? before.version + 1 : 1 };
-  return { actor, state, before, after, source };
+  return { actor, state, before, after, source, generatedRole };
 }
 
 async function snapshotToken(connection, input, orgId, change) {
@@ -179,14 +179,15 @@ async function saveRule(input, orgId, guard) {
   checkGuard(guard);
   return pool.withTransaction(async connection => {
     const change = await prepareRuleChange(connection, input, orgId, guard);
-    const { actor, before, after, source } = change;
+    const { actor, before, after, source, generatedRole } = change;
     if (input.assignmentMode === 'snapshot'
       && input.previewToken !== await snapshotToken(connection, input, orgId, change)) fail('authorization_stale_reference');
     const { id, name: ruleName, policy, schemeId } = after;
-    if (!input.schemeId && schemeId) await compatibilityRoles.bind(connection, orgId, after, actor.contextId);
+    if (generatedRole) await roleBackfill.bind(connection, orgId, after, actor.contextId, generatedRole);
     if (before) {
       await retireLegacyVerificationLink(connection, orgId, before);
-      await connection.query(`UPDATE authorization_rules SET name = ?, policy_json = ?, scheme_id = ?, version = version + 1
+      const manualBinding = before.sourceKind === 'legacy_verification' ? ", source_kind = 'manual', source_ref = NULL" : '';
+      await connection.query(`UPDATE authorization_rules SET name = ?, policy_json = ?, scheme_id = ?, version = version + 1${manualBinding}
         WHERE org_id = ? AND id = ? AND version = ?`, [ruleName, JSON.stringify(policy), schemeId, orgId, id, before.version]);
     } else {
       await connection.query(`INSERT INTO authorization_rules (id, org_id, name, policy_json, scheme_id)
@@ -206,14 +207,19 @@ async function prepareRuleDeletion(connection, input, orgId, guard) {
     if (!actor || actor.organizationId !== orgId || !actor.contextId) fail('authorization_actor_missing');
     const state = await lockOrganization(connection, orgId);
     if (Number(state.revision) !== revision(input.expectedRevision)) fail('authorization_conflict');
-    const selected = [];
-    for (const item of input.rules) {
-      const [rows] = await connection.query('SELECT * FROM authorization_rules WHERE org_id = ? AND id = ? FOR UPDATE', [orgId, item.id]);
-      if (!rows[0] || Number(rows[0].version) !== revision(item.version)) fail('authorization_conflict');
-      const before = decode(rows[0]);
+    const [rows] = await connection.query('SELECT * FROM authorization_rules WHERE org_id = ? AND id IN (?) ORDER BY id FOR UPDATE',
+      [orgId, input.rules.map(item => item.id)]);
+    const byId = new Map(rows.map(row => [row.id, row]));
+    const requested = input.rules.map(item => {
+      const row = byId.get(item.id);
+      if (!row || Number(row.version) !== revision(item.version)) fail('authorization_conflict');
+      return row;
+    });
+    const stored = requested.map(decode);
+    const selected = state.mode === 'enforced' ? await legacyVerification.project(connection, orgId, requested, stored, true) : stored;
+    for (const before of selected) {
       // 删除禁止也是扩大权限；必须检查旧规则是否仍在委托范围，不能只验证新值。
       await guard.validateChange(connection, before.policy, null);
-      selected.push(before);
     }
     return { actor, state, selected };
 }
@@ -254,7 +260,6 @@ function normalizeCapabilities(input) {
 
 async function saveScheme(input, orgId, guard, transactionConnection = null) {
   checkGuard(guard);
-  if (compatibilityRoles.isCompatibilityRole(input.id)) fail('authorization_forbidden');
   const schemeName = name(input.name);
   const capabilities = normalizeCapabilities(input.capabilities);
   const write = async connection => {
@@ -282,7 +287,6 @@ async function saveScheme(input, orgId, guard, transactionConnection = null) {
 }
 
 async function prepareSchemePublication(connection, input, orgId, guard) {
-  if (compatibilityRoles.isCompatibilityRole(input.id)) fail('authorization_forbidden');
     const actor = await guard.authorize(connection);
     if (!actor || actor.organizationId !== orgId || !actor.contextId) fail('authorization_actor_missing');
     const state = await lockOrganization(connection, orgId);
@@ -300,13 +304,16 @@ async function prepareSchemePublication(connection, input, orgId, guard) {
     capabilities = normalizeCapabilities(capabilities);
     await guard.validateChange(connection, scheme, { kind: 'scheme', capabilities });
     const [linked] = await connection.query('SELECT * FROM authorization_rules WHERE org_id = ? AND scheme_id = ? ORDER BY id FOR UPDATE', [orgId, input.id]);
+    const stored = linked.map(decode);
+    const currentlyEffective = state.mode === 'enforced' ? await legacyVerification.project(connection, orgId, linked, stored, true) : stored;
     const next = [];
-    for (const row of linked) {
-      const before = decode(row);
+    for (let index = 0; index < stored.length; index++) {
+      const before = currentlyEffective[index];
       const policy = normalizePolicy(Object.assign({}, before.policy, { capabilities }), CATALOG);
-      await guard.validateReferences(connection, policy);
+      const usesHistoricalSubjects = before !== stored[index];
+      await guard.validateReferences(connection, usesHistoricalSubjects ? { ...policy, subjects: [] } : policy);
       await guard.validateChange(connection, before.policy, policy);
-      next.push({ before, policy });
+      next.push({ before, policy, storedPolicy: { ...stored[index].policy, capabilities: policy.capabilities } });
     }
     return { actor, state, scheme, capabilities, next };
 }
@@ -375,7 +382,7 @@ async function publishScheme(input, orgId, guard) {
       WHERE org_id = ? AND id = ?`, [version, JSON.stringify(capabilities), orgId, scheme.id]);
     for (const item of next) {
       await connection.query('UPDATE authorization_rules SET policy_json = ?, version = version + 1 WHERE org_id = ? AND id = ?',
-        [JSON.stringify(item.policy), orgId, item.before.id]);
+        [JSON.stringify(item.storedPolicy), orgId, item.before.id]);
       await recordChange(connection, actor, orgId, 'scheme_rule_update', item.before.id, item.before, item.policy);
     }
     await recordChange(connection, actor, orgId, input.restoreVersion == null ? 'scheme_publish' : 'scheme_restore', scheme.id,

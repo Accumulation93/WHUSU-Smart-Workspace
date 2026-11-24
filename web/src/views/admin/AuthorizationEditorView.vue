@@ -80,7 +80,7 @@
         </section>
         <section class="card stack">
           <h2 class="section-title">{{ !advanced ? ui.stepIdentity : kind === 'scheme' ? ui.schemeCapabilitiesTitle : kind === 'delegation' ? ui.delegationCapabilities : draft.policy.effect === 'deny' ? ui.denyCapabilitiesTitle : ui.allowCapabilitiesTitle }}</h2>
-          <p class="muted">{{ kind === 'scheme' ? ui.unified.schemePickHelp : kind === 'delegation' ? ui.unified.delegationPickHelp : compatibilityRole ? ui.unified.temporaryRoleHelp : draft.schemeId ? ui.unified.publishedRoleReadOnlyHelp : state.roleBindingOnly ? ui.unified.landingRuleHelp : draft.policy.effect === 'deny' ? ui.unified.customDenyPickHelp : advanced ? ui.unified.customAllowPickHelp : ui.unified.landingRuleHelp }}</p>
+          <p class="muted">{{ kind === 'scheme' ? ui.unified.schemePickHelp : kind === 'delegation' ? ui.unified.delegationPickHelp : draft.schemeId ? ui.unified.publishedRoleReadOnlyHelp : state.roleBindingOnly ? ui.unified.landingRuleHelp : draft.policy.effect === 'deny' ? ui.unified.customDenyPickHelp : advanced ? ui.unified.customAllowPickHelp : ui.unified.landingRuleHelp }}</p>
           <div v-if="blockedSchemeCapabilities.length" class="glass-panel stack-tight">
             <strong>{{ ui.unified.schemeBlockedCapabilitiesTitle }}</strong>
             <p class="muted">{{ ui.unified.schemeBlockedCapabilitiesHelp }}</p>
@@ -243,7 +243,6 @@ const requiresDelegation = computed(() => !state.value.isSuper && (kind.value !=
 const delegation = computed(() => delegationOptions.value.find(item => item.id === selectedDelegation.value));
 const formAvailable = computed(() => !requiresDelegation.value || !!delegation.value && (kind.value === 'scheme' || !delegation.value.includesOwnRole));
 const availableSchemes = computed(() => editor.assignableSchemes(state.value.schemes, delegation.value, state.value.catalog, draft.value, unified.value));
-const compatibilityRole = computed(() => state.value.schemes.some(item => item.id === draft.value.schemeId && item.compatibilityOnly));
 const scopedDirectory = computed(() => editor.delegationDirectory(directory.value, delegation.value));
 const activeCatalog = computed(() => state.value.catalog.filter(item => !delegation.value || delegation.value.envelope.capabilities.includes(item.key)));
 const inheritedSubjects = computed(() => delegation.value?.envelope.subjects.filter(item => item.kind === 'assignmentScope') || []);
@@ -451,7 +450,7 @@ async function review() {
       requireSuccess(result); showToast(ui.saveSuccess); leave();
     } else {
       if (kind.value === 'rule' && state.value.roleBindingOnly
-        && (!draft.value.schemeId || compatibilityRole.value)) throw createLocalError(ui.chooseIdentity);
+        && !draft.value.schemeId) throw createLocalError(ui.chooseIdentity);
       const prepared = kind.value === 'rule' && !advanced.value ? editor.prepareSimpleDraft(draft.value, availableSchemes.value, ui, delegation.value) : draft.value;
       const payload = kind.value === 'delegation' ? editor.delegationRequest(prepared, state.value.revision, state.value.catalog, unified.value)
         : editor.request(prepared, state.value.revision, state.value.catalog, unified.value);

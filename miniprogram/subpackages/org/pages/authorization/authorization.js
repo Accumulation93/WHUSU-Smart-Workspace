@@ -95,11 +95,11 @@ Page({
     if (!this._state) return;
     const keyword = this.data.keyword.trim().toLowerCase();
     const dates = item => Object.assign({}, item, { startsAtText: item.policy.startsAt ? formatDetailTime(item.policy.startsAt) : '', endsAtText: item.policy.endsAt ? formatDetailTime(item.policy.endsAt) : '' });
-    this.setData({ hasPublishedSchemes: this._state.schemes.some(item => item.publishedVersion && !item.compatibilityOnly), recipientCards: presentation.recipientCards(this._state.rules, this._state.schemes, this._directory, this._state.catalog, ui, keyword).map(item => Object.assign({}, item, { grants: item.grants.map(dates) })),
+    this.setData({ hasPublishedSchemes: this._state.schemes.some(item => item.publishedVersion), recipientCards: presentation.recipientCards(this._state.rules, this._state.schemes, this._directory, this._state.catalog, ui, keyword).map(item => Object.assign({}, item, { grants: item.grants.map(dates) })),
       dynamicRules: presentation.ruleCards(this._state.rules, this._directory, this._state.catalog, ui, keyword).filter(item => item.policy.subjects.some(subject => subject.kind === 'assignmentScope')).map(dates),
       cards: presentation.ruleCards(this._state.rules, this._directory, this._state.catalog, ui, keyword).map(item => Object.assign({}, item, { summaryLabels: item.capabilityLabels.slice(0, 3), capabilityCountText: ui.effectiveCount(item.capabilityLabels.length) })),
       schemes: this._state.schemes.filter(item => item.name.toLowerCase().includes(keyword)).map(item => Object.assign({}, item, {
-        versionText: item.compatibilityOnly ? ui.unified.temporaryRoleLabel : item.publishedVersion ? ui.schemeVersion(item.publishedVersion) : ui.draft,
+        versionText: item.publishedVersion ? ui.schemeVersion(item.publishedVersion) : ui.draft,
         countText: ui.effectiveCount((item.publishedVersion ? item.publishedCapabilities : item.capabilities).length),
         draftRestrictedLabels: (item.draftRestrictedCapabilities || []).map(key => ({ key, label: presentation.capabilityLabel(key, this._state.catalog, ui) })) })) });
   },

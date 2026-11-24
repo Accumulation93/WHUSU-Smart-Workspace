@@ -39,8 +39,6 @@ const sharedModule = Object.freeze({
     customDenyPickHelp: '选择要禁止的操作，再指定哪些数据受限。',
     delegationPickHelp: '选择这些工作角色可以向他人授予的权限。使用这些功能仍需另外授权。',
     publishedRoleReadOnlyHelp: '此次分配使用该角色已发布的权限。要改角色包含的权限，请到“权限角色”修改并发布。',
-    temporaryRoleLabel: '临时角色',
-    temporaryRoleHelp: '临时角色保留了原有授权。要调整权限，请为这个工作角色分配一个已发布的权限角色。',
     permissionGroupCount: (selected, total) => '已选 ' + selected + '/' + total,
     permissionSearchPlaceholder: '搜索业务或操作',
     permissionFilterAll: '全部',

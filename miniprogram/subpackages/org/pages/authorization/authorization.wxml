@@ -123,7 +123,6 @@
       <view wx:for="{{schemes}}" wx:key="id" class="permission-card authorization-body">
         <view class="authorization-disclosure ui-motion-card" data-id="{{'scheme:' + item.id}}" bindtap="toggleDetails" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><view><view class="permission-section-title">{{item.name}}</view><view class="authorization-summary">{{item.countText}}</view><view wx:if="{{item.draftRestrictedLabels.length}}" class="authorization-summary">{{ui.unified.schemeBlockedStatus}}</view></view><text class="authorization-chip">{{item.versionText}}</text><ui-icon name="chevron-right" sizeRole="row-leading" /></view>
         <block wx:if="{{expanded['scheme:' + item.id]}}">
-        <view wx:if="{{item.compatibilityOnly}}" class="permission-admin-meta">{{ui.unified.temporaryRoleHelp}}</view>
         <template wx:if="{{item.publishedVersion}}" is="schemePermissionVersion" data="{{title: ui.schemePublishedTitle, versionKey: 'published:' + item.id, expanded, schemePermissions, ui}}" />
         <template wx:if="{{item.canEdit !== false}}" is="schemePermissionVersion" data="{{title: ui.schemeDraftTitle, versionKey: 'draft:' + item.id, expanded, schemePermissions, ui}}" />
         <view wx:if="{{item.draftRestrictedLabels.length}}" class="authorization-group authorization-body">
