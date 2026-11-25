@@ -1959,3 +1959,5 @@ hrImportPage.test.js 12组通过，包括2人3行标题不含首人姓名。新�
 两端分配页改用搜索和多维组合筛选，同一个岗位满足全部岗位条件。改变筛选或页码清空批量选择，提交前重新取可见且可编辑的交集。可授对象在分配编辑、预览和历史中独立展示。`authorizationAllocationPolicy.test.js`、`authorizationAllocationIntegration.test.js`、`authorizationBusinessRoleRetirementIntegration.test.js`、`memberBusinessPermissionsIntegration.test.js`、`authorizationMiniPage.test.js`、`authorizationSimplification.test.js` 及 Chrome `authorization.spec.js` 覆盖上述路径。实体手机、Pad 竖屏和横屏仍需分别现场验证，静态检查不代表实体设备通过。
 
 独立复核补齐两条边界：保存时同时检查持有人与可授对象，拒绝命中分配人本人其他岗位；禁止分配规则的有限可授对象不得在编辑时丢失，只有主动清空才改为不限定对象。HTTP 拒绝用例核对无新增写入，两端共享编辑器与 Chrome 用例核对禁止范围的保存回读。最后一次改动仍须重跑原生兼容性审计；Node 语法检查不能拦住微信原生压缩器不支持的可选链。官方预览曾先报告实际存在的登录页缺失，清理编译缓存后暴露新补丁中的两处可选链；修复不能通过更改项目编译开关或清空会话完成。
+
+旧协议审核和评分兼容测试不再用现行接口新建退役业务权限。`seedHistoricalBusinessAuthorizationRule` 只允许明确命名的隔离库及旧协议，先核对新写入被拒且无数据变化，再建立历史夹具并从正式读取路径回读。`auditTemplateSaveIntegration.test.js` 保留原审批、字段限制、公示、组织隔离和事务回滚断言；测试不能通过放宽生产写入限制修复。

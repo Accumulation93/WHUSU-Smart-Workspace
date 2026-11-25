@@ -5,6 +5,8 @@ const express = require('express');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { CATALOG } = require('../../src/core/services/authorizationCatalog');
+const seedHistoricalBusinessRule = require('./seedHistoricalBusinessAuthorizationRule');
 
 module.exports = async function scoringRuleAuthorizationCases(pool, orgStorage, fixture) {
   const { reference, policy, model, guard, read } = fixture;
@@ -39,7 +41,11 @@ module.exports = async function scoringRuleAuthorizationCases(pool, orgStorage, 
     return response.json();
   }
   async function grant(name, capabilities, scopes = [{ kind: 'organization' }], effect = 'allow') {
-    return model.saveRule({ name, policy: { ...policy, capabilities, scopes, effect }, expectedRevision: (await read()).revision }, 'submit-a', guard);
+    const nextPolicy = { ...policy, capabilities, scopes, effect };
+    if (capabilities.some(key => CATALOG.get(key)?.businessOnly)) {
+      return seedHistoricalBusinessRule(pool, { name, policy: nextPolicy, model, guard, read });
+    }
+    return model.saveRule({ name, policy: nextPolicy, expectedRevision: (await read()).revision }, 'submit-a', guard);
   }
   async function revoke(rule) {
     return model.deleteRules({ rules: [{ id: rule.id, version: rule.version }], expectedRevision: (await read()).revision }, 'submit-a', guard);
@@ -64,8 +70,8 @@ module.exports = async function scoringRuleAuthorizationCases(pool, orgStorage, 
     assert.deepEqual((await post('listScorePublicationActivities')).list, []);
     assert.equal((await post('getLatestPublishedScoreActivity')).activity.id, 'published-activity');
     assert.equal((await post('saveScoreActivity', { name: '不应新增' })).status, 'forbidden');
-    const hideDescription = await model.saveRule({ name: '隐藏活动说明', policy: { ...policy, effect: 'deny',
-      capabilities: ['scoring.currentActivity.read'], fields: ['description'] }, expectedRevision: (await read()).revision }, 'submit-a', guard);
+    const hideDescription = await seedHistoricalBusinessRule(pool, { name: '隐藏活动说明', policy: { ...policy, effect: 'deny',
+      capabilities: ['scoring.currentActivity.read'], fields: ['description'] }, model, guard, read });
     const current = (await post('getCurrentScoreActivity')).activity;
     assert.equal(current.id, 'rule-activity');
     assert.equal(current.description, undefined);

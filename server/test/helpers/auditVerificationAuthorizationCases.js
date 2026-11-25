@@ -5,6 +5,8 @@ const express = require('express');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { CATALOG } = require('../../src/core/services/authorizationCatalog');
+const seedHistoricalBusinessRule = require('./seedHistoricalBusinessAuthorizationRule');
 
 module.exports = async function auditVerificationAuthorizationCases(pool, orgStorage, fixture) {
   const { reference, policy, model, guard, read } = fixture;
@@ -31,7 +33,11 @@ module.exports = async function auditVerificationAuthorizationCases(pool, orgSto
     return response.json();
   }
   async function addRule(name, capabilities, effect = 'allow') {
-    return model.saveRule({ name, policy: { ...policy, capabilities, effect }, expectedRevision: (await read()).revision }, 'submit-a', guard);
+    const nextPolicy = { ...policy, capabilities, effect };
+    if (capabilities.some(key => CATALOG.get(key)?.businessOnly)) {
+      return seedHistoricalBusinessRule(pool, { name, policy: nextPolicy, model, guard, read });
+    }
+    return model.saveRule({ name, policy: nextPolicy, expectedRevision: (await read()).revision }, 'submit-a', guard);
   }
   async function removeRule(rule) {
     return model.deleteRules({ rules: [{ id: rule.id, version: rule.version }], expectedRevision: (await read()).revision }, 'submit-a', guard);
