@@ -19,7 +19,7 @@
 .authorization-allocation-filter { flex: 1 1 140px; min-width: 0; }
 .authorization-filter-actions { display: flex; flex-wrap: wrap; align-items: center; flex: 0 1 auto; gap: var(--ui-inline-gap); max-width: 100%; }
 .authorization-allocation-filter > picker { display: block; }
-.authorization-allocation-filter .authorization-input { min-width: 0; overflow-wrap: anywhere; }
+.authorization-allocation-filter .picker-value { min-width: 0; overflow-wrap: anywhere; }
 .permission-page .authorization-filter-row > button, .permission-page .authorization-filter-actions > button, .permission-page .authorization-allocation-pager > button { width: auto; flex: none; min-height: var(--ui-compact-height); padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x); margin: 0; }
 .authorization-allocation-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-field-gap); }
 .authorization-allocation-fact { min-width: 0; overflow-wrap: anywhere; line-height: var(--ui-leading-body); }

@@ -47,7 +47,7 @@
             <block wx:for="{{allocationFilterFields}}" wx:key="key">
               <view wx:if="{{!item.more || moreAllocationFilters}}" class="authorization-allocation-filter">
                 <view class="authorization-label">{{item.label}}</view>
-                <picker range="{{item.options}}" range-key="name" value="{{item.index}}" data-key="{{item.key}}" bindchange="filterAllocations"><view class="authorization-input">{{item.options[item.index].name}}</view></picker>
+                <picker range="{{item.options}}" range-key="name" value="{{item.index}}" data-key="{{item.key}}" bindchange="filterAllocations"><view class="picker-value">{{item.options[item.index].name}}</view></picker>
               </view>
             </block>
           </block>
