@@ -14,7 +14,7 @@ Page({
   openOrganizationCopy: function() { navigateToTrustedRoute('/subpackages/org/pages/organizationCopy/organizationCopy'); },
   data: { ui, navTopPx: 0, heroTone: 'blue', tab: 'rules', tabs: ['rules', 'schemes', 'effective'], loading: true,
     ready: false, canCopy: false, notice: '', keyword: '', cards: [], schemes: [], effective: [], inspecting: false, allocations: [], showRules: false,
-    allocationFilter: 'all', allocationFilters: ['all', 'specified', 'conditional', 'relationship', 'historical'], allocationPage: 1, allocationPages: 1, allocationPageText: '',
+    allocationFilters: {}, allocationFilterFields: [], moreAllocationFilters: false, allocationResultText: '', hasAllocationFilters: false, allocationPage: 1, allocationPages: 1, allocationPageText: '',
     previewOnly: false, expanded: {}, effectiveGroups: [], effectiveExpanded: {}, effectiveRange: 'granted', delegations: [], showDelegations: false,
     inspectionLabel: ui.ownRole, picker: '', pickerOptions: [], pickerValue: [], candidateLoading: false, inspectionLoaded: false, inspectionUnavailable: false, inspectingOther: false, controlledEffective: [],
     selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '', unified: false, schemePermissions: {} },
@@ -32,7 +32,7 @@ Page({
   clear: function(preserveNavigation) {
     this._active = false; orgSession.invalidateRequests(this); this._state = null; this._directory = null;
     this._inspectionTarget = null;
-    this.setData({ allocations: [], allocationFilter: 'all', allocationPage: 1, allocationPages: 1, allocationPageText: '', showRules: false,
+    this.setData({ allocations: [], allocationFilters: {}, moreAllocationFilters: false, allocationPage: 1, allocationPages: 1, allocationPageText: '', showRules: false,
       selecting: false, selectedRules: {}, selectedCount: 0, selectedText: '', unified: false,
       inspectionLabel: ui.ownRole, picker: '', pickerOptions: [], pickerValue: [], candidateLoading: false, inspectionLoaded: false, inspectionUnavailable: false, inspectingOther: false, controlledEffective: [],
       ready: false, canCopy: false, keyword: preserveNavigation ? this.data.keyword : '',
@@ -74,11 +74,15 @@ Page({
     if (!this._state) return;
     const keyword = this.data.keyword.trim().toLowerCase();
     const dates = item => Object.assign({}, item, { startsAtText: item.policy.startsAt ? formatDetailTime(item.policy.startsAt) : '', endsAtText: item.policy.endsAt ? formatDetailTime(item.policy.endsAt) : '' });
-    const allocations = presentation.allocationCards(this._state, this._directory, ui, keyword, this.data.allocationFilter);
+    const allocations = presentation.allocationCards(this._state, this._directory, ui, keyword, this.data.allocationFilters);
     const page = presentation.allocationPage(allocations, this.data.allocationPage);
-    this.setData({ hasPublishedSchemes: this._state.schemes.some(item => item.publishedVersion && item.id !== this._state.basicRoleId),
+    const options = presentation.allocationOptions(this._state, this._directory, ui);
+    const filterLabels = { schemeId: ui.allocation.filterRole, application: ui.allocation.filterApplication, state: ui.allocation.filterState, scope: ui.allocation.filterScope, effect: ui.allocation.filterEffect, natureId: ui.nature, departmentId: ui.department, identityCategoryId: ui.identityCategory, workGroupId: ui.workGroup };
+    this.setData({ allocationFilterFields: Object.keys(filterLabels).map((key, index) => ({ key, label: filterLabels[key], options: options[key], more: index > 3, index: Math.max(0, options[key].findIndex(item => item.id === this.data.allocationFilters[key])) })),
+      allocationResultText: ui.allocation.resultCount(allocations.length, this._state.rules.length), hasAllocationFilters: Object.values(this.data.allocationFilters).some(Boolean),
+      hasPublishedSchemes: this._state.schemes.some(item => item.publishedVersion && item.publishedCapabilities.length),
       hasEditableAllocations: this._state.rules.some(item => item.canEdit !== false),
-      allocations: page.rows.map(item => item.relationship ? item : dates(item)), allocationPage: page.currentPage,
+      allocations: page.rows.map(dates), allocationPage: page.currentPage,
       allocationPages: page.totalPages, allocationPageText: ui.unified.permissionPage(page.currentPage, page.totalPages),
       cards: this.data.showRules ? presentation.ruleCards(this._state.rules, this._directory, this._state.catalog, ui, keyword).map(item => Object.assign({}, item, { summaryLabels: item.capabilityLabels.slice(0, 3), capabilityCountText: ui.effectiveCount(item.capabilityLabels.length) })) : [],
       schemes: this._state.schemes.filter(item => item.name.toLowerCase().includes(keyword)).map(item => Object.assign({}, item, {
@@ -86,15 +90,19 @@ Page({
         countText: ui.effectiveCount((item.publishedVersion ? item.publishedCapabilities : item.capabilities).length),
         draftRestrictedLabels: (item.draftRestrictedCapabilities || []).map(key => ({ key, label: presentation.capabilityLabel(key, this._state.catalog, ui) })) })) });
   },
-  search: function(event) { this.setData({ keyword: event.detail.value, allocationPage: 1 }); this.refreshCards(); this.refreshEffectiveGroups(); },
+  search: function(event) { this.setData({ keyword: event.detail.value, allocationPage: 1, selectedRules: {}, selectedCount: 0, selectedText: ui.selectedRules(0) }); this.refreshCards(); this.refreshEffectiveGroups(); },
   filterAllocations: function(event) {
-    const filter = event.currentTarget.dataset.filter;
-    if (!this.data.allocationFilters.includes(filter)) return;
-    this.setData({ allocationFilter: filter, allocationPage: 1 });
+    const key = event.currentTarget.dataset.key;
+    const field = this.data.allocationFilterFields.find(item => item.key === key);
+    const option = field && field.options[Number(event.detail.value)];
+    if (!option) return;
+    this.setData({ allocationFilters: { ...this.data.allocationFilters, [key]: option.id }, allocationPage: 1, selectedRules: {}, selectedCount: 0, selectedText: ui.selectedRules(0) });
     this.refreshCards();
   },
+  toggleAllocationFilters: function() { this.setData({ moreAllocationFilters: !this.data.moreAllocationFilters }); },
+  clearAllocationFilters: function() { this.setData({ allocationFilters: {}, keyword: '', allocationPage: 1, selectedRules: {}, selectedCount: 0, selectedText: ui.selectedRules(0) }); this.refreshCards(); },
   changeAllocationPage: function(event) {
-    this.setData({ allocationPage: this.data.allocationPage + Number(event.currentTarget.dataset.direction) });
+    this.setData({ allocationPage: this.data.allocationPage + Number(event.currentTarget.dataset.direction), selectedRules: {}, selectedCount: 0, selectedText: ui.selectedRules(0) });
     this.refreshCards();
   },
   viewAllocationRole: function(event) {
@@ -121,7 +129,8 @@ Page({
   selectRule: function(event) {
     if (!this.data.selecting) return;
     const id = event.currentTarget.dataset.id;
-    if (!this._state.rules.some(item => item.id === id && item.canEdit !== false)) return;
+    const visible = this.data.showRules ? this.data.cards : this.data.allocations;
+    if (!visible.some(item => item.id === id && item.canEdit !== false)) return;
     const selected = Object.assign({}, this.data.selectedRules);
     if (selected[id]) delete selected[id]; else selected[id] = true;
     this.applySelection(selected);
@@ -131,21 +140,22 @@ Page({
     this.setData({ selectedRules: selected, selectedCount: count, selectedText: ui.selectedRules(count) });
   },
   selectShown: function() {
-    const selected = Object.assign({}, this.data.selectedRules);
     const visible = this.data.showRules ? this.data.cards : this.data.allocations;
+    const selected = Object.fromEntries(Object.entries(this.data.selectedRules).filter(([id]) => visible.some(item => item.id === id && item.canEdit !== false)));
     visible.filter(item => item.canEdit !== false).forEach(item => { selected[item.id] = true; });
     this.applySelection(selected);
   },
   clearSelection: function() { this.applySelection({}); },
   deleteSelected: function() {
-    const ids = Object.keys(this.data.selectedRules);
+    const visible = this.data.showRules ? this.data.cards : this.data.allocations;
+    const ids = Object.keys(this.data.selectedRules).filter(id => visible.some(item => item.id === id && item.canEdit !== false));
     if (!ids.length) return;
     navigateToTrustedRoute('/subpackages/org/pages/authorizationChanges/authorizationChanges?kind=delete&ids=' + encodeURIComponent(JSON.stringify(ids)));
   },
   switchTab: function(event) {
     const tab = event.currentTarget.dataset.tab;
     if (!this.data.tabs.includes(tab)) return;
-    this.setData({ tab });
+    this.setData({ tab, selectedRules: {}, selectedCount: 0, selectedText: ui.selectedRules(0) });
     if (tab === 'effective' && this.data.ready) this.inspect();
   },
   toggleDetails: function(event) {

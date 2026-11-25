@@ -57,7 +57,7 @@ async function validateReferences(connection, policy) {
   const grants = new Set();
   const recordIds = new Set();
   const personIds = new Set();
-  for (const clause of policy.subjects.concat(policy.scopes)) {
+  for (const clause of policy.subjects.concat(policy.allocationSubjects || [], policy.scopes)) {
     if (clause.kind === 'assignments') clause.ids.forEach(id => assignments.add(id));
     if (clause.kind === 'adminGrants') clause.ids.forEach(id => grants.add(id));
     if (clause.kind === 'records') clause.ids.forEach(id => recordIds.add(id));

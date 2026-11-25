@@ -21,7 +21,8 @@ function contribution(policy, actor) {
     || !policy.subjects.some(subject => subjectMatches(subject, actor))) return null;
   // 未来生效和到期的条件也参与预览，不能仅按点击预览的时刻忽略将来的权限变化。
   return { effect: policy.effect, capabilities: policy.capabilities, scopes: policy.scopes,
-    fields: policy.fields, startsAt: policy.startsAt, endsAt: policy.endsAt };
+    fields: policy.fields, startsAt: policy.startsAt, endsAt: policy.endsAt,
+    ...(policy.allocationSubjects ? { allocationSubjects: policy.allocationSubjects } : {}) };
 }
 
 function canonical(value) {

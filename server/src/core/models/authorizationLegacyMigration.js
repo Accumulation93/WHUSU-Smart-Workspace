@@ -75,7 +75,8 @@ async function compare(connection, organizationId) {
   if (!ledger || ledger.plan_digest !== current.digest) throw authorizationError('authorization_migration_stale');
   const previous = parse(ledger.plan_json);
   await verifyExisting(connection, organizationId, previous);
-  const [[rules]] = await connection.query('SELECT COUNT(*) AS total FROM authorization_rules WHERE org_id=?', [organizationId]);
+  // 独立分配资格的正式镜像不属于旧业务权限清单；其原始委托仍逐条按账本核对。
+  const [[rules]] = await connection.query("SELECT COUNT(*) AS total FROM authorization_rules WHERE org_id=? AND source_kind<>'legacy_allocation'", [organizationId]);
   const [[delegations]] = await connection.query('SELECT COUNT(*) AS total FROM authorization_delegations WHERE org_id=?', [organizationId]);
   if (Number(rules.total) !== current.rules.length || Number(delegations.total) !== current.delegations.length) {
     throw authorizationError('authorization_migration_unreviewed');

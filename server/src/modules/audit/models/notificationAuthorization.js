@@ -22,17 +22,15 @@ async function prepare(connection, recipient, organizationId, reference) {
   const now = Date.now();
   const expiresAt = Math.min(Infinity, ...policies.filter(policy => policy.enabled)
     .flatMap(policy => [Date.parse(policy.startsAt), Date.parse(policy.endsAt)]).filter(time => time > now));
-  const basicAllowed = capability => !state.disabledBasic.has(capability);
-  const session = { check: input => evaluate({ ...input, actor, catalog: CATALOG, prepared, now,
-    businessGranted: input.businessGranted === true && basicAllowed(input.capability) }) };
+  const session = { check: input => evaluate({ ...input, actor, catalog: CATALOG, prepared, now }) };
   const compile = createScopeCompiler({ resourceType: 'notifications.items', id: 'notifications.id', organization: 'notifications.org_id' });
   const auditScope = createScopeCompiler({ resourceType: 'audit.submissions', id: 'notifications.target_id', organization: 'notifications.org_id' });
   function scope(action) {
     const capability = 'notifications.items.' + action;
-    const own = compile({ actor, capability, policies, catalog: CATALOG, now, businessGranted: basicAllowed(capability) });
+    const own = compile({ actor, capability, policies, catalog: CATALOG, now, businessGranted: true });
     if (action !== 'read') return own;
     const audit = auditScope({ actor, capability: 'audit.submissions.read', policies, catalog: CATALOG, now,
-      businessGranted: basicAllowed('audit.submissions.read') });
+      businessGranted: true });
     return { sql: '(' + own.sql + " AND (COALESCE(notifications.target_type, '') <> 'submission' OR " + audit.sql + '))', params: own.params.concat(audit.params) };
   }
   return { scope, expiresAt, detailAllowed: (resource, businessGranted) => session.check({

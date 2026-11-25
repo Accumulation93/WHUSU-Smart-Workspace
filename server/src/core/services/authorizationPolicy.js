@@ -89,7 +89,7 @@ function normalizeTime(value, path) {
 }
 
 function normalizePolicy(value, catalog) {
-  object(value, ['id', 'organizationId', 'effect', 'subjects', 'capabilities', 'scopes', 'fields', 'startsAt', 'endsAt', 'enabled'], 'policy');
+  object(value, ['id', 'organizationId', 'effect', 'subjects', 'allocationSubjects', 'capabilities', 'scopes', 'fields', 'startsAt', 'endsAt', 'enabled'], 'policy');
   if (!(catalog instanceof Map)) invalid('catalog');
   const result = {
     id: identifier(value.id, 'id'),
@@ -108,6 +108,7 @@ function normalizePolicy(value, catalog) {
       ? normalizeSubject(item, key + '.' + index) : normalizeScope(item, key + '.' + index));
   }
   result.fields = value.fields === null ? null : fieldValues(value.fields);
+  if (own(value, 'allocationSubjects')) result.allocationSubjects = normalizeSubjects(value.allocationSubjects);
   for (const capability of result.capabilities) {
     const definition = catalog.get(capability);
     if (!definition) invalid('capabilities');
@@ -117,6 +118,8 @@ function normalizePolicy(value, catalog) {
     if (result.fields && result.fields.some(field => !definition.fields.includes(field)
       && !(definition.profileFieldKeys && profileFieldKey(field)))) invalid('fields');
   }
+  if (result.effect === 'allow' && result.capabilities.some(key => catalog.get(key).allocationCapability)
+    && !result.allocationSubjects) invalid('allocationSubjects');
   return result;
 }
 
@@ -200,6 +203,15 @@ function evaluate({ actor, resource, capability, policies, prepared, catalog, no
   if (isTrustedSuper(actor)) {
     return { allowed: true, reason: 'super_admin', fields, matchedAllowIds: [], matchedDenyIds: [] };
   }
+  // 普通业务资格由子应用核实；统一权限中心只继续管理长期操作授权。
+  if (actor.unifiedAuthorization === true && businessGranted === true && (definition.businessRoles || []).includes(actor.role)) {
+    if (actor.assignment && (actor.assignment.active !== true || actor.assignment.organizationId !== actor.organizationId
+      || actor.assignment.personId !== actor.personId)) return denied('invalid_context');
+    const businessFields = fields.filter(field => !definition.requiresExplicitFields?.includes(field));
+    const forbiddenFields = requestedFields.some(field => !businessFields.includes(field));
+    return { allowed: !forbiddenFields, reason: forbiddenFields ? 'field_not_granted' : 'business_relationship',
+      fields: forbiddenFields ? [] : businessFields, matchedAllowIds: [], matchedDenyIds: [] };
+  }
   const compilation = prepared ? preparedSets.get(prepared) : preparedSets.get(preparePolicies(policies, catalog));
   if (!compilation || compilation.catalog !== catalog || !compilation.policies) return denied('invalid_policy');
   const matched = [];
@@ -259,10 +271,17 @@ function canDelegate(policyInput, envelopeInput, catalog, options = {}) {
   try {
     const policy = normalizePolicy(policyInput, catalog);
     const envelope = normalizePolicy(envelopeInput, catalog);
+    if (options.unified === true) {
+      policy.capabilities = policy.capabilities.filter(key => !catalog.get(key).businessOnly);
+      if (!policy.capabilities.length) return false;
+    }
     if (policy.organizationId !== envelope.organizationId || !envelope.enabled || envelope.effect !== 'allow') return false;
     if (policy.capabilities.some(key => !envelope.capabilities.includes(key)
       || catalog.get(key).delegation || (options.unified === true && catalog.get(key).classification === 'special'))) return false;
     if (!subjectsWithin(policy.subjects, envelope.subjects)) return false;
+    // 再分配权同时约束持有人及其可授予的工作角色，不能只检查本次持有人。
+    if (policy.effect === 'allow' && policy.capabilities.some(key => catalog.get(key).allocationCapability)
+      && (!policy.allocationSubjects || !subjectsWithin(policy.allocationSubjects, envelope.subjects))) return false;
     if (policy.scopes.some(scope => !envelope.scopes.some(parent => clauseSubset(scope, parent, false)))) return false;
     if (envelope.fields && (!policy.fields || policy.fields.some(field => !envelope.fields.includes(field)))) return false;
     if (envelope.startsAt && (!policy.startsAt || policy.startsAt < envelope.startsAt)) return false;

@@ -3,7 +3,6 @@
 const { referenceFromRequest } = require('./authorizationReference');
 const identity = require('../models/authorizationIdentity');
 const identityTransition = require('../models/authorizationIdentityTransition');
-const relationshipRole = require('../models/authorizationRelationshipRole');
 const model = require('../models/authorization');
 const references = require('../models/authorizationReferences');
 const candidates = require('../models/authorizationCandidates');
@@ -11,6 +10,7 @@ const { normalizePolicy, normalizeSubjects, canDelegate, subjectMatches, subject
 const { CATALOG } = require('./authorizationCatalog');
 const grants = require('../models/authorizationGrantSources');
 const { candidateActor } = require('./authorizationImpact');
+const { allocationDenied, allocationFullyDenied } = require('./authorizationAllocation');
 
 function forbidden() { throw Object.assign(new Error('authorization_forbidden'), { code: 'authorization_forbidden' }); }
 
@@ -22,11 +22,13 @@ function addsRetiredCapabilities(keys, previous) {
   return keys.some(key => CATALOG.get(key)?.assignmentRetired && !previous.includes(key));
 }
 
-async function activeDelegations(connection, actor, now = Date.now(), lock = false) {
-  let rows = await model.listDelegations(connection, actor.organizationId, lock);
+async function activeDelegations(connection, actor, now = Date.now(), lock = false, suppliedRuntime = null) {
+  let rows = suppliedRuntime ? suppliedRuntime.activeDelegations : await model.listDelegations(connection, actor.organizationId, lock);
+  let denials = [];
   if (actor.unifiedAuthorization === true) {
-    const runtime = await grants.readGrantSources(connection, actor.organizationId, rows, lock);
+    const runtime = suppliedRuntime || await grants.readGrantSources(connection, actor.organizationId, rows, lock);
     rows = runtime.activeDelegations;
+    denials = runtime.denials;
   }
   const result = [];
   for (const row of rows) {
@@ -38,10 +40,13 @@ async function activeDelegations(connection, actor, now = Date.now(), lock = fal
       || envelope.effect !== 'allow' || !envelope.enabled) forbidden();
     if ((envelope.startsAt && now < Date.parse(envelope.startsAt)) || (envelope.endsAt && now >= Date.parse(envelope.endsAt))) continue;
     if (audience.some(subject => subjectMatches(subject, actor))) {
+      envelope.capabilities = envelope.capabilities.filter(key => !CATALOG.get(key)?.businessOnly && !allocationFullyDenied(actor,
+        { ...envelope, capabilities: [key] }, denials, now));
+      if (!envelope.capabilities.length) continue;
       if (actor.unifiedAuthorization !== true && actor.role !== 'admin'
         && envelope.capabilities.some(key => CATALOG.get(key).governance)) forbidden();
-      result.push({ id: row.id, name: row.name, version: row.version, envelope,
-        allowRedelegation: row.allowRedelegation === true, parentDelegationId: row.parentDelegationId || null,
+      result.push({ id: row.id, ruleId: row.ruleId || null, name: row.name, version: row.version, envelope, denials,
+        allowRedelegation: true, parentDelegationId: row.parentDelegationId || null,
         includesOwnRole: envelope.subjects.some(subject => subject.kind === 'assignmentScope' && subjectMatches(subject, actor)) });
     }
   }
@@ -57,12 +62,13 @@ function withinEnvelopes(policy, envelopes, unified = false) {
 }
 
 function schemeAllowed(capabilities, envelopes) {
-  return Array.isArray(capabilities) && capabilities.length > 0 && envelopes.some(envelope => capabilities.every(key =>
-    CATALOG.has(key) && !CATALOG.get(key).delegation && envelope.capabilities.includes(key)));
+  return Array.isArray(capabilities) && envelopes.some(envelope => capabilities.every(key =>
+    CATALOG.has(key) && !CATALOG.get(key).delegation && !CATALOG.get(key).businessOnly && envelope.capabilities.includes(key)));
 }
 
 function canAllocateCandidate(actor, envelopes, item, role) {
   if (actor.isSuper) return true;
+  if (actor.unifiedAuthorization === true && item.personId === actor.personId) return false;
   if (role === 'user' ? item.assignmentId === actor.assignment?.id : item.adminGrantId === actor.adminGrantId) return false;
   const target = candidateActor(item, actor.organizationId, role);
   // 动态条件只能分配同形或更窄条件，不能换成调岗后仍生效的指定工作角色授权。
@@ -72,7 +78,8 @@ function canAllocateCandidate(actor, envelopes, item, role) {
 
 async function readLegacyRecipientAssignments(connection, actor, envelopes, rules) {
   if (actor.unifiedAuthorization !== true) return {};
-  const grantIds = new Set(rules.flatMap(rule => rule.policy.subjects.filter(subject => subject.kind === 'adminGrants')
+  const grantIds = new Set(rules.flatMap(rule => rule.policy.subjects.concat(rule.policy.allocationSubjects || [])
+    .filter(subject => subject.kind === 'adminGrants')
     .flatMap(subject => subject.ids)).filter(id => actor.isSuper || id !== actor.adminGrantId));
   if (!grantIds.size) return {};
   const { assignments } = await candidates.read(connection, actor.organizationId, { role: 'user' });
@@ -115,6 +122,7 @@ function createGuard(reference, delegationId) {
       if (!actor) forbidden();
       const oldKeys = before && (before.capabilities || (typeof before.draft_capabilities_json === 'string'
         ? JSON.parse(before.draft_capabilities_json) : before.draft_capabilities_json)) || [];
+      if (!independentRead && after?.capabilities.some(key => CATALOG.get(key)?.businessOnly)) forbidden();
       if (after && after.capabilities.some(key => CATALOG.get(key)?.systemControlled && !oldKeys.includes(key))) forbidden();
       if (actor.unifiedAuthorization === true && after?.kind === 'scheme'
         && addsRetiredCapabilities(after.capabilities, oldKeys)) forbidden();
@@ -145,15 +153,17 @@ function createGuard(reference, delegationId) {
       }
       const currentSources = actor.unifiedAuthorization === true && before
         ? await grants.readGrantSources(connection, actor.organizationId, [], true) : null;
-      const previousSource = currentSources?.sources.get('rule:' + before.id);
+      const storedSource = currentSources?.sources.get('rule:' + before.id);
+      const previousSource = storedSource?.parentDelegationId ? storedSource : null;
       const matching = options.filter(({ id, envelope }) => (!previousSource || previousSource.parentDelegationId === id)
         && (!before || withinEnvelopes(before, [envelope], actor.unifiedAuthorization))
-        && (!after || withinEnvelopes(after, [envelope], actor.unifiedAuthorization)));
+        && (!after || withinEnvelopes(after, [envelope], actor.unifiedAuthorization)))
+        .filter(option => [before, after].every(policy => !policy || !allocationDenied(actor, policy, option.denials || [])));
       if (!matching.length) forbidden();
       if (!independentRead) eligibleDelegationIds = matching.map(item => item.id);
       // 普通权限分配人不能借编辑规则改变自身管理授权。
       for (const policy of [before, after]) {
-        if (policy && await matchesOwnPosition(connection, actor, policy.subjects)) forbidden();
+        if (policy && await matchesOwnPosition(connection, actor, policy.subjects.concat(policy.allocationSubjects || []))) forbidden();
       }
       if (actor.unifiedAuthorization === true && after && !before && !independentRead) {
         if (!actor.assignment) forbidden();
@@ -169,13 +179,14 @@ function createGuard(reference, delegationId) {
       if (!actor.assignment || (before && before.issuerAssignmentId !== actor.assignment.id)) forbidden();
       const options = await activeDelegations(connection, actor, Date.now(), true);
       const chosen = before?.parentDelegationId || delegationId;
-      const source = options.find(option => option.id === chosen && option.allowRedelegation);
+      const source = options.find(option => option.id === chosen);
       if (!source || (delegationId !== undefined && delegationId !== source.id)) forbidden();
       if (after && (!subjectsWithin(after.subjects, source.envelope.subjects)
         || await matchesOwnPosition(connection, actor, after.subjects.concat(after.envelope.subjects))
-        || !withinEnvelopes(after.envelope, [source.envelope], true))) forbidden();
+        || !withinEnvelopes(after.envelope, [source.envelope], true)
+        || allocationDenied(actor, after.envelope, source.denials || []))) forbidden();
       return after ? { parentDelegationId: source.id, issuerAssignmentId: actor.assignment.id,
-        allowRedelegation: after.allowRedelegation } : null;
+        allowRedelegation: true } : null;
     },
     validateReferences: references.validateReferences
   };
@@ -184,10 +195,11 @@ function createGuard(reference, delegationId) {
 async function readManagement(connection, reference) {
   const actor = await identity.loadActor(connection, reference);
   if (!actor) forbidden();
-  const delegationOptions = actor.isSuper ? [] : await activeDelegations(connection, actor);
+  const state = await model.read(connection, actor.organizationId, false, actor.unifiedAuthorization === true, true);
+  const delegationOptions = actor.isSuper ? [] : await activeDelegations(connection, actor, Date.now(), false, state.grantRuntime);
   const envelopes = delegationOptions.map(item => item.envelope);
   const canManage = actor.isSuper || envelopes.length > 0;
-  const state = await model.read(connection, actor.organizationId, false, actor.unifiedAuthorization === true);
+  const persistedRules = state.persistedRules || state.rules;
   const { hasInspectableCandidate } = require('./authorizationInspection');
   const canInspectOthers = actor.isSuper || await hasInspectableCandidate(connection, actor, state.rules);
   if (!canManage) {
@@ -195,18 +207,19 @@ async function readManagement(connection, reference) {
     return { revision: state.revision, mode: state.mode, isSuper: false, canManage: false,
       canInspectOwn: true, canInspectOthers, canManageDelegations: false, delegationOptions: [],
       rules: [], schemes: [], delegations: [], capabilityKeys: [],
-      catalog: [...CATALOG.values()].map(item => ({ key: item.key, resourceType: item.resourceType, action: item.action,
+      catalog: [...CATALOG.values()].filter(item => !item.businessOnly).map(item => ({ key: item.key, resourceType: item.resourceType, action: item.action,
         systemControlled: item.systemControlled })) };
   }
   const schemes = await model.listSchemes(connection, actor.organizationId);
-  const capabilityKeys = actor.isSuper ? [...CATALOG.keys()] : [...new Set(envelopes.flatMap(envelope => envelope.capabilities))];
+  const capabilityKeys = (actor.isSuper ? [...CATALOG.keys()] : [...new Set(envelopes.flatMap(envelope => envelope.capabilities))])
+    .filter(key => !CATALOG.get(key)?.businessOnly);
   const organizationCatalog = await require('../models/authorizationProfileFields').catalog(connection, actor.organizationId, CATALOG);
   const canEditRule = policy => actor.isSuper || withinEnvelopes(policy, envelopes, actor.unifiedAuthorization)
     && !policy.subjects.some(subject => subjectMatches(subject, actor));
   const canPublishScheme = scheme => {
-    if (state.relationshipRole?.schemeId === scheme.id) return actor.isSuper;
+    if (state.relationshipRole?.schemeId === scheme.id || scheme.hasRetiredCapabilities) return false;
     if (specialCapabilities(scheme.capabilities, actor.unifiedAuthorization).length) return false;
-    const linked = state.rules.filter(rule => rule.schemeId === scheme.id);
+    const linked = persistedRules.filter(rule => rule.schemeId === scheme.id);
     try {
       for (const rule of linked) {
         const next = normalizePolicy({ ...rule.policy, capabilities: scheme.capabilities }, CATALOG);
@@ -216,34 +229,35 @@ async function readManagement(connection, reference) {
       }
     } catch (_) { return false; }
     return actor.isSuper || envelopes.some(envelope => schemeAllowed(scheme.capabilities, [envelope])
-      && linked.every(rule => canEditRule(rule.policy) && withinEnvelopes(rule.policy, [envelope])
+      && linked.every(rule => rule.sourceActive !== false && canEditRule(rule.policy) && withinEnvelopes(rule.policy, [envelope])
         && withinEnvelopes({ ...rule.policy, capabilities: scheme.capabilities }, [envelope])));
   };
   const canManageDelegations = actor.isSuper || delegationOptions.some(item => item.allowRedelegation);
-  const allDelegations = canManageDelegations ? await model.listDelegations(connection, actor.organizationId) : [];
+  const allDelegations = canManageDelegations
+    ? state.grantRuntime?.legacyDelegations || await model.listDelegations(connection, actor.organizationId) : [];
   const runtime = actor.unifiedAuthorization === true && canManageDelegations
-    ? await grants.readGrantSources(connection, actor.organizationId, allDelegations) : null;
+    ? state.grantRuntime : null;
   const delegations = allDelegations.map(row => {
     const source = runtime?.sources.get('delegation:' + row.id);
     return { ...row, ...source, sourceActive: !runtime || runtime.activeDelegations.some(item => item.id === row.id) };
   }).filter(row => actor.isSuper || row.issuerAssignmentId === actor.assignment?.id);
-  const rules = actor.isSuper ? state.rules : state.rules.filter(rule => withinEnvelopes(rule.policy, envelopes));
+  const centralRules = persistedRules.filter(rule => rule.schemeId !== state.relationshipRole?.schemeId)
+    .map(rule => ({ ...rule, policy: { ...rule.policy, capabilities: rule.policy.capabilities.filter(key => !CATALOG.get(key)?.businessOnly) } }))
+    .filter(rule => rule.policy.capabilities.length);
+  const rules = actor.isSuper ? centralRules : centralRules.filter(rule => withinEnvelopes(rule.policy, envelopes));
   const legacyRecipientAssignments = await readLegacyRecipientAssignments(connection, actor, envelopes, rules);
   return { revision: state.revision, mode: state.mode, roleBindingOnly: state.mode === 'enforced', isSuper: actor.isSuper, canManage: true,
     unifiedIdentity: actor.unifiedAuthorization === true,
-    basicRoleId: state.relationshipRole?.schemeId || null,
-    relationshipRoleAssignment: relationshipRole.assignment(state.relationshipRole, actor.organizationId),
-    canInspectOwn: true, canInspectOthers, canManageDelegations, delegationOptions,
-    rules: rules.map(rule => ({ ...rule, canEdit: canEditRule(rule.policy) })),
+    canInspectOwn: true, canInspectOthers, canManageDelegations,
+    delegationOptions: delegationOptions.map(({ denials: _denials, ...option }) => option),
+    rules: rules.map(rule => ({ ...rule, canEdit: actor.isSuper || rule.sourceActive !== false && canEditRule(rule.policy) })),
     legacyRecipientAssignments,
     schemes: (actor.isSuper ? schemes : schemes.filter(scheme => schemeAllowed(scheme.capabilities, envelopes)
       || scheme.publishedVersion && schemeAllowed(scheme.publishedCapabilities, envelopes)))
-      .map(scheme => ({ ...scheme, canEdit: actor.isSuper || (state.relationshipRole?.schemeId !== scheme.id && schemeAllowed(scheme.capabilities, envelopes)),
+      .map(scheme => ({ ...scheme, canEdit: actor.isSuper || schemeAllowed(scheme.capabilities, envelopes),
         draftRestrictedCapabilities: actor.isSuper ? specialCapabilities(scheme.capabilities, actor.unifiedAuthorization) : [],
         canPublish: canPublishScheme(scheme) })),
     delegations,
-    basicCapabilities: actor.unifiedAuthorization === true
-      ? relationshipRole.CAPABILITIES.map(key => ({ key, enabled: !state.disabledBasic.has(key) })) : [],
     capabilityKeys,
     catalog: capabilityKeys.map(key => {
       const definition = organizationCatalog.get(key);
@@ -252,6 +266,7 @@ async function readManagement(connection, reference) {
         adminOnlyFields: definition.adminOnlyFields,
         classification: definition.classification, specialCategory: definition.specialCategory,
         delegation: definition.delegation, systemControlled: definition.systemControlled,
+        allocationCapability: definition.allocationCapability || null,
         assignmentRetired: actor.unifiedAuthorization === true && definition.assignmentRetired };
     }) };
 }

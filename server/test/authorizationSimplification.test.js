@@ -12,7 +12,7 @@ test('权限目录的工作组区分日常办理、维护与高影响操作，�
   const grouped = editor.permissionGroups({ catalog, draft, capabilities: [], copy: ui, unified: true, kind: 'scheme' });
   const keys = grouped.flatMap(module => module.groups.flatMap(group => group.keys));
   assert.equal(keys.length, new Set(keys).size);
-  assert.deepEqual(new Set(keys), new Set(catalog.filter(item => !item.systemControlled && !item.assignmentRetired && item.classification !== 'special').map(item => item.key)));
+  assert.deepEqual(new Set(keys), new Set(catalog.filter(item => !item.businessOnly && !item.systemControlled && !item.assignmentRetired && item.classification !== 'special').map(item => item.key)));
   const legacy = 'audit.verification.configure';
   const historical = editor.permissionGroups({ catalog, draft, capabilities: [legacy], copy: ui, unified: true, kind: 'scheme' });
   assert(historical.some(module => module.groups.some(group => group.items.some(item => item.key === legacy && item.selected))));
@@ -20,9 +20,9 @@ test('权限目录的工作组区分日常办理、维护与高影响操作，�
   assert.ok(sections.get('venue.venueBooking').includes('venue.bookings.create'));
   assert.ok(sections.get('venue.venueRecords').includes('venue.bookings.approve'));
   assert.ok(sections.get('venue.removeOrRevoke').includes('venue.bookings.delete'));
-  assert.ok(sections.get('scoring.scoringPublished').includes('scoring.meritSelections.read'));
-  assert.deepEqual(sections.get('scoring.scoringMerit'), ['scoring.meritSelections.update']);
-  assert.deepEqual(sections.get('hr.contactsBrowse'), ['contacts.entries.read']);
+  assert.equal(keys.includes('scoring.meritSelections.read'), false);
+  assert.equal(keys.includes('contacts.entries.read'), false);
+  assert.ok(sections.get('venue.venueRecords').includes('assign:venue.bookings.approve'));
   assert.ok(sections.get('hr.hrDirectory').includes('hr.directoryRules.update'));
 });
 
@@ -96,9 +96,22 @@ test('分配清单按真实规则编号展示，保留同名人员及未核实�
   const cards = presentation.allocationCards(management, directory, ui);
   assert.deepEqual(cards.map(item => item.id), ['shared', 'dynamic', 'old']);
   assert.deepEqual(cards[0].recipientRows.map(item => item.key), ['work:a', 'work:b']);
-  assert.equal(cards[0].shared, true);
   assert.equal(cards[0].roleName, '场地查看员');
   assert.deepEqual(cards[0].scopeNames, [ui.ownRecords]);
   assert.equal(cards[2].recipientRows[0].name, ui.allocation.unknownRecipient);
-  assert.deepEqual(presentation.allocationCards(management, directory, ui, '', 'conditional').map(item => item.id), ['dynamic']);
+  assert.deepEqual(presentation.allocationCards(management, directory, ui, '', { scope: 'self', schemeId: 'identity' }).map(item => item.id), ['shared', 'dynamic', 'old']);
+});
+
+
+test('组合筛选要求同一岗位同时匹配，不跨同一人的不同岗位拼接', () => {
+  const subjects = [{ kind: 'assignments', ids: ['first', 'second'] }];
+  const policy = { effect: 'allow', enabled: true, fields: null, capabilities: ['venue.bookings.read'], subjects, scopes: [{ kind: 'self' }] };
+  const directory = { assignments: [{ assignmentId: 'first', personId: 'person', name: '甲', natureId: 'staff', departmentId: 'one', identityCategoryId: 'member' },
+    { assignmentId: 'second', personId: 'person', name: '甲', natureId: 'staff', departmentId: 'two', identityCategoryId: 'leader' }] };
+  const management = { catalog: [{ key: 'venue.bookings.read', resourceType: 'venue.bookings', action: 'read' }], schemes: [{ id: 'role', name: '业务管理员' }],
+    rules: [{ id: 'rule', schemeId: 'role', name: '分配', policy }], relationshipRoleAssignment: { id: 'old', schemeId: 'role' } };
+  assert.equal(presentation.allocationCards(management, directory, ui).length, 1);
+  assert.equal(presentation.allocationCards(management, directory, ui, '', { departmentId: 'one', identityCategoryId: 'leader' }).length, 0);
+  assert.equal(presentation.allocationCards(management, directory, ui, '业务', { departmentId: 'two', identityCategoryId: 'leader', application: 'venue', scope: 'self', state: 'enabled' }).length, 1);
+  assert.equal(presentation.allocationCards(management, directory, ui, '', { state: 'disabled' }).length, 0);
 });

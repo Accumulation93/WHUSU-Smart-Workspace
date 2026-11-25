@@ -29,7 +29,12 @@ async function findDependencies(connection, organizationId) {
   const initialRoleId = basicRole?.schemeId === relationshipRole.schemeIdFor(organizationId) ? basicRole.schemeId : null;
   for (const column of columns) {
     // 初始化的性质和缓存版本不是业务资料；自定义性质、规则和变更记录仍然阻止删除。
-    if (['authorization_organizations', 'cache_domain_versions', 'identity_nature_rollouts'].includes(column.table_name)) continue;
+    if (['authorization_organizations', 'cache_domain_versions', 'identity_nature_rollouts', 'authorization_business_policy_transfers'].includes(column.table_name)) continue;
+    if (column.table_name === 'identity_card_policies') {
+      const [rows] = await connection.query('SELECT issue_enabled,public_verification_enabled,version FROM identity_card_policies WHERE org_id=? FOR UPDATE', [organizationId]);
+      if (rows.some(row => !row.issue_enabled || !row.public_verification_enabled || Number(row.version) !== 1)) tables.add(column.table_name);
+      continue;
+    }
     if (initialRoleId && column.table_name === 'authorization_relationship_role_assignments') continue;
     if (initialRoleId && ['authorization_schemes', 'authorization_scheme_versions'].includes(column.table_name)) {
       const idColumn = column.table_name === 'authorization_schemes' ? 'id' : 'scheme_id';

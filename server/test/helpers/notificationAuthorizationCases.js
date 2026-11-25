@@ -60,9 +60,9 @@ module.exports = async function notificationAuthorizationCases(db) {
       await model.create('notice-unified', { recipientType: 'user', recipientId: 'dir-hr', type: 'system', title: '通知', eventKey: 'notice-unified' });
       assert.equal((await model.listForRecipient(actor, options)).total, 1);
       await db.query("INSERT INTO authorization_basic_role_exclusions(org_id,capability_key) VALUES ('dir-auth','notifications.items.read')");
-      assert.equal((await model.listForRecipient(actor, options)).total, 0);
-      assert.equal(await model.getUnreadCountForRecipient(actor, options), 0);
-      assert.equal((await model.markRead('notice-unified', actor, options)).found, false);
+      assert.equal((await model.listForRecipient(actor, options)).total, 1);
+      assert.equal(await model.getUnreadCountForRecipient(actor, options), 1);
+      assert.equal((await model.markRead('notice-unified', actor, options)).found, true);
       const explicitRule = { ...policy, id: 'notice-unified-allow', effect: 'allow', capabilities: ['notifications.items.read'],
         scopes: [{ kind: 'records', ids: ['notice-unified'] }] };
       await db.query("INSERT INTO authorization_rules(id,org_id,name,policy_json) VALUES (?, 'dir-auth', '授权读取通知', ?)",
@@ -70,8 +70,10 @@ module.exports = async function notificationAuthorizationCases(db) {
       assert.equal((await model.listForRecipient(actor, options)).total, 1);
       await db.query("INSERT INTO authorization_grant_sources(org_id,object_kind,object_id,parent_delegation_id) VALUES ('dir-auth','rule',?,'revoked-delegation')",
         [explicitRule.id]);
-      assert.equal((await model.listForRecipient(actor, options)).total, 0);
-      assert.equal((await model.markRead('notice-unified', actor, options)).found, false);
+      assert.equal((await model.listForRecipient(actor, options)).total, 1);
+      assert.equal((await model.markRead('notice-unified', actor, options)).found, true);
+      const otherRecipient = { ...actor, id: 'different-recipient' };
+      assert.equal((await model.listForRecipient(otherRecipient, options)).total, 0);
       await db.query("DELETE FROM authorization_grant_sources WHERE org_id='dir-auth' AND object_id=?", [explicitRule.id]);
       await db.query("DELETE FROM authorization_rules WHERE id=?", [explicitRule.id]);
       await db.query("DELETE FROM authorization_basic_role_exclusions WHERE org_id='dir-auth'");
@@ -111,7 +113,7 @@ module.exports = async function notificationAuthorizationCases(db) {
       }
       await expectTodo(true);
       await db.query("INSERT INTO authorization_basic_role_exclusions(org_id,capability_key) VALUES ('dir-auth','audit.submissions.approve')");
-      await expectTodo(false);
+      await expectTodo(true);
       const explicitRule = { ...policy, id: 'notice-todo-allow', effect: 'allow', capabilities: ['audit.submissions.approve'],
         scopes: [{ kind: 'records', ids: ['notice-todo'] }] };
       await db.query("INSERT INTO authorization_rules(id,org_id,name,policy_json) VALUES (?, 'dir-auth', '同岗办理待办', ?)",
@@ -119,6 +121,9 @@ module.exports = async function notificationAuthorizationCases(db) {
       await expectTodo(true);
       await db.query("INSERT INTO authorization_grant_sources(org_id,object_kind,object_id,parent_delegation_id) VALUES ('dir-auth','rule',?,'revoked-delegation')",
         [explicitRule.id]);
+      await expectTodo(true);
+      await db.query("UPDATE audit_submission_steps SET step_conditions_json=? WHERE id='notice-todo-step'",
+        [JSON.stringify([{ conditionType: 'hr_rule', departmentIds: ['different-department'] }])]);
       await expectTodo(false);
     } finally {
       await new Promise(resolve => server.close(resolve));

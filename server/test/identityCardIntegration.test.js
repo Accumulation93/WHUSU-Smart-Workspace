@@ -138,18 +138,21 @@ async function main() {
     const [policyRows] = await admin.query('SELECT org_id FROM identity_card_policies');
     assert.deepEqual(policyRows.map(row => row.org_id), ['org']);
     await admin.query("INSERT INTO authorization_basic_role_exclusions (org_id, capability_key) VALUES ('org', 'identity.cards.verify')");
-    assert.equal((await model.verify(token)).valid, false, '公开核验也遵守当前持有岗位的组织基础权限限制');
+    assert.equal((await model.verify(token)).valid, true, '退役的中心基础开关不再限制子应用业务');
     await grantPolicy(['identity.cards.verify']);
-    assert.equal((await model.verify(token)).valid, true, '正式业务授权可恢复组织基础能力默认限制');
+    assert.equal((await model.verify(token)).valid, true);
     await admin.query(`INSERT INTO authorization_grant_sources (org_id, object_kind, object_id, parent_delegation_id, issuer_assignment_id)
       VALUES ('org', 'rule', 'policy-management', 'revoked-delegation', 'job')`);
-    assert.equal((await model.verify(token)).valid, false, '公开核验不得继续使用上级委托失效的规则');
+    assert.equal((await model.verify(token)).valid, true, '公开核验依据有效工作角色及身份卡自身设置，无需中心授权');
+    await admin.query("UPDATE identity_card_policies SET public_verification_enabled=0 WHERE org_id='org'");
+    assert.equal((await model.verify(token)).valid, false, '身份卡自身关闭后，中心授权不能越过业务限制');
+    await admin.query("UPDATE identity_card_policies SET public_verification_enabled=1 WHERE org_id='org'");
     await admin.query('DELETE FROM authorization_basic_role_exclusions');
     assert.equal((await model.verify(token)).valid, true);
     await admin.query('UPDATE identity_cards SET expires_at=DATE_SUB(UTC_TIMESTAMP(3),INTERVAL 1 SECOND)');
     assert.equal((await model.verify(token)).valid,false);
     console.log('PASS 身份卡双次迁移、真实生成参数保存回读、公开列白名单、跨组织、篡改、过期、冻结、岗位撤销和图片失败不写入');
-    console.log('PASS 身份卡设置覆盖默认值、独立读写资格、真实HTTP保存回读、版本冲突、成码与核验开关、组织隔离、基础权限撤销');
+    console.log('PASS 身份卡设置覆盖默认值、独立读写资格、真实HTTP保存回读、版本冲突、成码与核验开关、组织隔离及退役中心开关隔离');
   } finally {
     if (server) await new Promise(resolve=>server.close(resolve));
     if (pool) await pool.end();

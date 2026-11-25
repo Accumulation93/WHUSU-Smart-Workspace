@@ -62,8 +62,7 @@ module.exports = async function authorizationConsistencyCases({ db, model, edito
   const own = await success('getEffectiveAuthorization');
   assert.equal(own.capabilities.find(item => item.capability === 'hr.people.read').grantState, 'granted');
   assert.equal(own.capabilities.find(item => item.capability === 'hr.people.read').grantBasis, 'rule');
-  assert.equal(own.capabilities.find(item => item.capability === 'scoring.currentActivity.read').grantState, 'not_granted');
-  assert.equal(own.capabilities.find(item => item.capability === 'scoring.currentActivity.read').businessEntry, true);
+  assert.equal(own.capabilities.find(item => item.capability === 'scoring.currentActivity.read'), undefined);
   assert.deepEqual(own.scopeDirectory.assignments, []);
   assert.deepEqual(own.scopeDirectory.adminGrants, []);
   assert.deepEqual(own.scopeDirectory.dimensions.departmentId, [{ id: 'jd-department', name: '测试部门' }]);

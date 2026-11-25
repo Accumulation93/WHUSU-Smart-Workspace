@@ -59,6 +59,12 @@ function createScopeCompiler(input) {
       || restrictionFor(actor, definition)) return { sql: '1 = 0', params: [] };
     const organization = membership(descriptor.organization, [actor.organizationId]);
     if (isTrustedSuper(actor)) return organization;
+    // 普通业务查询已由领域调用方限定本人、参与或办理关系，不再叠加中心的业务开关。
+    if (actor.unifiedAuthorization === true && businessGranted === true && definition.businessRoles?.includes(actor.role)) {
+      if (actor.assignment && (actor.assignment.active !== true || actor.assignment.organizationId !== actor.organizationId
+        || actor.assignment.personId !== actor.personId)) return { sql: '1 = 0', params: [] };
+      return organization;
+    }
     try {
       if (!Array.isArray(policies)) return { sql: '1 = 0', params: [] };
       const allows = [];

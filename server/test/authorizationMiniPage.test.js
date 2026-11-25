@@ -47,7 +47,7 @@ function fixture() {
     calls.push({ name, data: JSON.parse(JSON.stringify(data)) });
     if (name === 'getAuthorizationManagement') return state;
     if (name === 'getAuthorizationCandidates') return directory;
-    if (name === 'previewAuthorizationRule') return { status: 'success', rule: data, impact: { peopleCount: 1, roleCount: 1, roles: [{ name: '成员甲', role: 'user', subjectId: 'job-a', before: null, after: data.policy }] } };
+    if (name === 'previewAuthorizationRule') return { status: 'success', ...(data.assignmentMode === 'snapshot' ? { previewToken: 'fixture-preview-token' } : {}), rule: data, impact: { peopleCount: 1, roleCount: 1, roles: [{ name: '成员甲', role: 'user', subjectId: 'job-a', before: null, after: data.policy }] } };
     if (name === 'saveAuthorizationRule') {
       state.rules = [{ ...data, id: 'rule-a', version: 1 }]; state.revision++;
       return { status: 'success', rule: state.rules[0] };
@@ -384,7 +384,7 @@ test('委托人只能批量选择上级授予的候选操作', async () => {
   assert.deepEqual(Array.from(page.data.draft.policy.capabilities), ['venue.bookings.read']);
 });
 
-test('特殊权限草稿在角色列表标明问题，编辑移除后必须选择一般权限再重新保存', async () => {
+test('特殊权限草稿标明问题，移除后可以保存空草稿，再重新选择一般权限', async () => {
   const data = fixture();
   const blockedKey = 'system.keys.manage';
   data.state.unifiedIdentity = true;
@@ -411,14 +411,15 @@ test('特殊权限草稿在角色列表标明问题，编辑移除后必须选�
   assert.equal(saved.length, 0);
   page.removeSchemeBlockedCapabilities();
   assert.equal(page.data.schemeRestrictedOperations.length, 0);
-  assert.equal(page.data.schemeNeedsGeneralCapability, true);
+  assert.equal(page.data.schemeNeedsGeneralCapability, false);
   await page.review();
-  assert.equal(page.data.notice, copy.unified.schemeNeedsGeneralCapability);
-  assert.equal(saved.length, 0);
-  page.toggleCapabilityGroup({ currentTarget: { dataset: { key: 'venue' } } });
-  await page.review();
-  assert.deepEqual(saved, [{ identityModel: 'unified', id: 'role-restricted', version: 3, name: '历史角色',
-    capabilities: ['venue.bookings.read'] }]);
+  assert.equal(page.data.notice, '');
+  assert.deepEqual(saved[0].capabilities, []);
+  const empty = pageHarness(api, { kind: 'scheme', id: 'role-restricted' }); await empty.load();
+  empty.toggleCapabilityGroup({ currentTarget: { dataset: { key: 'venue' } } });
+  await empty.review();
+  assert.deepEqual(saved[1], { identityModel: 'unified', id: 'role-restricted', version: 4, name: '历史角色',
+    capabilities: ['venue.bookings.read'] });
   const reopened = pageHarness(api, { kind: 'scheme', id: 'role-restricted' }); await reopened.load();
   assert.equal(reopened.data.schemeRestrictedOperations.length, 0);
   assert.deepEqual(Array.from(reopened.data.draft.policy.capabilities), ['venue.bookings.read']);
@@ -592,50 +593,55 @@ test('岗位范围与期限只修改对应条件，未填写完整日期不能�
   assert.equal(page.data.draft.policy.startsAt, '2026-11-01T09:00:00.000Z');
 });
 
-test('委托编辑分别保存分配者和可授权岗位，重新打开仍保持边界', async () => {
-  const data = fixture(); const page = pageHarness(data.api, { kind: 'delegation' }); await page.load();
-  page.nameInput({ detail: { value: '借用读取授权分配' } });
-  page.openPersonnel({ currentTarget: { dataset: { kind: 'delegates' } } });
-  page.confirmPersonnel({ detail: { keys: ['grant-a'] } });
+test('普通权限分配分别保存角色持有人和可授对象，回读与清空不会混淆两者', async () => {
+  const data = fixture();
+  data.state.unifiedIdentity = true;
+  data.state.catalog.push({ ...data.state.catalog[0], key: 'assign:venue.bookings.read', allocationCapability: 'venue.bookings.read' });
+  data.directory.assignments.push({ assignmentId: 'job-b', name: '成员乙' });
+  data.state.schemes = [{ id: 'allocator', name: '场地分配员', publishedVersion: 1, publishedCapabilities: ['assign:venue.bookings.read'] }];
+  const page = pageHarness(data.api); await page.load();
+  page.nameInput({ detail: { value: '场地分配' } });
   page.openPersonnel({ currentTarget: { dataset: { kind: 'assignments' } } });
   page.confirmPersonnel({ detail: { keys: ['job-a'] } });
-  page.capability({ currentTarget: { dataset: { key: 'venue.bookings.read' } } });
+  page.selectScheme({ detail: { value: 1 } });
+  assert.equal(page.data.hasAllocationPermissions, true);
+  page.openPersonnel({ currentTarget: { dataset: { kind: 'allocationSubjects' } } });
+  page.confirmPersonnel({ detail: { keys: ['job-b'] } });
   page.toggleScope({ currentTarget: { dataset: { kind: 'self' } } });
-  await page.review(); await page.save();
-  const saved = data.calls.find(item => item.name === 'saveAuthorizationDelegation').data;
-  assert.deepEqual(saved.subjects, [{ kind: 'adminGrants', ids: ['grant-a'] }]);
-  assert.deepEqual(saved.envelope.subjects, [{ kind: 'assignments', ids: ['job-a'] }]);
-  assert.deepEqual(saved, { ...data.calls.find(item => item.name === 'previewAuthorizationDelegation').data, identityModel: 'unified' });
-  assert.equal(data.calls.some(item => item.name === 'saveAuthorizationRule'), false);
-  const reopen = pageHarness(data.api, { kind: 'delegation', id: 'delegation-a' }); await reopen.load();
-  assert.deepEqual(reopen.data.draft.audience, saved.subjects);
-  assert.deepEqual(reopen.data.draft.policy, saved.envelope);
-  reopen.openPersonnel({ currentTarget: { dataset: { kind: 'delegates' } } });
+  await page.review();
+  assert(page.data.preview, page.data.notice);
+  await page.save();
+  const saved = data.calls.find(item => item.name === 'saveAuthorizationRule').data;
+  assert.deepEqual(saved.policy.subjects, [{ kind: 'assignments', ids: ['job-a'] }]);
+  assert.deepEqual(saved.policy.allocationSubjects, [{ kind: 'assignments', ids: ['job-b'] }]);
+  assert.deepEqual(saved.policy.capabilities, ['assign:venue.bookings.read']);
+  assert.equal(data.calls.some(item => item.name === 'saveAuthorizationDelegation'), false);
+  const reopen = pageHarness(data.api, { id: 'rule-a' }); await reopen.load();
+  assert.deepEqual(reopen.data.draft.policy, saved.policy);
+  assert.equal(reopen.data.sections.allocationSubjects[0].lines[0].value, '成员乙');
+  reopen.openPersonnel({ currentTarget: { dataset: { kind: 'allocationSubjects' } } });
   reopen.confirmPersonnel({ detail: { keys: [] } });
-  const previews = data.calls.filter(item => item.name === 'previewAuthorizationDelegation').length;
+  const previews = data.calls.filter(item => item.name === 'previewAuthorizationRule').length;
   await reopen.review();
-  assert.equal(data.calls.filter(item => item.name === 'previewAuthorizationDelegation').length, previews);
-  assert.deepEqual(reopen.data.draft.policy.subjects, saved.envelope.subjects);
+  assert.equal(data.calls.filter(item => item.name === 'previewAuthorizationRule').length, previews);
+  assert.deepEqual(reopen.data.draft.policy.subjects, saved.policy.subjects);
 });
 
-test('没有转授资格的普通岗位不能通过直达编辑页配置分配权', async () => {
+test('分配来源不按旧转授开关另设资格，完整来源编号透传', async () => {
   const data = fixture();
-  Object.assign(data.state, { unifiedIdentity: true, isSuper: false, canManage: true, canManageDelegations: false });
-  const page = pageHarness(data.api, { kind: 'delegation' }); await page.load();
-  assert.equal(page.data.ready, false); assert.ok(page.data.notice);
-});
-
-test('有转授资格的普通岗位只能使用明确允许转授的上一级资格', async () => {
-  const data = fixture();
-  const envelope = { subjects: [{ kind: 'assignments', ids: ['job-a'] }], capabilities: ['venue.bookings.read'], scopes: [{ kind: 'self' }], fields: null };
-  Object.assign(data.state, { unifiedIdentity: true, isSuper: false, canManage: true, canManageDelegations: true,
-    delegationOptions: [{ id: 'use-only', name: '分配资格', allowRedelegation: false, envelope },
-      { id: 'redelegate', name: '转授资格', allowRedelegation: true, envelope }] });
-  const page = pageHarness(data.api, { kind: 'delegation' }); await page.load();
+  const envelope = { subjects: [{ kind: 'assignments', ids: ['job-a'] }], capabilities: ['venue.bookings.read', 'assign:venue.bookings.read'], scopes: [{ kind: 'self' }], fields: null };
+  Object.assign(data.state, { unifiedIdentity: true, isSuper: false, canManage: true,
+    delegationOptions: [{ id: 'opaque:hashed-source', name: '分配来源', allowRedelegation: false, envelope },
+      { id: 'another-source', name: '另一来源', allowRedelegation: true, envelope }] });
+  const page = pageHarness(data.api); await page.load();
   assert.equal(page.data.ready, true);
+  assert.deepEqual(Array.from(page.data.delegationOptions, option => option.id), ['', 'opaque:hashed-source', 'another-source']);
+  await page.changeDelegation({ detail: { value: 1 } });
   assert.equal(page.data.formAvailable, true);
-  assert.equal(page.data.delegation.id, 'redelegate');
-  assert.deepEqual(Array.from(page.data.delegationOptions, option => option.id), ['', 'redelegate']);
+  assert.equal(page.data.draft.delegationId, 'opaque:hashed-source');
+  const wxml = fs.readFileSync(path.join(__dirname, '../../miniprogram/subpackages/org/pages/authorizationEditor/authorizationEditor.wxml'), 'utf8');
+  assert.equal(wxml.includes('changeRedelegation'), false);
+  assert.equal(wxml.includes('ui.unified.allowRedelegation'), false);
 });
 
 test('只有查询资格时深链编辑不读取配置候选也不展示表单', async () => {
@@ -648,28 +654,30 @@ test('只有查询资格时深链编辑不读取配置候选也不展示表单',
   assert.equal(data.calls.some(item => item.name === 'getAuthorizationCandidates'), false);
 });
 
-test('普通岗位分配者使用岗位编号，保存回读并清空时保留管理身份分配者', async () => {
-  const data = fixture(); const page = pageHarness(data.api, { kind: 'delegation' }); await page.load();
-  page.nameInput({ detail: { value: '岗位委托' } });
-  for (const [kind, key] of [['delegateAssignments', 'job-a'], ['delegates', 'grant-a'], ['assignments', 'job-a']]) {
-    page.openPersonnel({ currentTarget: { dataset: { kind } } });
-    assert.equal(page.data.pickerOptions.length, 1);
-    page.confirmPersonnel({ detail: { keys: [key] } });
-  }
-  page.capability({ currentTarget: { dataset: { key: 'venue.bookings.read' } } });
-  page.toggleScope({ currentTarget: { dataset: { kind: 'self' } } });
-  await page.review(); await page.save();
-  const saved = data.calls.find(item => item.name === 'saveAuthorizationDelegation').data;
-  assert.deepEqual(saved.subjects, [{ kind: 'assignments', ids: ['job-a'] }, { kind: 'adminGrants', ids: ['grant-a'] }]);
-  const reopen = pageHarness(data.api, { kind: 'delegation', id: 'delegation-a' }); await reopen.load();
-  reopen.openPersonnel({ currentTarget: { dataset: { kind: 'delegateAssignments' } } });
-  assert.deepEqual(Array.from(reopen.data.pickerValue, item => item.assignmentId), ['job-a']);
-  reopen.confirmPersonnel({ detail: { keys: [] } });
-  assert.deepEqual(reopen.data.draft.audience.find(item => item.kind === 'adminGrants').ids, ['grant-a']);
-  assert.deepEqual(reopen.data.draft.policy.subjects, saved.envelope.subjects);
+test('移除最后一项分配权限后，请求不携带已隐藏的可授对象', () => {
+  const data = fixture();
+  const draft = editor.createDraft();
+  Object.assign(draft, { name: '普通读取' });
+  Object.assign(draft.policy, { subjects: [{ kind: 'assignments', ids: ['job-a'] }], capabilities: ['venue.bookings.read'], scopes: [{ kind: 'self' }], allocationSubjects: [{ kind: 'assignments', ids: ['job-b'] }] });
+  assert.equal(editor.request(draft, 1, data.state.catalog, true).policy.allocationSubjects, undefined);
+  assert.deepEqual(draft.policy.allocationSubjects, [{ kind: 'assignments', ids: ['job-b'] }]);
 });
 
-test('规则批量选择保留筛选外已选项，删除页逐条列出版本并确认后提交', async () => {
+test('禁止分配保留指定对象边界，主动清空后才使用全部可授对象', () => {
+  const data = fixture();
+  data.state.catalog.push({ ...data.state.catalog[0], key: 'assign:venue.bookings.read', allocationCapability: 'venue.bookings.read' });
+  const draft = editor.createDraft({ name: '限定禁止', policy: { effect: 'deny', enabled: true,
+    subjects: [{ kind: 'assignments', ids: ['job-a'] }], capabilities: ['assign:venue.bookings.read'],
+    allocationSubjects: [{ kind: 'assignments', ids: ['job-b'] }], scopes: [{ kind: 'self' }], fields: null } });
+  assert.equal(editor.hasAllocationPermissions(draft, data.state.catalog), true);
+  assert.deepEqual(editor.request(draft, 1, data.state.catalog, true).policy.allocationSubjects, draft.policy.allocationSubjects);
+  draft.policy.allocationSubjects = [];
+  assert.equal(editor.request(draft, 1, data.state.catalog, true).policy.allocationSubjects, undefined);
+  draft.policy.effect = 'allow';
+  assert.equal(editor.validation(draft, data.state.catalog, true), 'invalidPolicy');
+});
+
+test('规则批量选择随筛选清空，删除页逐条列出版本并确认后提交', async () => {
   const data = fixture();
   const policy = { effect: 'allow', enabled: true, subjects: [{ kind: 'assignments', ids: ['job-a'] }],
     capabilities: ['venue.bookings.read'], scopes: [{ kind: 'self' }], fields: null };
@@ -677,7 +685,7 @@ test('规则批量选择保留筛选外已选项，删除页逐条列出版本�
   const page = pageHarness(data.api, {}, 'authorization'); await page.load();
   page.toggleSelection(); page.selectRule({ currentTarget: { dataset: { id: 'rule-a' } } });
   page.search({ detail: { value: '规则乙' } }); page.selectShown();
-  assert.deepEqual(Object.keys(page.data.selectedRules), ['rule-a', 'rule-b']);
+  assert.deepEqual(Object.keys(page.data.selectedRules), ['rule-b']);
   page.clearSelection(); assert.equal(page.data.selectedCount, 0);
   let previewed, saved;
   const changes = pageHarness(async input => {
@@ -725,4 +733,24 @@ test('删除委托先显示具体分配人和范围，取消不写入，确认�
   await reopen.load(); await reopen.confirm();
   assert.equal(removed, 1);
   assert.deepEqual(deletionPreview, { id: delegation.id, version: 3, expectedRevision: 1 });
+});
+
+
+test('分配组合筛选与翻页清空批量选择，删除前排除隐藏和只读记录', async () => {
+  const data = fixture();
+  const policy = { effect: 'allow', enabled: true, subjects: [{ kind: 'assignments', ids: ['job-a'] }], capabilities: ['venue.bookings.read'], scopes: [{ kind: 'self' }], fields: null };
+  data.state.schemes = [{ id: 'role', name: '权限角色', capabilities: ['venue.bookings.read'] }];
+  data.state.rules = Array.from({ length: 22 }, (_, index) => ({ id: 'row-' + index, schemeId: 'role', name: '分配' + index, policy, canEdit: index !== 0 }));
+  const page = pageHarness(data.api, {}, 'authorization'); await page.load();
+  page.toggleSelection(); page.selectShown();
+  assert.equal(page.data.selectedCount, 19);
+  page.changeAllocationPage({ currentTarget: { dataset: { direction: 1 } } });
+  assert.equal(page.data.selectedCount, 0);
+  page.selectShown(); assert.equal(page.data.selectedCount, 2);
+  page.filterAllocations({ currentTarget: { dataset: { key: 'state' } }, detail: { value: 1 } });
+  assert.equal(page.data.selectedCount, 0); assert.equal(page.data.allocationPage, 1);
+  page.setData({ selectedRules: { 'row-0': true, 'row-1': true, 'row-21': true }, selectedCount: 3 });
+  page.deleteSelected();
+  const query = page.navigation[0].split('ids=')[1];
+  assert.deepEqual(JSON.parse(decodeURIComponent(query)), ['row-1']);
 });

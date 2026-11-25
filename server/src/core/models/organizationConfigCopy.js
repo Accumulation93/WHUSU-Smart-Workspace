@@ -291,10 +291,15 @@ async function workspace(input, reference, guard) {
         [rows] = await connection.query(`SELECT id, ${name} AS name,venue_id FROM ${table}
           WHERE id>? ORDER BY id LIMIT 31`, [after]);
       } else {
+        const historicalRole = input.kind === 'authorization.schemes'
+          ? (await require('./authorizationRelationshipRole').read(connection, reference.organizationId))?.schemeId : null;
         const published = input.kind === 'authorization.schemes'
-          ? ' AND published_version > 0 AND ' + require('./authorizationRoleBackfill').activeRole(table) : '';
+          ? ' AND published_version > 0 AND ' + require('./authorizationRoleBackfill').activeRole(table)
+            + ` AND EXISTS (SELECT 1 FROM authorization_scheme_versions av WHERE av.org_id=${table}.org_id
+              AND av.scheme_id=${table}.id AND av.version=${table}.published_version AND JSON_LENGTH(av.capabilities_json)>0)`
+            + (historicalRole ? ' AND id<>?' : '') : '';
         [rows] = await connection.query(`SELECT id, ${name} AS name FROM ${table}
-          WHERE org_id=? AND id>?${published} ORDER BY id LIMIT 31`, [reference.organizationId, after]);
+          WHERE org_id=? AND id>?${published} ORDER BY id LIMIT 31`, [reference.organizationId, after, ...(historicalRole ? [historicalRole] : [])]);
       }
     } else if (input.tab === 'outgoing') {
       [rows] = await connection.query(`SELECT s.id,s.source_record_id,s.version,s.enabled,s.payload_json,o.name AS organizationName

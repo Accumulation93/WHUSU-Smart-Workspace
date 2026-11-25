@@ -57,6 +57,7 @@ function personnelOptions(directory, role) {
 
 function capabilityLabel(key, catalog, copy) {
   const definition = catalog.find(item => item.key === key);
+  if (definition && definition.allocationCapability) return copy.unified.allocationCapabilityName(capabilityLabel(definition.allocationCapability, catalog, copy));
   if (copy.capabilityDisplayNames && Object.prototype.hasOwnProperty.call(copy.capabilityDisplayNames, key)) return copy.capabilityDisplayNames[key];
   if (copy.capabilityNames && Object.prototype.hasOwnProperty.call(copy.capabilityNames, key)) return copy.capabilityNames[key];
   if (!definition || !copy.resources[definition.resourceType] || !copy.actions[definition.action]) return copy.unknownCapability;
@@ -108,7 +109,11 @@ function policySections(policy, directory, catalog, copy) {
       : scope.kind === 'assignmentScope' ? dimensionLines(scope.dimensions, indexes, copy)
       : scope.kind === 'records' ? Array.from(new Set((policy.capabilities || []).map(key => catalog.find(item => item.key === key)).filter(Boolean).map(item => item.resourceType)))
         .map(key => ({ key, label: copy.resources[key] || copy.unknownCapability, value: copy.specifiedCount((scope.ids || []).length) })) : [] }));
-  return { subjects, scopes, capabilityLabels: (policy.capabilities || []).map(key => capabilityLabel(key, catalog, copy)),
+  const allocationSubjects = policy.allocationSubjects && policy.allocationSubjects.length
+    ? policySections({ subjects: policy.allocationSubjects }, directory, catalog, copy).subjects : [];
+  return { subjects, allocationSubjects,
+    allocationSubjectsTitle: policy.effect === 'deny' ? copy.unified.allocationDenySubjectsTitle : copy.unified.allocationSubjectsTitle,
+    scopes, capabilityLabels: (policy.capabilities || []).map(key => capabilityLabel(key, catalog, copy)),
     fieldLabels: policy.fields == null ? [copy.allFields] : policy.fields.map(key => dynamicFieldLabels[key]
       || copy.fieldLabels && copy.fieldLabels[key] || copy.unavailableReference),
     enabledText: policy.enabled ? copy.enabled : copy.disabled,
@@ -125,63 +130,77 @@ function ruleCards(rules, directory, catalog, copy, query = '') {
   });
 }
 
-function allocationCards(management, directory, copy, query = '', filter = 'all') {
+function allocationOptions(management, directory, copy) {
+  const all = [{ id: '', name: copy.allocation.all }];
+  const catalog = management.catalog || [];
+  const modules = [...new Set(catalog.map(item => item.resourceType === 'contacts.entries' ? 'hr' : item.resourceType.split('.')[0]))];
+  const result = {
+    schemeId: all.concat((management.schemes || []).map(item => ({ id: item.id, name: item.name }))),
+    application: all.concat(modules.map(id => ({ id, name: copy.businessGroups[id] || copy.unknownCapability }))),
+    state: all.concat([{ id: 'enabled', name: copy.enabled }, { id: 'disabled', name: copy.disabled }]),
+    scope: all.concat(Object.entries(copy.allocation.scopeTypes).map(([id, name]) => ({ id, name }))),
+    effect: all.concat([{ id: 'allow', name: copy.allow }, { id: 'deny', name: copy.deny }])
+  };
+  const indexes = makeIndexes(directory);
+  for (const key of DIMENSIONS) result[key] = all.concat([...indexes.dimensions[key]].map(([id, name]) => ({ id, name })));
+  return result;
+}
+
+function allocationCards(management, directory, copy, query = '', selection = {}) {
+  const filters = typeof selection === 'object' && selection || {};
   const indexes = makeIndexes(directory);
   const labels = copy.allocation;
-  const schemes = new Map(management.schemes.map(item => [item.id, item]));
+  const schemes = new Map((management.schemes || []).map(item => [item.id, item]));
   const legacy = management.legacyRecipientAssignments || {};
-  const makeRecipient = (key, name, detail = '') => ({ key, name, detail });
-  const assignment = id => {
-    const item = indexes.assignments.get(id);
-    return item ? makeRecipient(id, item.name || copy.unnamed,
-      [...new Set([item.departmentName, item.identityCategoryName, item.workGroupName].filter(Boolean))].join(' · ')) : null;
-  };
-  const rows = ruleCards(management.rules, directory, management.catalog, copy).map(rule => {
+  const catalog = management.catalog || [];
+  const rows = ruleCards(management.rules || [], directory, catalog, copy).map(rule => {
     const recipients = new Map();
-    const filters = new Set();
+    const matchedAssignments = new Map();
     for (const [index, subject] of (rule.policy.subjects || []).entries()) {
       if (subject.kind === 'assignmentScope') {
-        filters.add('conditional');
-        recipients.set('condition:' + index, { ...makeRecipient('condition:' + index, labels.conditional), lines: rule.subjects[index].lines });
+        recipients.set('condition:' + index, { key: 'condition:' + index, name: copy.assignmentScope, lines: rule.subjects[index].lines });
+        for (const item of directory.assignments || []) {
+          if (Object.entries(subject.dimensions || {}).every(([key, values]) => Array.isArray(values) && values.includes(item[key]))) matchedAssignments.set(item.assignmentId, item);
+        }
         continue;
       }
       for (const id of subject.ids || []) {
         const matches = subject.kind === 'assignments' ? [id] : (legacy[id] || []);
-        const known = matches.map(assignment).filter(Boolean);
-        for (const item of known) recipients.set('work:' + item.key, { ...item, key: 'work:' + item.key });
-        if (known.length) filters.add('specified');
+        const known = matches.map(key => indexes.assignments.get(key)).filter(Boolean);
+        for (const item of known) {
+          matchedAssignments.set(item.assignmentId, item);
+          recipients.set('work:' + item.assignmentId, { key: 'work:' + item.assignmentId, name: item.name || copy.unnamed,
+            detail: [...new Set([item.natureName, item.departmentName, item.identityCategoryName, item.workGroupName].filter(Boolean))].join(' · ') });
+        }
         if (known.length && known.length === matches.length) continue;
-        filters.add('historical');
         const historical = subject.kind === 'adminGrants' ? indexes.adminGrants.get(id) : null;
         const historicalName = historical && historical.name;
         const key = subject.kind + ':' + id;
-        recipients.set(key, makeRecipient(key, historicalName || labels.unknownRecipient,
-          historicalName ? labels.unknownRecipient : ''));
+        recipients.set(key, { key, name: historicalName || labels.unknownRecipient, detail: historicalName ? labels.unknownRecipient : '' });
       }
     }
     const scheme = schemes.get(rule.schemeId);
     return { ...rule, roleName: scheme && scheme.name || (rule.schemeId ? labels.unknownRole : rule.name || copy.customAuthorization),
-      custom: !rule.schemeId, recipientRows: [...recipients.values()], filters: [...filters],
-      shared: recipients.size > 1 || filters.has('conditional'),
+      custom: !rule.schemeId, recipientRows: [...recipients.values()], matchedAssignments: [...matchedAssignments.values()],
       scopeNames: [...new Set(rule.scopes.map(scope => scope.label))], statusText: rule.enabledText };
   });
-  const relationship = management.relationshipRoleAssignment;
-  if (relationship) {
-    const scheme = schemes.get(relationship.schemeId);
-    rows.unshift({ id: 'relationship:' + relationship.id, schemeId: relationship.schemeId, roleName: scheme && scheme.name || labels.unknownRole,
-      relationship: true, canEdit: false, hasRole: !!scheme, canEditRole: !!scheme && scheme.canEdit !== false, filters: ['relationship'],
-      recipientRows: [makeRecipient('relationship', labels.relationshipRecipient)], scopeNames: [labels.relationshipDataScope],
-      capabilityLabels: scheme ? (scheme.publishedCapabilities || []).map(key => capabilityLabel(key, management.catalog, copy)) : [],
-      statusText: relationship.enabled ? copy.enabled : copy.disabled });
-  }
   const needle = permissionSearchText(query);
   return rows.filter(row => {
-    if (filter !== 'all' && !row.filters.includes(filter)) return false;
+    if (filters.schemeId && row.schemeId !== filters.schemeId) return false;
+    if (filters.state && row.policy.enabled !== (filters.state === 'enabled')) return false;
+    if (filters.effect && row.policy.effect !== filters.effect) return false;
+    if (filters.scope && !row.policy.scopes.some(scope => scope.kind === filters.scope)) return false;
+    if (filters.application && !row.policy.capabilities.some(key => {
+      const definition = catalog.find(item => item.key === key);
+      return definition && (definition.resourceType === 'contacts.entries' ? 'hr' : definition.resourceType.split('.')[0]) === filters.application;
+    })) return false;
+    const dimensions = DIMENSIONS.filter(key => filters[key]);
+    if (dimensions.length && !row.matchedAssignments.some(item => dimensions.every(key => item[key] === filters[key]))) return false;
     if (!needle) return true;
     const values = [row.roleName, row.name, ...row.scopeNames, ...(row.capabilityLabels || [])];
-    for (const recipient of row.recipientRows) {
-      values.push(recipient.name, recipient.detail, ...(recipient.lines || []).map(line => line.value));
-    }
+    for (const recipient of row.recipientRows) values.push(recipient.name, recipient.detail, ...(recipient.lines || []).map(line => line.value));
+    for (const subject of row.allocationSubjects) for (const line of subject.lines) values.push(line.label, line.value);
+    for (const scope of row.scopes) for (const line of scope.lines) values.push(line.label, line.value);
     return permissionSearchText(values.join(' ')).includes(needle);
   });
 }
@@ -209,9 +228,10 @@ function inspectionGroups(capabilities, catalog, copy, range = 'granted', query 
     if (item.systemControlled || (range !== 'all' && item.grantState !== 'granted')) continue;
     const label = capabilityLabel(item.capability, catalog, copy);
     if (needle && !permissionSearchText(label).includes(needle)) continue;
-    const key = item.capability.split('.')[0];
-    if (!groups.has(key)) groups.set(key, { key, label: copy.businessGroups[key] || copy.unknownCapability, items: [] });
     const definition = catalog.find(entry => entry.key === item.capability);
+    if (definition && definition.businessOnly) continue;
+    const key = definition ? definition.resourceType.split('.')[0] : item.capability.split('.')[0];
+    if (!groups.has(key)) groups.set(key, { key, label: copy.businessGroups[key] || copy.unknownCapability, items: [] });
     const classification = item.classification || definition && definition.classification;
     const categoryLabel = copy.unified ? (classification === 'special' ? copy.unified.categorySpecial : copy.unified.categoryGeneral) : '';
     const statusText = classification && item.grantState === 'not_granted' && copy.unified
@@ -221,7 +241,7 @@ function inspectionGroups(capabilities, catalog, copy, range = 'granted', query 
   return Array.from(groups.values()).map(group => ({ ...group, countText: copy.effectiveCount(group.items.length) }));
 }
 
-const sharedModule = Object.freeze({ makeIndexes, assignmentLabel, personnelOptions, capabilityLabel, permissionSearchText, dimensionLines, policySections, ruleCards, allocationCards, allocationPage, permissionStatus, inspectionGroups });
+const sharedModule = Object.freeze({ makeIndexes, assignmentLabel, personnelOptions, capabilityLabel, permissionSearchText, dimensionLines, policySections, ruleCards, allocationOptions, allocationCards, allocationPage, permissionStatus, inspectionGroups });
 
-export { makeIndexes, assignmentLabel, personnelOptions, capabilityLabel, permissionSearchText, dimensionLines, policySections, ruleCards, allocationCards, allocationPage, permissionStatus, inspectionGroups };
+export { makeIndexes, assignmentLabel, personnelOptions, capabilityLabel, permissionSearchText, dimensionLines, policySections, ruleCards, allocationOptions, allocationCards, allocationPage, permissionStatus, inspectionGroups };
 export default sharedModule;

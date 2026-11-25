@@ -60,7 +60,11 @@ function handler(work) {
         && await require('../models/authorizationIdentityTransition').isUnified(pool)) {
         return res.status(409).json({ status: 'authorization_upgrade_required', message: copy.unified?.legacyAuthEditReadOnly || copy.forbidden });
       }
-      const data = await work(req.body, reference, createGuard(reference, req.body.delegationId));
+      if (req.body.allocationSourceId !== undefined && req.body.delegationId !== undefined
+        && req.body.allocationSourceId !== req.body.delegationId) {
+        return res.status(400).json({ status: 'invalid_authorization_selection', message: copy.invalidPolicy });
+      }
+      const data = await work(req.body, reference, createGuard(reference, req.body.allocationSourceId ?? req.body.delegationId));
       return res.json(Object.assign({ status: 'success' }, data));
     } catch (error) {
       if (error.code === 'authorization_special_capabilities') {

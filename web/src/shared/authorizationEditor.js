@@ -149,12 +149,14 @@ function permissionGroups({ catalog, capabilities, query, selectedOnly, copy, un
   const roleBound = readOnly || Boolean(draft && draft.schemeId);
   const modules = new Map();
   for (const definition of catalog) {
+    if (definition.businessOnly) continue;
     if (roleBound && !selected.has(definition.key)) continue;
     if (unified && definition.assignmentRetired && !selected.has(definition.key)) continue;
     if (!roleBound && (definition.systemControlled || (unified ? definition.classification === 'special'
       : definition.governance && restrictedLegacySubject) || kind === 'delegation' && definition.delegation)) continue;
     const moduleKey = definition.resourceType === 'contacts.entries' ? 'hr' : definition.resourceType.split('.')[0];
-    const groupKey = permissionSection(definition, moduleKey);
+    const baseDefinition = definition.allocationCapability ? catalog.find(item => item.key === definition.allocationCapability) || definition : definition;
+    const groupKey = permissionSection(baseDefinition, moduleKey);
     const moduleLabel = copy.businessGroups[moduleKey] || copy.unknownCapability;
     const resourceLabel = copy.resources[definition.resourceType] || copy.unknownCapability;
     const groupLabel = copy.unified.permissionSections[groupKey] || moduleLabel;
@@ -265,6 +267,11 @@ function validation(draft, catalog, unified = false) {
       || Array.isArray(clause.dimensions.natureId) && clause.dimensions.natureId.length)))) return 'selectNatureRequired';
   const definitions = policy.capabilities.map(key => catalog.find(item => item.key === key));
   if (definitions.some(item => !item)) return 'invalidPolicy';
+  if (hasAllocationPermissions(draft, catalog) && (policy.effect === 'allow' || policy.allocationSubjects && policy.allocationSubjects.length) && (!Array.isArray(policy.allocationSubjects) || !policy.allocationSubjects.length
+    || policy.allocationSubjects.some(subject => subject.kind === 'assignmentScope'
+      ? !Object.keys(subject.dimensions || {}).length || !Array.isArray(subject.dimensions.natureId) || !subject.dimensions.natureId.length
+        || Object.values(subject.dimensions).some(values => !Array.isArray(values) || !values.length)
+      : !['assignments', 'adminGrants'].includes(subject.kind) || !Array.isArray(subject.ids) || !subject.ids.length))) return 'invalidPolicy';
   if (policy.subjects.some(subject => subject.kind === 'assignmentScope'
     ? !Object.keys(subject.dimensions || {}).length || Object.keys(subject.dimensions).some(key =>
       !Array.isArray(subject.dimensions[key]) || !subject.dimensions[key].length)
@@ -287,6 +294,8 @@ function request(draft, expectedRevision, catalog, unified = false) {
   const error = validation(draft, catalog, unified);
   if (error) throw Object.assign(new Error(error), { code: error });
   const value = clone(draft);
+  if (!hasAllocationPermissions(value, catalog)) delete value.policy.allocationSubjects;
+  else if (value.policy.effect === 'deny' && !(value.policy.allocationSubjects && value.policy.allocationSubjects.length)) delete value.policy.allocationSubjects;
   value.name = value.name.trim();
   value.expectedRevision = expectedRevision;
   if (unified) value.identityModel = 'unified';
@@ -328,6 +337,7 @@ function withinDelegation(draft, option, scheme = false) {
   if (!limit || !policy.capabilities.every(key => limit.capabilities.includes(key))) return false;
   if (scheme) return true;
   return clausesWithin(policy.subjects, limit.subjects, false) && clausesWithin(policy.scopes, limit.scopes, true)
+    && (!policy.allocationSubjects || clausesWithin(policy.allocationSubjects, limit.subjects, false))
     && (limit.fields === null || Array.isArray(policy.fields) && policy.fields.every(key => limit.fields.includes(key)))
     && (!limit.startsAt || policy.startsAt && Date.parse(policy.startsAt) >= Date.parse(limit.startsAt))
     && (!limit.endsAt || policy.endsAt && Date.parse(policy.endsAt) <= Date.parse(limit.endsAt));
@@ -357,7 +367,7 @@ function delegationDirectory(directory, option) {
 }
 
 function assignableSchemes(schemes, option, catalog = [], draft, unified = false) {
-  return schemes.filter(item => item.publishedVersion && (!option
+  return schemes.filter(item => item.publishedVersion && item.publishedCapabilities.length > 0 && (!option
     || item.publishedCapabilities.every(key => option.envelope.capabilities.includes(key)))
     && (draft && draft.schemeId === item.id || item.publishedCapabilities.every(key => {
       const definition = catalog.find(row => row.key === key);
@@ -390,9 +400,21 @@ function canUseIdentityFlow(draft, option) {
   return canSimplify(copy) && withinDelegation(draft, option);
 }
 
+function hasAllocationPermissions(draft, catalog) {
+  return draft.policy.capabilities.some(key => catalog.some(item => item.key === key && item.allocationCapability));
+}
+
+function setAllocationPersonnel(draft, selected) {
+  const next = createDraft(draft);
+  const holder = createDraft();
+  holder.policy.subjects = next.policy.allocationSubjects || [];
+  next.policy.allocationSubjects = setPersonnel(holder, 'assignments', selected).policy.subjects;
+  return next;
+}
+
 const sharedModule = Object.freeze({ createDraft, copyDraft, createDelegationDraft, setDelegationRecipients, setPersonnel, toggleCapability, removeCapability, toggleCapabilityGroup, permissionGroups, selectedPermissionsPage, assignmentMethod, subjectMatchCount,
   availableFields, availableScopes, toggleField, allFields, canSimplify, prepareSimpleDraft, validation, request, delegationRequest,
-  withinDelegation, selectDelegation, delegationDirectory, assignableSchemes, toggleScope, setPeopleScope, canUseIdentityFlow });
+  withinDelegation, selectDelegation, delegationDirectory, assignableSchemes, toggleScope, setPeopleScope, canUseIdentityFlow, hasAllocationPermissions, setAllocationPersonnel });
 
-export { createDraft, copyDraft, createDelegationDraft, setDelegationRecipients, setPersonnel, toggleCapability, removeCapability, toggleCapabilityGroup, permissionGroups, selectedPermissionsPage, assignmentMethod, subjectMatchCount, availableFields, availableScopes, toggleField, allFields, canSimplify, prepareSimpleDraft, validation, request, delegationRequest, withinDelegation, selectDelegation, delegationDirectory, assignableSchemes, toggleScope, setPeopleScope, canUseIdentityFlow };
+export { createDraft, copyDraft, createDelegationDraft, setDelegationRecipients, setPersonnel, toggleCapability, removeCapability, toggleCapabilityGroup, permissionGroups, selectedPermissionsPage, assignmentMethod, subjectMatchCount, availableFields, availableScopes, toggleField, allFields, canSimplify, prepareSimpleDraft, validation, request, delegationRequest, withinDelegation, selectDelegation, delegationDirectory, assignableSchemes, toggleScope, setPeopleScope, canUseIdentityFlow, hasAllocationPermissions, setAllocationPersonnel };
 export default sharedModule;

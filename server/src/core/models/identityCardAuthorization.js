@@ -40,7 +40,7 @@ async function publicCard(connection, tokenHash) {
   const now = Date.now();
   const allowed = ['read', 'verify'].every(action => evaluate({ actor, resource: resource(actor),
     capability: 'identity.cards.' + action, prepared, catalog: CATALOG, now,
-    businessAllowed: true, businessGranted: !state.disabledBasic.has('identity.cards.' + action) }).allowed);
+    businessAllowed: true, businessGranted: true }).allowed);
   return allowed ? context : null;
 }
 

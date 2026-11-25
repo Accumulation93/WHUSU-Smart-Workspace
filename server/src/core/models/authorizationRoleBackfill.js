@@ -35,7 +35,8 @@ async function nextRoleName(connection, organizationId, requested) {
 
 async function selectRole(connection, organizationId, rule, previousRoleId) {
   const originalId = idForRule(organizationId, rule.id);
-  const options = [...new Set([previousRoleId, originalId].filter(Boolean))];
+  const relationship = await require('./authorizationRelationshipRole').read(connection, organizationId, true);
+  const options = [...new Set([previousRoleId, originalId].filter(id => id && id !== relationship?.schemeId))];
   const [rows] = await connection.query(`SELECT s.id, v.capabilities_json AS capabilities, ${activeRole('s')} AS active
     FROM authorization_schemes s LEFT JOIN authorization_scheme_versions v
       ON v.org_id = s.org_id AND v.scheme_id = s.id AND v.version = s.published_version
@@ -68,9 +69,10 @@ async function bind(connection, organizationId, rule, actorContextId, selected) 
 }
 
 async function bindOrganization(connection, organizationId, actorContextId) {
-  const [rules] = await connection.query(`SELECT id, name, policy_json AS policy FROM authorization_rules
+  const [rules] = await connection.query(`SELECT * FROM authorization_rules
     WHERE org_id = ? AND scheme_id IS NULL ORDER BY id FOR UPDATE`, [organizationId]);
   for (const rule of rules) {
+    rule.policy = rule.allocation_policy_json || rule.policy_json;
     if (typeof rule.policy === 'string') rule.policy = JSON.parse(rule.policy);
     const roleId = await bind(connection, organizationId, rule, actorContextId);
     await connection.query('UPDATE authorization_rules SET scheme_id = ?, updated_at = updated_at WHERE org_id = ? AND id = ?',

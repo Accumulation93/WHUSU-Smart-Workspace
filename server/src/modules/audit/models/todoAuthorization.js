@@ -36,7 +36,7 @@ async function readRelatedAuthorization(organizationId, contextId, reference) {
       && actions[resource.type].every(action => {
         const capability = resource.type + '.' + action;
         return evaluate({ actor, resource, capability, catalog: CATALOG, prepared, now,
-          businessAllowed: true, businessGranted: !state.disabledBasic.has(capability) }).allowed;
+          businessAllowed: true, businessGranted: true }).allowed;
       });
   });
 }

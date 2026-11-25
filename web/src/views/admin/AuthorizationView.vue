@@ -24,46 +24,37 @@
           <input v-model="query" class="search-input" :placeholder="tab === 'schemes' ? ui.searchIdentities : ui.allocation.search" :aria-label="tab === 'schemes' ? ui.searchIdentities : ui.allocation.search" />
         </label>
         <div v-if="tab === 'rules'" class="stack-tight">
-          <span v-if="!showRules" class="field-label">{{ ui.allocation.recipient }}</span>
-          <div class="row row-wrap authorization-filter-row" :role="showRules ? undefined : 'group'" :aria-label="showRules ? undefined : ui.allocation.recipient">
+          <div class="row row-wrap authorization-filter-row">
             <template v-if="!showRules">
-              <button v-for="filter in allocationFilters" :key="filter" type="button" class="btn btn-small" :class="allocationFilter === filter ? 'btn-primary' : 'btn-secondary'" :aria-pressed="allocationFilter === filter" @click="allocationFilter = filter">{{ ui.allocation[filter] }}</button>
+              <label v-for="filter in visibleFilterFields" :key="filter.key" class="authorization-allocation-filter stack-tight">
+                <span class="field-label">{{ filter.label }}</span>
+                <select v-model="allocationFilters[filter.key]" class="field-input" :aria-label="filter.label"><option v-for="option in filter.options" :key="option.id" :value="option.id">{{ option.name }}</option></select>
+              </label>
             </template>
-            <button v-if="!state.roleBindingOnly" type="button" class="btn btn-secondary btn-small" @click="toggleRules">{{ showRules ? ui.byRecipient : ui.advancedRules }}</button>
-            <button v-if="state.rules.some(rule => rule.canEdit !== false)" type="button" class="btn btn-secondary btn-small" @click="toggleSelection">{{ selecting ? ui.finishSelection : ui.batchSelect }}</button>
+            <div class="row row-wrap authorization-filter-actions">
+              <template v-if="!showRules">
+                <button type="button" class="btn btn-secondary btn-small" @click="moreAllocationFilters = !moreAllocationFilters">{{ moreAllocationFilters ? ui.allocation.fewerFilters : ui.allocation.moreFilters }}</button>
+                <button type="button" class="btn btn-secondary btn-small" @click="clearAllocationFilters">{{ ui.allocation.clearFilters }}</button>
+              </template>
+              <button v-if="!state.roleBindingOnly" type="button" class="btn btn-secondary btn-small" @click="toggleRules">{{ showRules ? ui.byRecipient : ui.advancedRules }}</button>
+              <button v-if="state.rules.some(rule => rule.canEdit !== false)" type="button" class="btn btn-secondary btn-small" @click="toggleSelection">{{ selecting ? ui.finishSelection : ui.batchSelect }}</button>
+            </div>
           </div>
+          <p v-if="!showRules" class="muted">{{ ui.allocation.filterHelp }}</p>
+          <p v-if="!showRules" class="muted" aria-live="polite">{{ ui.allocation.resultCount(filteredAllocations.length, state.rules.length) }}</p>
         </div>
         <div v-if="canCopy" class="authorization-tools">
           <button type="button" class="btn btn-secondary btn-small" @click="router.push({ name: 'organizationCopy' })">{{ ui.configurationCopy.title }}</button>
         </div>
       </section>
       <template v-if="tab === 'rules'">
-        <section v-if="!state.roleBindingOnly || state.canManageDelegations" class="card stack">
-          <details>
-            <summary>{{ state.roleBindingOnly ? ui.delegations : ui.advancedManagement }}</summary>
-            <div class="stack">
-              <p v-if="!state.roleBindingOnly" class="muted">{{ state.canManageDelegations ? ui.advancedManagementHelp : ui.advancedRulesHelp }}</p>
-              <button v-if="!state.roleBindingOnly" type="button" class="btn btn-secondary" @click="edit('rule', undefined, false, true)">{{ ui.createCustomRule }}</button>
-              <template v-if="state.canManageDelegations">
-                <h2 v-if="!state.roleBindingOnly" class="section-title">{{ ui.delegations }}</h2>
-                <p class="muted">{{ ui.delegationNotice }}</p>
-                <button type="button" class="btn btn-secondary" @click="edit('delegation')">{{ ui.createDelegation }}</button>
-                <div v-for="item in state.delegations" :key="item.id" class="glass-panel stack-tight">
-                  <strong>{{ item.name }}</strong><span class="muted">{{ item.enabled ? ui.enabled : ui.disabled }}</span>
-                  <div class="card-actions authorization-rule-actions"><button type="button" class="btn-quiet authorization-edit" @click="edit('delegation', item.id)">{{ ui.edit }}</button>
-                  <button type="button" class="btn-quiet btn-quiet-danger" @click="router.push({ name: 'authorizationChanges', query: { kind: 'deleteDelegation', id: item.id } })">{{ ui.revokeDelegation }}</button></div>
-                </div>
-              </template>
-            </div>
-          </details>
-        </section>
         <section v-if="selecting" class="card stack">
           <p class="muted">{{ ui.selectedRules(selectedRules.length) }}</p>
           <div class="row row-wrap authorization-filter-row"><button type="button" class="btn btn-secondary btn-small" @click="selectShown">{{ ui.selectShown }}</button><button type="button" class="btn btn-secondary btn-small" @click="selectedRules = []">{{ ui.clearSelection }}</button>
           <button type="button" class="btn btn-danger btn-small" :disabled="!selectedRules.length" @click="deleteSelected">{{ ui.deleteSelected }}</button></div>
         </section>
         <template v-if="!showRules">
-          <p v-if="!allocations.rows.length" class="empty-state">{{ query || allocationFilter !== 'all' ? ui.allocation.noMatches : ui.allocation.empty }}</p>
+          <p v-if="!allocations.rows.length" class="empty-state">{{ query || hasAllocationFilters ? ui.allocation.noMatches : ui.allocation.empty }}</p>
           <article v-for="grant in allocations.rows" :key="grant.id" class="card stack authorization-allocation"
             :class="{ 'selection-option-card': selecting && grant.canEdit !== false, 'selection-option-card-selected': selecting && selectedRules.includes(grant.id) }"
             :role="selecting && grant.canEdit !== false ? 'checkbox' : undefined" :aria-checked="selecting && grant.canEdit !== false ? selectedRules.includes(grant.id) : undefined"
@@ -85,12 +76,10 @@
               <div class="stack-tight"><dt class="field-label">{{ ui.allocation.status }}</dt><dd><span class="chip chip-blue">{{ grant.statusText }}</span></dd></div>
             </dl>
             <div class="card-actions authorization-rule-actions" @click.stop>
-              <button v-if="!grant.relationship" type="button" class="btn-quiet" :aria-expanded="!!opened['allocation:' + grant.id]" @click="opened['allocation:' + grant.id] = !opened['allocation:' + grant.id]">{{ opened['allocation:' + grant.id] ? ui.allocation.hide : ui.allocation.view }}</button>
-              <button v-if="!grant.relationship && grant.canEdit !== false" type="button" class="btn-quiet authorization-edit" @click="edit('rule', grant.id)">{{ ui.allocation.adjust }}</button>
-              <button v-if="grant.relationship && grant.hasRole" type="button" class="btn-quiet" @click="viewAllocationRole(grant.schemeId)">{{ ui.allocation.viewRole }}</button>
+              <button type="button" class="btn-quiet" :aria-expanded="!!opened['allocation:' + grant.id]" @click="opened['allocation:' + grant.id] = !opened['allocation:' + grant.id]">{{ opened['allocation:' + grant.id] ? ui.allocation.hide : ui.allocation.view }}</button>
+              <button v-if="grant.canEdit !== false" type="button" class="btn-quiet authorization-edit" @click="edit('rule', grant.id)">{{ ui.allocation.adjust }}</button>
             </div>
-            <p v-if="grant.relationship" class="muted">{{ grant.canEditRole ? ui.allocation.relationshipRoleHelp : ui.allocation.relationshipScopeHelp }}</p>
-            <template v-else-if="opened['allocation:' + grant.id]">
+            <template v-if="opened['allocation:' + grant.id]">
               <p v-if="grant.shared" class="muted">{{ ui.allocation.sharedNotice }}</p>
               <p v-if="grant.custom" class="muted">{{ ui.customAuthorization }}</p>
               <AuthorizationPolicySummary :policy="grant.policy" :directory="directory" :catalog="state.catalog" hide-subjects />
@@ -208,7 +197,7 @@ const tabs = computed(() => state.value.canManage === false ? ['effective']
   : state.value.unifiedIdentity ? ['schemes', 'rules', 'effective'] : ['rules', 'schemes', 'effective']);
 const tab = ref(useRoute().query.tab === 'schemes' ? 'schemes' : 'rules');
 const state = ref({ rules: [], schemes: [], catalog: [] });
-const hasPublishedRole = computed(() => state.value.schemes.some(item => item.publishedVersion && item.id !== state.value.basicRoleId));
+const hasPublishedRole = computed(() => state.value.schemes.some(item => item.publishedVersion && item.publishedCapabilities.length));
 const canCopy = ref(false);
 const directory = ref({ assignments: [], adminGrants: [] });
 const query = ref('');
@@ -233,11 +222,22 @@ const pickerOptions = ref([]);
 const pickerValue = ref([]);
 const selecting = ref(false);
 const showRules = ref(false);
-const allocationFilters = ['all', 'specified', 'conditional', 'relationship', 'historical'];
-const allocationFilter = ref('all');
+const emptyAllocationFilters = () => ({ schemeId: '', application: '', state: '', scope: '', effect: '', natureId: '', departmentId: '', identityCategoryId: '', workGroupId: '' });
+const allocationFilters = ref(emptyAllocationFilters());
+const moreAllocationFilters = ref(false);
 const allocationPage = ref(1);
-const allocations = computed(() => presentation.allocationPage(presentation.allocationCards(state.value, directory.value, ui, query.value, allocationFilter.value), allocationPage.value));
-watch([query, allocationFilter], () => { allocationPage.value = 1; });
+const filterFields = computed(() => {
+  const options = presentation.allocationOptions(state.value, directory.value, ui);
+  const labels = { schemeId: ui.allocation.filterRole, application: ui.allocation.filterApplication, state: ui.allocation.filterState, scope: ui.allocation.filterScope, effect: ui.allocation.filterEffect, natureId: ui.nature, departmentId: ui.department, identityCategoryId: ui.identityCategory, workGroupId: ui.workGroup };
+  return Object.keys(labels).map((key, index) => ({ key, label: labels[key], options: options[key], more: index > 3 }));
+});
+const visibleFilterFields = computed(() => filterFields.value.filter(item => !item.more || moreAllocationFilters.value));
+const hasAllocationFilters = computed(() => Object.values(allocationFilters.value).some(Boolean));
+const filteredAllocations = computed(() => presentation.allocationCards(state.value, directory.value, ui, query.value, allocationFilters.value));
+const allocations = computed(() => presentation.allocationPage(filteredAllocations.value, allocationPage.value));
+watch([query, allocationFilters], () => { allocationPage.value = 1; selectedRules.value = []; }, { deep: true });
+watch(allocationPage, () => { selectedRules.value = []; });
+function clearAllocationFilters() { allocationFilters.value = emptyAllocationFilters(); query.value = ''; }
 const selectedRules = ref([]);
 let candidateGeneration = 0;
 let generation = 0;
@@ -272,7 +272,7 @@ function clear() {
   generation++; inspectionGeneration++; candidateGeneration++;
   selecting.value = false; selectedRules.value = [];
   showRules.value = false;
-  allocationFilter.value = 'all'; allocationPage.value = 1;
+  allocationFilters.value = emptyAllocationFilters(); moreAllocationFilters.value = false; allocationPage.value = 1;
   closeInspection(); inspectionTarget.value = null; inspectionLabel.value = ui.ownRole; candidateLoading.value = false;
   state.value = { rules: [], schemes: [], catalog: [] }; directory.value = { assignments: [], adminGrants: [] };
   effective.value = null; ready.value = false; query.value = ''; inspecting.value = false; inspectionNotice.value = ''; notice.value = '';
@@ -340,18 +340,20 @@ function confirmInspection(selected) {
 }
 function selectTab(value) {
   tab.value = value;
+  selectedRules.value = [];
   if (value === 'effective' && ready.value) inspect();
 }
 function toggleSelection() { selecting.value = !selecting.value; selectedRules.value = []; }
 function toggleRules() { showRules.value = !showRules.value; selecting.value = false; selectedRules.value = []; }
 function selectRule(id) {
   if (!selecting.value) return;
-  if (state.value.rules.find(rule => rule.id === id)?.canEdit === false) return;
+  const visible = showRules.value ? cards.value : allocations.value.rows;
+  if (!visible.some(item => item.id === id && item.canEdit !== false)) return;
   selectedRules.value = selectedRules.value.includes(id) ? selectedRules.value.filter(value => value !== id) : [...selectedRules.value, id];
 }
 function selectShown() {
   const visible = showRules.value ? cards.value : allocations.value.rows;
-  selectedRules.value = [...new Set([...selectedRules.value, ...visible.filter(item => item.canEdit !== false).map(item => item.id)])];
+  selectedRules.value = [...new Set([...selectedRules.value.filter(id => visible.some(item => item.id === id && item.canEdit !== false)), ...visible.filter(item => item.canEdit !== false).map(item => item.id)])];
 }
 function viewAllocationRole(id) {
   query.value = '';
@@ -359,7 +361,9 @@ function viewAllocationRole(id) {
   opened.value = { ['scheme:' + id]: true };
 }
 function deleteSelected() {
-  if (selectedRules.value.length) router.push({ name: 'authorizationChanges', query: { kind: 'delete', ids: JSON.stringify(selectedRules.value) } });
+  const visible = showRules.value ? cards.value : allocations.value.rows;
+  const ids = selectedRules.value.filter(id => visible.some(item => item.id === id && item.canEdit !== false));
+  if (ids.length) router.push({ name: 'authorizationChanges', query: { kind: 'delete', ids: JSON.stringify(ids) } });
 }
 function edit(kind, id, duplicate = false, advanced = false) {
   router.push({ name: 'authorizationEditor', query: { kind, ...(id ? { id } : {}), ...(duplicate ? { duplicate: '1' } : {}), ...(advanced ? { advanced: '1' } : {}) } });
@@ -383,6 +387,11 @@ details[open] > summary { margin-bottom: var(--ui-list-gap); }
 .authorization-allocation-facts dd { margin: 0; }
 .authorization-workspace .authorization-filter-row > .btn { flex: 0 0 auto; width: auto; margin: 0; }
 .authorization-allocation-pager { justify-content: center; }
+.authorization-allocation-filter { flex: 1 1 140px; min-width: 0; }
+.authorization-filter-actions { flex: 0 1 auto; min-width: 0; max-width: 100%; }
+.authorization-workspace .authorization-filter-actions > .btn { flex: 0 0 auto; width: auto; margin: 0; }
+.authorization-allocation-filter > select { width: 100%; min-width: 0; }
+.authorization-filter-row { align-items: end; }
 @media (min-width: 520px) {
   .authorization-allocation-facts { grid-template-columns: minmax(0, 2fr) minmax(0, 2fr) minmax(0, 1fr); }
   .authorization-allocation-facts > div:first-child { grid-column: auto; }

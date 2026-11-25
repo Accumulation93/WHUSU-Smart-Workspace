@@ -34,7 +34,7 @@ async function createAuthorizationSession(connection, reference, options = {}) {
   function check(input) {
     const computed = evaluate({ actor, resource: input.resource, capability: input.capability, catalog,
       prepared, now, businessAllowed: input.businessAllowed,
-      businessGranted: input.businessGranted === true && !state.disabledBasic.has(input.capability),
+      businessGranted: input.businessGranted === true,
       requestedFields: input.requestedFields || [] });
     if (!actor || !input.resource || input.resource.organizationId !== actor.organizationId || !catalog.has(input.capability)
       || input.resource.type !== catalog.get(input.capability).resourceType
@@ -51,7 +51,7 @@ async function createAuthorizationSession(connection, reference, options = {}) {
   function queryScope(descriptor, capability, options = {}) {
     if (!actor || state.mode !== 'enforced') return { enforced: false, sql: '1 = 0', params: [] };
     const result = createScopeCompiler(descriptor)({ actor, capability, policies, catalog, now,
-      businessGranted: options.businessGranted === true && !state.disabledBasic.has(capability) });
+      businessGranted: options.businessGranted === true });
     return Object.assign({ enforced: true }, result);
   }
 

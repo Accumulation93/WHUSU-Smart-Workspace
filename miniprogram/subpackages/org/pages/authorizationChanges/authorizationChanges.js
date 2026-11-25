@@ -10,7 +10,7 @@ const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation'
 Page({
   data: { ui, navTopPx: 0, heroTone: 'blue', loading: true, busy: false, notice: '', deleting: false, ready: false,
     targetName: '', impactText: '', cards: [], labels: [], versions: [], restoreVersion: 0, previewOnly: false, deletingDelegation: false, unified: false,
-    schemeBlocked: false, blockedOperations: [], canEditScheme: false, relationshipComparison: null },
+    schemeBlocked: false, blockedOperations: [], canEditScheme: false },
   onLoad: function(options) { this._options = options; this.setData({ deleting: ['delete', 'deleteDelegation'].includes(options.kind), deletingDelegation: options.kind === 'deleteDelegation', navTopPx: getNavigationBarMetrics().totalHeight }); },
   onShow: function() { this._active = true; orgSession.consume(this); this.setData({ heroTone: orgSession.getSnapshot().role === 'admin' ? 'admin' : 'blue' }); this.load(); },
   onResize: function() { this.setData({ navTopPx: getNavigationBarMetrics().totalHeight }); },
@@ -19,7 +19,7 @@ Page({
   clear: function() {
     this._active = false; orgSession.invalidateRequests(this); this._state = null; this._directory = null; this._payload = null;
     this._schemePayload = null;
-    this.setData({ ready: false, cards: [], labels: [], versions: [], busy: false, relationshipComparison: null,
+    this.setData({ ready: false, cards: [], labels: [], versions: [], busy: false,
       schemeBlocked: false, blockedOperations: [], canEditScheme: false });
   },
   call: async function(name, data) {
@@ -112,12 +112,7 @@ Page({
         after: after ? presentation.policySections(after, this._directory, this._state.catalog, ui) : null,
         roles: roles.map(item => ({ key: item.role + ':' + item.subjectId, name: item.name, assignmentLabel: item.role === 'admin' ? ui.adminGrants : presentation.assignmentLabel(item) })) };
     });
-    const relationship = result.relationshipRoleAssignment;
-    const relationshipComparison = relationship ? [
-      { key: 'before', title: ui.allocation.relationshipBefore, labels: this.labels(relationship.beforeCapabilities) },
-      { key: 'after', title: ui.allocation.relationshipAfter, labels: this.labels(relationship.afterCapabilities) }
-    ] : null;
-    this.setData({ ready: true, schemeBlocked: false, blockedOperations: [], unified: this._state.unifiedIdentity === true, previewOnly: this._state.mode === 'shadow', impactText: ui.impactCount(result.peopleCount, result.roleCount), cards, labels: this.labels(result.capabilities), relationshipComparison });
+    this.setData({ ready: true, schemeBlocked: false, blockedOperations: [], unified: this._state.unifiedIdentity === true, previewOnly: this._state.mode === 'shadow', impactText: ui.impactCount(result.peopleCount, result.roleCount), cards, labels: this.labels(result.capabilities) });
   },
   previewVersion: async function(event) {
     if (this.data.busy || !this._schemePayload) return;

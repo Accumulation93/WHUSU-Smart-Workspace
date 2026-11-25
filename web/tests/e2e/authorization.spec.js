@@ -4,6 +4,7 @@ import ui from '../../src/locales/zh-CN/shared/authorization.js';
 import presentation from '../../src/shared/authorizationPresentation.js';
 
 const capability = { key: 'venue.bookings.read', resourceType: 'venue.bookings', action: 'read', scopes: ['organization', 'self', 'records', 'assignmentScope'], fields: [] };
+const allocationCapability = { ...capability, key: 'assign:' + capability.key, action: 'assign', allocationCapability: capability.key, classification: 'general', governance: true };
 const assignment = { assignmentId: 'job-a', name: 'Example member', natureId: 'staff', natureName: 'Staff', departmentId: 'dept-a', departmentName: 'Department A', identityCategoryId: 'identity-a', identityCategoryName: 'Member' };
 const directory = { assignments: [assignment], adminGrants: [{ adminGrantId: 'grant-a', name: 'Example administrator' }] };
 
@@ -32,22 +33,27 @@ test('one card per allocation keeps large lists paged and separates recipients f
   await page.goto('/web/admin/authorization');
   const cards = page.locator('.authorization-allocation');
   await expect(cards).toHaveCount(20);
-  const filters = page.getByRole('group', { name: ui.allocation.recipient, exact: true });
+  const filters = page.locator('.authorization-filter-row').first();
   const batch = filters.getByRole('button', { name: ui.batchSelect, exact: true });
   await expect(batch).toBeVisible();
-  const filterButtons = filters.getByRole('button');
-  await expect(filterButtons).toHaveCount(6);
-  const layout = await filterButtons.evaluateAll(buttons => {
-    const container = buttons[0].parentElement.getBoundingClientRect();
-    const boxes = buttons.map(button => button.getBoundingClientRect());
+  await expect(filters.getByRole('combobox')).toHaveCount(4);
+  await expect(filters.getByRole('button', { name: ui.allocation.historical, exact: true })).toHaveCount(0);
+  const layout = await filters.evaluate(container => {
+    const bounds = container.getBoundingClientRect();
+    const boxes = [...container.children].map(child => child.getBoundingClientRect());
+    const buttons = [...container.querySelectorAll('button')].map(child => child.getBoundingClientRect());
     return {
       rows: new Set(boxes.map(box => Math.round(box.top))).size,
-      inside: boxes.every(box => box.left >= container.left - 1 && box.right <= container.right + 1)
+      selectsComplete: [...container.querySelectorAll('select')].every(select => select.getBoundingClientRect().height >= 36),
+      inside: boxes.concat(buttons).every(box => box.left >= bounds.left - 1 && box.right <= bounds.right + 1),
+      adjacentButtons: new Set(buttons.map(box => Math.round(box.top))).size === 1,
+      controls: [...container.children].map((child, index) => ({ text: child.textContent.trim(), x: boxes[index].x, y: boxes[index].y, width: boxes[index].width, height: boxes[index].height, transform: getComputedStyle(child).transform }))
     };
   });
   expect(layout.inside).toBe(true);
-  const width = page.viewportSize().width;
-  expect(layout.rows).toBe(width < 520 ? 2 : 1);
+  expect(layout.selectsComplete).toBe(true);
+  expect(layout.adjacentButtons, JSON.stringify(layout)).toBe(true);
+  expect(layout.rows).toBeLessThan(7);
   await batch.click();
   const batchActions = [ui.selectShown, ui.clearSelection, ui.deleteSelected]
     .map(name => page.getByRole('button', { name, exact: true }));
@@ -59,22 +65,22 @@ test('one card per allocation keeps large lists paged and separates recipients f
   await page.screenshot({ path: test.info().outputPath('allocation-controls.png'), animations: 'disabled' });
   await filters.getByRole('button', { name: ui.finishSelection, exact: true }).click();
   await expect(cards.locator('.policy-groups')).toHaveCount(0);
-  await expect(cards.first()).toContainText(ui.allocation.relationshipDataScope);
-  await expect(cards.nth(1)).toContainText('Department 0 · Member');
-  await expect(cards.nth(1)).toContainText(ui.ownRecords);
-  await expect(cards.nth(1)).not.toContainText('Staff');
+  await expect(cards.first()).toContainText('Staff · Department 0 · Member');
+  await expect(cards.first()).toContainText(ui.ownRecords);
+  await expect(page.getByText(ui.allocation.relationshipDataScope, { exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: ui.allocation.nextPage, exact: true }).click();
   await expect(page.getByText(ui.unified.permissionPage(2, 16), { exact: true })).toBeVisible();
   await page.getByLabel(ui.allocation.search, { exact: true }).fill('Linked grant');
   await expect(cards).toHaveCount(1);
   await expect(cards.locator('dd').getByText('Example member', { exact: false })).toHaveCount(1);
   await page.getByLabel(ui.allocation.search, { exact: true }).fill('');
-  await page.getByRole('button', { name: ui.allocation.historical, exact: true }).click();
+  await page.getByRole('combobox', { name: ui.allocation.filterState, exact: true }).selectOption('disabled');
   await expect(cards).toHaveCount(1);
   await expect(cards).toContainText(ui.allocation.unknownRecipient);
   await expect(cards).toContainText(ui.disabled);
   await expect(cards.getByText(ui.adminGrants, { exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: ui.allocation.conditional, exact: true }).click();
+  await page.getByRole('button', { name: ui.allocation.clearFilters, exact: true }).click();
+  await page.getByRole('combobox', { name: ui.allocation.filterScope, exact: true }).selectOption('organization');
   await expect(cards).toHaveCount(1);
   await expect(cards).toContainText(ui.currentOrganization);
   await openRecipientGrant(page);
@@ -114,38 +120,115 @@ test('inspection defaults to granted and keeps its range through search with fac
   await expect(page.getByText(ui.noConfiguredPermissions, { exact: true })).toHaveCount(0);
 });
 
-test('member relationship permissions use the role editor and publication preview', async ({ page }) => {
+test('allocation search combines role application state scope and one complete recipient position', async ({ page }) => {
   const { state } = await setup(page);
-  const role = { id: 'member-role', name: ui.unified.memberRelationshipRoleName, version: 1,
-    publishedVersion: 1, capabilities: [capability.key], publishedCapabilities: [capability.key] };
+  const second = { ...assignment, assignmentId: 'job-b', departmentId: 'dept-b', departmentName: 'Department B', identityCategoryId: 'identity-b', identityCategoryName: 'Coordinator', workGroupId: 'group-b', workGroupName: 'Group B' };
+  const matched = { ...second, assignmentId: 'job-c', name: 'Dynamic recipient', departmentId: 'dept-a', departmentName: 'Department A', workGroupId: 'group-c', workGroupName: 'Group C' };
+  const policy = { enabled: true, effect: 'allow', subjects: [{ kind: 'assignments', ids: ['job-a', 'job-b'] }], capabilities: [capability.key], scopes: [{ kind: 'self' }], fields: null };
   Object.assign(state, { mode: 'enforced', unifiedIdentity: true, roleBindingOnly: true,
-    basicRoleId: role.id, schemes: [role], basicCapabilities: [{ key: capability.key, enabled: true }],
-    relationshipRoleAssignment: { id: 'member-assignment', schemeId: role.id, enabled: true } });
-  let saved;
+    schemes: [{ id: 'reader', name: 'Venue records', publishedVersion: 1, capabilities: [capability.key], publishedCapabilities: [capability.key] },
+      { id: 'reviewer', name: 'Venue review', publishedVersion: 1, capabilities: [capability.key], publishedCapabilities: [capability.key] }],
+    rules: [{ id: 'two-posts', name: 'Separate positions', schemeId: 'reader', policy },
+      { id: 'dynamic', name: 'Dynamic records', schemeId: 'reader', policy: { ...policy,
+        subjects: [{ kind: 'assignmentScope', dimensions: { natureId: ['staff'], departmentId: ['dept-a'], identityCategoryId: ['identity-b'] } }], scopes: [{ kind: 'organization' }] } },
+      { id: 'review', name: 'Review restriction', schemeId: 'reviewer', policy: { ...policy, effect: 'deny', subjects: [{ kind: 'assignments', ids: ['job-c'] }], scopes: [{ kind: 'organization' }, { kind: 'self' }] } },
+      { id: 'missing', name: 'Historical recipient', schemeId: 'reader', policy: { ...policy, enabled: false, subjects: [{ kind: 'adminGrants', ids: ['missing-grant'] }] } }],
+    relationshipRoleAssignment: { id: 'old-basic', schemeId: 'removed-base', enabled: true },
+    delegations: [{ id: 'old-delegation', name: 'Old standalone qualification', enabled: true }] });
+  await page.route('**/api/getAuthorizationCandidates', route => route.fulfill({ json: { status: 'success', assignments: [assignment, second, matched], adminGrants: [] } }));
+  await page.goto('/web/admin/authorization?tab=rules');
+  const cards = page.locator('.authorization-allocation');
+  await expect(cards).toHaveCount(4);
+  await expect(page.getByText(ui.unified.memberRelationshipRoleName, { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: ui.createDelegation, exact: true })).toHaveCount(0);
+  await expect(page.getByText('Old standalone qualification', { exact: true })).toHaveCount(0);
+  await page.getByRole('combobox', { name: ui.allocation.filterRole, exact: true }).selectOption('reader');
+  await page.getByRole('combobox', { name: ui.allocation.filterApplication, exact: true }).selectOption('venue');
+  await page.getByRole('combobox', { name: ui.allocation.filterState, exact: true }).selectOption('enabled');
+  await page.getByRole('combobox', { name: ui.allocation.filterScope, exact: true }).selectOption('organization');
+  await expect(cards).toHaveCount(1);
+  await page.getByRole('button', { name: ui.allocation.moreFilters, exact: true }).click();
+  await page.getByRole('combobox', { name: ui.nature, exact: true }).selectOption('staff');
+  await page.getByRole('combobox', { name: ui.department, exact: true }).selectOption('dept-a');
+  await page.getByRole('combobox', { name: ui.identityCategory, exact: true }).selectOption('identity-b');
+  await page.getByRole('combobox', { name: ui.workGroup, exact: true }).selectOption('group-c');
+  await page.getByLabel(ui.allocation.search, { exact: true }).fill('Dynamic records');
+  await expect(cards).toHaveCount(1);
+  await expect(page.getByText(ui.allocation.resultCount(1, 4), { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: ui.allocation.fewerFilters, exact: true }).click();
+  await expect(cards).toHaveCount(1);
+  await page.getByRole('button', { name: ui.allocation.moreFilters, exact: true }).click();
+  await expect(page.getByRole('combobox', { name: ui.workGroup, exact: true })).toHaveValue('group-c');
+  await page.getByRole('combobox', { name: ui.workGroup, exact: true }).selectOption('group-b');
+  await expect(cards).toHaveCount(0);
+  await expect(page.getByText(ui.allocation.noMatches, { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: ui.allocation.clearFilters, exact: true }).click();
+  await expect(cards).toHaveCount(4);
+  await expect(page.getByLabel(ui.allocation.search, { exact: true })).toHaveValue('');
+  await page.getByRole('combobox', { name: ui.allocation.filterScope, exact: true }).selectOption('self');
+  await page.getByRole('combobox', { name: ui.allocation.filterState, exact: true }).selectOption('enabled');
+  await page.getByRole('combobox', { name: ui.allocation.filterRole, exact: true }).selectOption('reader');
+  await page.getByRole('combobox', { name: ui.department, exact: true }).selectOption('dept-a');
+  await page.getByRole('combobox', { name: ui.identityCategory, exact: true }).selectOption('identity-b');
+  await expect(cards).toHaveCount(0);
+  await page.getByRole('button', { name: ui.allocation.clearFilters, exact: true }).click();
+  await page.getByRole('combobox', { name: ui.allocation.filterEffect, exact: true }).selectOption('deny');
+  await page.getByRole('combobox', { name: ui.allocation.filterScope, exact: true }).selectOption('self');
+  await expect(cards).toHaveCount(1);
+  await expect(cards).toContainText('Venue review');
+  await page.getByRole('button', { name: ui.allocation.clearFilters, exact: true }).click();
+  await page.getByRole('combobox', { name: ui.allocation.filterState, exact: true }).selectOption('disabled');
+  await expect(cards).toHaveCount(1);
+  await expect(cards).toContainText(ui.allocation.unknownRecipient);
+  await expect(cards.getByText(ui.adminGrants, { exact: true })).toHaveCount(0);
+});
+
+test('an assign-only role saves and publishes without granting its business operation', async ({ page }) => {
+  const { state } = await setup(page);
+  Object.assign(state, { mode: 'enforced', unifiedIdentity: true, roleBindingOnly: true,
+    catalog: [{ ...capability, classification: 'general' }, allocationCapability,
+      { key: 'identity.cards.create', resourceType: 'identity.cards', action: 'create', scopes: ['organization'], fields: [], businessOnly: true }] });
+  const role = { id: 'allocation-role', name: 'Venue allocation', version: 1,
+    publishedVersion: 0, capabilities: [], publishedCapabilities: [] };
+  let saved, published;
   await page.route('**/api/saveAuthorizationScheme', route => {
     saved = route.request().postDataJSON();
-    role.capabilities = saved.capabilities; role.version++;
+    Object.assign(role, { name: saved.name, capabilities: saved.capabilities }); state.schemes = [role];
     return route.fulfill({ json: { status: 'success', scheme: role } });
   });
-  await page.route('**/api/previewAuthorizationScheme', route => route.fulfill({ json: { status: 'success', rules: [], roles: [],
-    relationshipRoleAssignment: { ...state.relationshipRoleAssignment, beforeCapabilities: role.publishedCapabilities,
-      afterCapabilities: role.capabilities } } }));
+  await page.route('**/api/previewAuthorizationScheme', route => route.fulfill({ json: { status: 'success',
+    capabilities: role.capabilities, rules: [], roles: [], peopleCount: 0, roleCount: 0 } }));
   await page.route('**/api/getAuthorizationSchemeVersions', route => route.fulfill({ json: { status: 'success', versions: [] } }));
-  await page.goto('/web/admin/authorization');
-  await expect(page.getByRole('button', { name: ui.unified.assignPublishedRole, exact: true })).toHaveCount(0);
-  await page.locator('.authorization-allocation').getByRole('button', { name: ui.allocation.viewRole, exact: true }).click();
-  await expect(page.getByRole('switch')).toHaveCount(0);
-  await page.locator('.authorization-scheme').getByRole('button', { name: ui.edit, exact: true }).click();
+  await page.route('**/api/publishAuthorizationScheme', route => {
+    published = route.request().postDataJSON();
+    Object.assign(role, { version: 2, publishedVersion: 1, publishedCapabilities: role.capabilities });
+    return route.fulfill({ json: { status: 'success', version: 2, publishedVersion: 1 } });
+  });
+  await page.goto('/web/admin/authorization/edit?kind=scheme');
+  const label = presentation.capabilityLabel(allocationCapability.key, state.catalog, ui);
+  await page.getByLabel(ui.schemeName, { exact: true }).fill(role.name);
+  await page.getByLabel(ui.unified.permissionSearchPlaceholder, { exact: true }).fill(presentation.capabilityLabel('identity.cards.create', state.catalog, ui));
+  await expect(page.locator('.authorization-picker-module')).toHaveCount(0);
+  await expect(page.getByText(ui.unified.permissionNoSearchResults, { exact: true })).toBeVisible();
+  await page.getByLabel(ui.unified.permissionSearchPlaceholder, { exact: true }).fill(label);
+  await page.getByRole('button', { name: label, exact: true }).click();
+  await expect(page.getByText(ui.selectedOperations(1), { exact: true })).toBeVisible();
+  await expect(page.getByRole('switch', { name: ui.unified.allowRedelegation, exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: ui.unified.permissionFilterSelected, exact: true }).click();
-  await page.getByRole('button', { name: ui.unified.removeSelectedPermissionLabel(presentation.capabilityLabel(capability.key, state.catalog, ui)), exact: true }).click();
+  await expect(page.getByRole('table').locator('tbody tr')).toHaveCount(1);
+  await expect(page.getByRole('table')).toContainText(label);
   await page.getByRole('button', { name: ui.saveDraft, exact: true }).click();
-  expect(saved.capabilities).toEqual([]);
+  await expect(page).toHaveURL(/tab=schemes$/);
+  expect(saved.capabilities).toEqual([allocationCapability.key]);
   await page.locator('.authorization-scheme > summary').click();
   await page.getByRole('button', { name: ui.publish, exact: true }).click();
-  await expect(page.getByText(ui.allocation.relationshipImpact, { exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: ui.allocation.relationshipBefore, exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: ui.allocation.relationshipAfter, exact: true })).toBeVisible();
-  await expect(page.getByText(ui.noConfiguredPermissions, { exact: true })).toBeVisible();
+  await expect(page.getByText(label, { exact: true })).toBeVisible();
+  expect(published).toBeUndefined();
+  await page.getByRole('button', { name: ui.confirmPublish, exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/authorization$/);
+  expect(published.id).toBe(role.id);
+  expect(role.publishedCapabilities).toEqual([allocationCapability.key]);
+  expect(role.publishedCapabilities).not.toContain(capability.key);
 });
 
 async function setup(page, ordinary = false) {
@@ -159,6 +242,7 @@ async function setup(page, ordinary = false) {
     const payload = route.request().postDataJSON();
     calls.preview = payload;
     return route.fulfill({ json: { status: 'success', revision: state.revision,
+      ...(payload.assignmentMode === 'snapshot' ? { previewToken: 'approved-posts' } : {}),
       rule: { ...payload, id: payload.id || 'rule-a' }, impact: { peopleCount: 1, roleCount: 1,
         roles: [{ ...assignment, role: 'user', subjectId: assignment.assignmentId, before: null, after: payload.policy }] } } });
   });
@@ -680,15 +764,16 @@ test('inspection-only deep links cannot open an editor or request configuration 
   expect(candidates).toBe(0);
 });
 
-test('batch selection keeps filtered-out selections and previews each rule before deletion', async ({ page }) => {
+test('batch deletion clears hidden selections and excludes visible read-only rules', async ({ page }) => {
   const { state } = await setup(page);
   const policy = { enabled: true, effect: 'allow', subjects: [{ kind: 'assignments', ids: ['job-a'] }], capabilities: [capability.key], scopes: [{ kind: 'self' }], fields: null };
-  state.rules = [{ id: 'first', version: 1, name: 'First rule', policy }, { id: 'second', version: 2, name: 'Second rule', policy }];
+  state.rules = [{ id: 'first', version: 1, name: 'First rule', policy }, { id: 'second', version: 2, name: 'Second rule', policy },
+    { id: 'locked', version: 3, name: 'Second locked rule', canEdit: false, policy }];
   let previewed, saved;
   await page.route('**/api/previewAuthorizationRuleDeletion', route => {
     previewed = route.request().postDataJSON();
     return route.fulfill({ json: { status: 'success', peopleCount: 1, roleCount: 1,
-      rules: state.rules.map(rule => ({ ...rule, impact: { before: rule.policy, roles: [] } })) } });
+      rules: state.rules.filter(rule => previewed.rules.some(item => item.id === rule.id)).map(rule => ({ ...rule, impact: { before: rule.policy, roles: [] } })) } });
   });
   await page.route('**/api/deleteAuthorizationRules', route => {
     saved = route.request().postDataJSON(); state.rules = [];
@@ -706,16 +791,18 @@ test('batch selection keeps filtered-out selections and previews each rule befor
   await expect(firstCard).toHaveAttribute('aria-checked', 'false');
   await firstCard.locator(':scope > .row').click();
   await page.getByRole('textbox', { name: ui.allocation.search, exact: true }).fill('Second');
+  await expect(page.getByText(ui.selectedRules(0), { exact: true })).toBeVisible();
   await page.getByRole('button', { name: ui.selectShown, exact: true }).click();
-  await expect(page.getByText(ui.selectedRules(2), { exact: true })).toBeVisible();
+  await expect(page.getByText(ui.selectedRules(1), { exact: true })).toBeVisible();
   await page.getByRole('button', { name: ui.deleteSelected, exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'First rule', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'First rule', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Second locked rule', exact: true })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Second rule', exact: true })).toBeVisible();
   expect(saved).toBeUndefined();
   await page.getByRole('button', { name: ui.remove, exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/authorization$/);
   expect(saved).toEqual({ ...previewed, identityModel: 'unified' });
-  expect(saved.rules).toEqual([{ id: 'first', version: 1 }, { id: 'second', version: 2 }]);
+  expect(saved.rules).toEqual([{ id: 'second', version: 2 }]);
 });
 
 test('editor and preview role switch open the work role selector', async ({ page }) => {
@@ -727,63 +814,136 @@ test('editor and preview role switch open the work role selector', async ({ page
   }
 });
 
-test('delegation recipients stay separate from eligible assignees through save, reopen and removal', async ({ page }) => {
-  const { state } = await setup(page);
-  let saved, previewed, deleted = 0;
-  await page.route('**/api/previewAuthorizationDelegation', route => {
-    previewed = route.request().postDataJSON();
-    return route.fulfill({ json: { status: 'success', delegation: previewed, impact: { peopleCount: 1, roleCount: 1,
-      roles: [{ role: 'admin', subjectId: 'grant-a', name: 'Example administrator', before: null, after: previewed.envelope }] } } });
+test('allocation holders and eligible recipients remain separate through preview save reopen and removal', async ({ page }) => {
+  const { state, calls } = await setup(page);
+  const eligible = { ...assignment, assignmentId: 'job-b', name: 'Eligible member', departmentId: 'dept-b', departmentName: 'Department B' };
+  Object.assign(state, { mode: 'enforced', unifiedIdentity: true, roleBindingOnly: true,
+    catalog: [{ ...capability, classification: 'general' }, allocationCapability],
+    schemes: [{ id: 'assign-only', name: 'Venue allocation', version: 1, publishedVersion: 1,
+      capabilities: [allocationCapability.key], publishedCapabilities: [allocationCapability.key] }] });
+  await page.route('**/api/getAuthorizationCandidates', route => route.fulfill({ json: { status: 'success', assignments: [assignment, eligible], adminGrants: [] } }));
+  let removed;
+  await page.route('**/api/previewAuthorizationRuleDeletion', route => route.fulfill({ json: { status: 'success', revision: state.revision,
+    peopleCount: 1, roleCount: 1, rules: state.rules.map(rule => ({ ...rule, impact: { before: rule.policy, roles: [] } })) } }));
+  await page.route('**/api/deleteAuthorizationRules', route => {
+    removed = route.request().postDataJSON(); state.rules = []; state.revision++;
+    return route.fulfill({ json: { status: 'success', count: 1 } });
   });
-  await page.route('**/api/saveAuthorizationDelegation', route => {
-    saved = route.request().postDataJSON(); state.delegations = [{ ...saved, id: 'delegation-a', version: 1 }]; state.revision++;
-    return route.fulfill({ json: { status: 'success', delegation: state.delegations[0] } });
-  });
-  await page.route('**/api/previewAuthorizationDelegationDeletion', route => route.fulfill({ json: { status: 'success', delegation: state.delegations[0],
-    impact: { peopleCount: 1, roleCount: 1, roles: [{ role: 'admin', subjectId: 'grant-a', name: 'Example administrator', before: saved.envelope, after: null }] } } }));
-  await page.route('**/api/deleteAuthorizationDelegation', route => {
-    expect(route.request().postDataJSON()).toEqual({ id: 'delegation-a', version: 1, expectedRevision: 2, identityModel: 'unified' });
-    deleted++; state.delegations = []; return route.fulfill({ json: { status: 'success' } });
-  });
-  await page.goto('/web/admin/authorization');
-  await page.locator('summary', { hasText: ui.advancedManagement }).click();
-  await page.getByRole('button', { name: ui.createDelegation, exact: true }).click();
-  await page.getByLabel(ui.delegationName, { exact: true }).fill('Bounded delegation');
-  await page.locator('section').filter({ has: page.getByRole('heading', { name: ui.delegateRecipients, exact: true }) }).getByRole('button', { name: ui.selectDelegateAssignment, exact: true }).click();
+  await page.goto('/web/admin/authorization/edit?kind=rule');
+  await page.getByRole('button', { name: ui.unified.selectRecipientPosts, exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: /Example member/ }).click();
   await page.getByRole('dialog').locator('footer button').last().click();
-  await page.locator('section').filter({ has: page.getByRole('heading', { name: ui.delegateRecipients, exact: true }) }).getByRole('button', { name: ui.selectDelegateAdmin, exact: true }).click();
-  await page.getByRole('dialog').getByRole('button', { name: /Example administrator/ }).click();
-  await page.getByRole('dialog').locator('footer button').last().click();
-  await page.locator('section').filter({ has: page.getByRole('heading', { name: ui.delegationSubjects, exact: true }) }).getByRole('button', { name: ui.selectRecipientAssignment, exact: true }).click();
-  await page.getByRole('dialog').getByRole('button', { name: /Example member/ }).click();
-  await page.getByRole('dialog').locator('footer button').last().click();
-  await page.locator('.authorization-picker-group .authorization-disclosure').filter({ hasText: ui.unified.permissionSections.venueRecords }).click();
-  await page.getByRole('button', { name: presentation.capabilityLabel(capability.key, state.catalog, ui), exact: true }).click();
+  await page.getByRole('combobox', { name: ui.useScheme, exact: true }).selectOption('assign-only');
+  const recipientSection = page.locator('section').filter({ has: page.getByRole('heading', { name: ui.unified.allocationSubjectsTitle, exact: true }) });
+  await expect(recipientSection).toBeVisible();
+  await expect(page.getByRole('switch', { name: ui.unified.allowRedelegation, exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: ui.ownRecords, exact: true }).click();
   await page.getByRole('button', { name: ui.previewChanges, exact: true }).click();
-  await expect(page.getByText(ui.delegationNotice, { exact: true })).toBeVisible();
-  expect(saved).toBeUndefined();
+  await expect(page.getByRole('alert')).toHaveText(ui.invalidPolicy);
+  expect(calls.previews).toBe(0);
+  await recipientSection.getByRole('button', { name: ui.unified.selectRecipientPosts, exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: /Eligible member/ }).click();
+  await page.getByRole('dialog').locator('footer button').last().click();
+  await page.getByRole('button', { name: ui.previewChanges, exact: true }).click();
+  await expect(page.getByRole('heading', { name: ui.unified.grantPreviewTitle, exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: ui.unified.allocationSubjectsTitle, exact: true })).toBeVisible();
+  expect(calls.preview.policy.subjects).toEqual([{ kind: 'assignments', ids: ['job-a'] }]);
+  expect(calls.preview.policy.allocationSubjects).toEqual([{ kind: 'assignments', ids: ['job-b'] }]);
+  expect(calls.saves).toBe(0);
+  await page.getByRole('button', { name: ui.confirmChanges, exact: true }).click();
+  await expect(page.locator('.authorization-allocation')).toHaveCount(1);
+  expect(calls.saved.policy.capabilities).toEqual([allocationCapability.key]);
+  expect(calls.saved.policy.allocationSubjects).toEqual(calls.preview.policy.allocationSubjects);
+  await openRecipientGrant(page);
+  await expect(page.locator('.policy-groups')).toContainText('Eligible member');
+  await expect(page.locator('.authorization-allocation-facts')).toContainText('Example member');
+  await expect(page.locator('.authorization-allocation-facts')).not.toContainText('Eligible member');
+  await page.getByRole('button', { name: ui.allocation.adjust, exact: true }).click();
+  await recipientSection.getByRole('button', { name: ui.unified.selectRecipientPosts, exact: true }).click();
+  await expect(page.getByRole('dialog').getByRole('button', { name: /Eligible member/ })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('dialog').getByRole('button', { name: /Example member/ })).toHaveAttribute('aria-pressed', 'false');
+  await page.getByRole('dialog').locator('footer button').first().click();
+  await page.getByRole('button', { name: ui.cancel, exact: true }).click();
+  await page.getByRole('button', { name: ui.batchSelect, exact: true }).click();
+  await page.getByRole('button', { name: ui.selectShown, exact: true }).click();
+  await page.getByRole('button', { name: ui.deleteSelected, exact: true }).click();
+  await expect(page.getByText(ui.deleteRuleNotice)).toBeVisible();
+  expect(removed).toBeUndefined();
+  await page.getByRole('button', { name: ui.remove, exact: true }).click();
+  await expect(page.locator('.authorization-allocation')).toHaveCount(0);
+  expect(removed.rules).toEqual([{ id: 'rule-a', version: 1 }]);
+});
+
+test('an ordinary holder regrants allocation permission within one source and cannot reopen after its range is reduced', async ({ page }) => {
+  const { state, calls } = await setup(page, true);
+  const eligible = { ...assignment, assignmentId: 'job-b', name: 'Eligible recipient' };
+  const outside = { ...assignment, assignmentId: 'outside', name: 'Outside recipient' };
+  const source = { id: 'rule:server-generated-source-id', name: 'Venue delegation role', allowRedelegation: false, envelope: {
+    capabilities: [capability.key, allocationCapability.key], subjects: [{ kind: 'assignments', ids: ['job-a', 'job-b'] }],
+    scopes: [{ kind: 'self' }], fields: null, startsAt: null, endsAt: null
+  } };
+  Object.assign(state, { mode: 'enforced', unifiedIdentity: true, roleBindingOnly: true, isSuper: false, canManage: true,
+    catalog: [{ ...capability, classification: 'general' }, allocationCapability], delegationOptions: [source],
+    schemes: [{ id: 'assign-only', name: 'Bounded allocation role', publishedVersion: 1, capabilities: [allocationCapability.key], publishedCapabilities: [allocationCapability.key] }] });
+  await page.route('**/api/getAuthorizationCandidates', route => route.fulfill({ json: { status: 'success', assignments: [assignment, eligible, outside], adminGrants: [] } }));
+  await page.goto('/web/admin/authorization/edit?kind=rule');
+  await expect(page.getByText(source.name, { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: ui.unified.selectRecipientPosts, exact: true }).click();
+  await expect(page.getByRole('dialog').getByRole('button', { name: /Outside recipient/ })).toHaveCount(0);
+  await page.getByRole('dialog').getByRole('button', { name: /Example member/ }).click();
+  await page.getByRole('dialog').locator('footer button').last().click();
+  await page.getByRole('combobox', { name: ui.useScheme, exact: true }).selectOption('assign-only');
+  const scope = page.locator('section').filter({ has: page.getByRole('heading', { name: ui.unified.allocationSubjectsTitle, exact: true }) });
+  await scope.getByRole('button', { name: ui.unified.selectRecipientPosts, exact: true }).click();
+  await expect(page.getByRole('dialog').getByRole('button', { name: /Outside recipient/ })).toHaveCount(0);
+  await page.getByRole('dialog').getByRole('button', { name: /Eligible recipient/ }).click();
+  await page.getByRole('dialog').locator('footer button').last().click();
+  await page.getByRole('button', { name: ui.previewChanges, exact: true }).click();
+  await expect(page.getByRole('heading', { name: ui.unified.grantPreviewTitle, exact: true })).toBeVisible();
+  await page.getByRole('button', { name: ui.confirmChanges, exact: true }).click();
+  await expect(page.locator('.authorization-allocation')).toHaveCount(1);
+  expect(calls.saved.delegationId).toBe(source.id);
+  expect(calls.saved.policy.capabilities).toEqual([allocationCapability.key]);
+  expect(calls.saved.policy.subjects).toEqual([{ kind: 'assignments', ids: ['job-a'] }]);
+  expect(calls.saved.policy.allocationSubjects).toEqual([{ kind: 'assignments', ids: ['job-b'] }]);
+  expect(calls.saved.policy.scopes).toEqual(source.envelope.scopes);
+  source.envelope.subjects = [{ kind: 'assignments', ids: ['job-a'] }];
+  await page.goto('/web/admin/authorization/edit?kind=rule&id=rule-a');
+  await expect(page.getByRole('alert')).toContainText(ui.delegationNoLongerAvailable);
+  await expect(page.locator('form')).toHaveCount(0);
+  expect(calls.saves).toBe(1);
+});
+
+test('a prohibition preserves its limited allocation recipients and omits an intentionally cleared limit', async ({ page }) => {
+  const { state, calls } = await setup(page);
+  const eligible = { ...assignment, assignmentId: 'job-b', name: 'Limited recipient' };
+  Object.assign(state, { unifiedIdentity: true, catalog: [{ ...capability, classification: 'general' }, allocationCapability],
+    rules: [{ id: 'limited-deny', version: 1, name: 'Limited allocation prohibition', policy: {
+      effect: 'deny', enabled: true, capabilities: [allocationCapability.key], subjects: [{ kind: 'assignments', ids: ['job-a'] }],
+      allocationSubjects: [{ kind: 'assignments', ids: ['job-b'] }], scopes: [{ kind: 'organization' }], fields: null
+    } }] });
+  await page.route('**/api/getAuthorizationCandidates', route => route.fulfill({ json: { status: 'success', assignments: [assignment, eligible], adminGrants: [] } }));
+  await page.goto('/web/admin/authorization/edit?kind=rule&id=limited-deny');
+  await expect(page.getByRole('button', { name: ui.deny, exact: true })).toHaveAttribute('aria-pressed', 'true');
+  const recipientSection = page.locator('section').filter({ has: page.getByRole('button', { name: ui.unified.selectRecipientPosts, exact: true }) }).last();
+  await expect(recipientSection).toContainText('Limited recipient');
+  await page.getByRole('button', { name: ui.previewChanges, exact: true }).click();
+  await expect(page.getByRole('heading', { name: ui.unified.grantPreviewTitle, exact: true })).toBeVisible();
+  expect(calls.preview.policy.effect).toBe('deny');
+  expect(calls.preview.policy.allocationSubjects).toEqual([{ kind: 'assignments', ids: ['job-b'] }]);
   await page.getByRole('button', { name: ui.confirmChanges, exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/authorization$/);
-  expect(saved).toEqual({ ...previewed, identityModel: 'unified' });
-  expect(saved.subjects).toEqual([{ kind: 'assignments', ids: ['job-a'] }, { kind: 'adminGrants', ids: ['grant-a'] }]);
-  expect(saved.envelope.subjects).toEqual([{ kind: 'assignments', ids: ['job-a'] }]);
-  await page.locator('summary', { hasText: ui.advancedManagement }).click();
-  await page.getByRole('button', { name: ui.edit, exact: true }).click();
-  await expect(page.getByLabel(ui.delegationName, { exact: true })).toHaveValue('Bounded delegation');
-  await page.locator('section').filter({ has: page.getByRole('heading', { name: ui.delegateRecipients, exact: true }) }).getByRole('button', { name: ui.selectDelegateAssignment, exact: true }).click();
-  await expect(page.getByRole('dialog').getByRole('button', { name: /Example member/ })).toHaveAttribute('aria-pressed', 'true');
-  await page.getByRole('dialog').locator('footer button').last().click();
-  await expect(page.getByText('Example administrator · ' + ui.adminGrants, { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: ui.cancel, exact: true }).click();
-  await page.locator('summary', { hasText: ui.advancedManagement }).click();
-  await page.getByRole('button', { name: ui.revokeDelegation, exact: true }).click();
-  await expect(page.getByText(ui.deleteDelegationNotice, { exact: true })).toBeVisible();
-  expect(deleted).toBe(0);
-  await page.getByRole('button', { name: ui.revokeDelegation, exact: true }).click();
+  expect(calls.saved.policy.allocationSubjects).toEqual([{ kind: 'assignments', ids: ['job-b'] }]);
+  await page.goto('/web/admin/authorization/edit?kind=rule&id=rule-a');
+  await expect(recipientSection).toContainText('Limited recipient');
+  await recipientSection.getByRole('button', { name: ui.removeCondition, exact: true }).click();
+  await page.getByRole('button', { name: ui.previewChanges, exact: true }).click();
+  await expect(page.getByRole('heading', { name: ui.unified.grantPreviewTitle, exact: true })).toBeVisible();
+  expect(calls.preview.policy).not.toHaveProperty('allocationSubjects');
+  await page.getByRole('button', { name: ui.confirmChanges, exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/authorization$/);
-  expect(deleted).toBe(1);
+  expect(calls.saved.policy).not.toHaveProperty('allocationSubjects');
+  expect(calls.saves).toBe(2);
 });
 
 test('scheme publication and restoration require an impact preview and append a version', async ({ page }) => {

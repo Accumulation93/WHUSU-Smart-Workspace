@@ -189,6 +189,7 @@ for (const resource of RESOURCES) {
     const legacy = action === 'delete' && resource.remove ? resource.remove : resource.legacy;
     const scopes = resource.scopes || ['organization', 'records', 'self', 'assignmentScope'];
     const specialCategory = SPECIAL_CAPABILITIES.get(key) || null;
+    const businessRoles = action === 'read' ? (resource.businessReadRoles || []) : (resource.businessActionRoles?.[action] || []);
     CATALOG.set(key, Object.freeze({ key, resourceType: resource.key, action,
       legacy, legacyKeys: Object.freeze(LEGACY_ACTIONS[key] || (legacy ? [legacy] : [])),
       governance: Boolean(resource.governance), delegation: Boolean(resource.delegation),
@@ -199,10 +200,20 @@ for (const resource of RESOURCES) {
       systemControlled: resource.key === 'authorization.rules' || resource.key === 'authorization.delegations'
         || resource.key === 'authorization.schemes' && !['share', 'receive'].includes(action),
       profileFieldKeys: action !== 'delete' && ['hr.people', 'hr.profileReview'].includes(resource.key),
-      businessRoles: Object.freeze(action === 'read' ? (resource.businessReadRoles || []) : (resource.businessActionRoles?.[action] || [])),
+      businessRoles: Object.freeze(businessRoles), businessOnly: legacy == null && businessRoles.includes('user'),
       scopes: Object.freeze(PERSON_SCOPED_RESOURCES.has(resource.key) ? [...new Set([...scopes, 'people', 'assignmentScope'])] : scopes),
       fields: Object.freeze(action === 'delete' ? [] : (resource.fields || [])), adminOnlyFields: Object.freeze(resource.adminOnlyFields || []) }));
   }
+}
+
+// 分配权是正式角色中的普通能力；其业务边界沿用原操作，不能授出系统专属能力。
+for (const definition of [...CATALOG.values()]) {
+  if (definition.systemControlled || definition.delegation || definition.assignmentRetired || definition.businessOnly
+    || definition.classification === 'special') continue;
+  const key = 'assign:' + definition.key;
+  CATALOG.set(key, Object.freeze({ ...definition, key, action: 'assign',
+    allocationCapability: definition.key, legacy: null, legacyKeys: Object.freeze([]),
+    businessRoles: Object.freeze([]), governance: true }));
 }
 
 function capabilitiesForLegacy(keys) {

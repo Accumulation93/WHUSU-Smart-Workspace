@@ -13,6 +13,13 @@
           <span v-for="line in section.lines" :key="line.key" class="muted">{{ line.label ? ui.dimensionLabel(line.label, line.value) : line.value }}</span>
         </div>
       </section>
+      <section v-if="sections.allocationSubjects?.length" class="stack-tight">
+        <h3 class="field-label">{{ sections.allocationSubjectsTitle }}</h3>
+        <div v-for="section in sections.allocationSubjects" :key="section.key" class="stack-tight">
+          <strong>{{ section.label }}</strong>
+          <span v-for="line in section.lines" :key="line.key" class="muted">{{ line.label ? ui.dimensionLabel(line.label, line.value) : line.value }}</span>
+        </div>
+      </section>
       <section class="stack-tight">
         <h3 class="field-label">{{ delegation ? ui.delegationScopeTitle : ui.scopes }}</h3>
         <div v-for="section in sections.scopes" :key="section.key" class="stack-tight">

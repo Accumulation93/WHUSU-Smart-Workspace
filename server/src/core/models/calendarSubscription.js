@@ -58,11 +58,7 @@ async function subscriptionReadPermissions(connection,tokenHash,context) {
   const now=Date.now();
   const session={check(input){
     if(!['calendar.events.read','venue.bookingParticipants.read','venue.activityParticipants.read'].includes(input.capability))return {allowed:false};
-    const basicDisabled=state.disabledBasic.has(input.capability);
-    const decision=evaluate({...input,actor,catalog:CATALOG,prepared,now,
-      businessGranted:input.businessGranted===true&&!basicDisabled});
-    // 场地来源的“未获单独授权”原可按参会关系读取，基础权限已关闭时不再使用这项关系。
-    return basicDisabled && decision.reason==='not_granted' ? {...decision,reason:'basic_disabled'} : decision;
+    return evaluate({...input,actor,catalog:CATALOG,prepared,now});
   }};
   const authorization=require('../services/calendarEventAuthorization');
   return {eventAuthorization:authorization.eventAuthorization(session,context),sourceAuthorization:authorization.sourceAuthorization(session,context)};

@@ -67,7 +67,7 @@ const SPECS = [
   { table: 'hr_contact_directory_rules', kind: 'directory_rules', type: 'hr.directoryRules', json: ['audience_json', 'targets_json'] },
   { table: 'calendar_rules', kind: 'calendar_rules', type: 'calendar.rules', json: ['audience_json', 'targets_json'] },
   { table: 'calendar_events', kind: 'calendar_events', type: 'calendar.events', json: ['targets_json'], active: true },
-  { table: 'authorization_rules', kind: 'authorization_rules', type: 'authorization.rules', json: ['policy_json'] },
+  { table: 'authorization_rules', kind: 'authorization_rules', type: 'authorization.rules', json: ['policy_json', 'allocation_policy_json'] },
   { table: 'authorization_delegations', kind: 'authorization_rules', type: 'authorization.delegations', json: ['subjects_json', 'envelope_json'] }
 ];
 const PARENTS = { audit_submission_steps: ['audit_submissions', 'submission_id'],

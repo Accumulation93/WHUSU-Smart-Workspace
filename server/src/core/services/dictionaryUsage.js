@@ -161,6 +161,7 @@ const SNAPSHOT_USAGE = [
 
 const AUTHORIZATION_USAGE = Object.freeze([
   ['authorization_rules', 'policy_json'],
+  ['authorization_rules', 'allocation_policy_json', true],
   ['authorization_delegations', 'subjects_json'],
   ['authorization_delegations', 'envelope_json']
 ]);
@@ -172,8 +173,9 @@ async function countAuthorizationUsage(kind, id, organizationId, connection, loc
   const columns = new Set(schema.map(row => row.table_name + '.' + row.column_name));
   const tables = new Set(schema.map(row => row.table_name));
   const records = new Set();
-  for (const [table, column] of AUTHORIZATION_USAGE) {
+  for (const [table, column, optional] of AUTHORIZATION_USAGE) {
     if (!tables.has(table)) continue;
+    if (optional && !columns.has(table + '.' + column)) continue;
     if (!columns.has(table + '.' + column) || !columns.has(table + '.org_id')) throw authorizationError('authorization_schema_incomplete');
     const [rows] = await connection.query(`SELECT id, ${column} AS condition_json FROM ${table}
       WHERE org_id = ?${lockRows ? ' FOR UPDATE' : ''}`, [organizationId]);

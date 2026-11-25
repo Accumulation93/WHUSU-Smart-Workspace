@@ -12,19 +12,9 @@
       <p v-if="state.mode === 'shadow'" class="notice-line">{{ ui.previewOnly }}</p>
       <section class="card stack">
         <h2 class="section-title">{{ targetName }}</h2>
-        <template v-if="result.relationshipRoleAssignment">
-          <p>{{ ui.allocation.relationshipImpact }}</p>
-          <section v-for="part in relationshipComparison" :key="part.title" class="stack-tight">
-            <h3 class="field-label">{{ part.title }}</h3>
-            <div v-if="part.capabilities.length" class="row row-wrap"><span v-for="key in part.capabilities" :key="key" class="chip chip-blue">{{ capabilityText(key) }}</span></div>
-            <p v-else class="muted">{{ ui.noConfiguredPermissions }}</p>
-          </section>
-        </template>
-        <template v-else>
-          <strong>{{ ui.impactCount(result.peopleCount, result.roleCount) }}</strong>
-          <p>{{ deletingDelegation ? (state.unifiedIdentity ? ui.unified.revokeDelegationCascadeNotice : ui.deleteDelegationNotice) : deleting ? ui.deleteRuleNotice : ui.publishSchemeNotice }}</p>
-          <div v-if="!deleting" class="row row-wrap"><span v-for="key in result.capabilities" :key="key" class="chip chip-blue">{{ capabilityText(key) }}</span></div>
-        </template>
+        <strong>{{ ui.impactCount(result.peopleCount, result.roleCount) }}</strong>
+        <p>{{ deletingDelegation ? (state.unifiedIdentity ? ui.unified.revokeDelegationCascadeNotice : ui.deleteDelegationNotice) : deleting ? ui.deleteRuleNotice : ui.publishSchemeNotice }}</p>
+        <div v-if="!deleting" class="row row-wrap"><span v-for="key in result.capabilities" :key="key" class="chip chip-blue">{{ capabilityText(key) }}</span></div>
       </section>
       <article v-for="rule in ruleChanges" :key="rule.id" class="card stack">
         <h2 class="section-title">{{ rule.name }}</h2>
@@ -89,13 +79,6 @@ let payload = null;
 const ruleChanges = computed(() => (result.value?.rules || []).map(rule => deleting.value
   ? { id: rule.id, name: rule.name, before: rule.impact.before, after: null, roles: rule.impact.roles }
   : { ...rule, roles: result.value.roles.filter(person => person.ruleIds.includes(rule.id)) }));
-const relationshipComparison = computed(() => {
-  const assignment = result.value?.relationshipRoleAssignment;
-  return assignment ? [
-    { title: ui.allocation.relationshipBefore, capabilities: assignment.beforeCapabilities },
-    { title: ui.allocation.relationshipAfter, capabilities: assignment.afterCapabilities }
-  ] : [];
-});
 function capabilityText(key) { return presentation.capabilityLabel(key, state.value.catalog, ui); }
 function clear() { generation++; result.value = null; versions.value = []; blockedDraft.value = []; payload = null; directory.value = { assignments: [], adminGrants: [] }; state.value = { catalog: [], mode: '' }; notice.value = ''; }
 async function load() {

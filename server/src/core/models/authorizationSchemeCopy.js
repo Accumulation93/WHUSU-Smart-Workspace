@@ -4,11 +4,12 @@ const { CATALOG } = require('../services/authorizationCatalog');
 const model = require('./authorization');
 const { activeRole, roleNameExists } = require('./authorizationRoleBackfill');
 const { createGuard } = require('../services/authorizationManagement');
+const relationshipRole = require('./authorizationRelationshipRole');
 function fail(code) { throw Object.assign(new Error(code), { code }); }
 function normalize(raw) {
   if (!raw || typeof raw.name !== 'string' || !raw.name.trim() || Array.from(raw.name.trim()).length > 80
     || !Array.isArray(raw.capabilities) || !raw.capabilities.length || raw.capabilities.length > CATALOG.size
-    || raw.capabilities.some(key => typeof key !== 'string' || !CATALOG.has(key))) fail('config_copy_invalid');
+    || raw.capabilities.some(key => typeof key !== 'string' || !CATALOG.has(key) || CATALOG.get(key).businessOnly)) fail('config_copy_invalid');
   return { name: raw.name.trim(), capabilities: [...new Set(raw.capabilities)].sort() };
 }
 module.exports = {
@@ -18,6 +19,7 @@ module.exports = {
     return {};
   },
   async source(connection, orgId, id) {
+    if ((await relationshipRole.read(connection, orgId, true))?.schemeId === id) fail('authorization_forbidden');
     const [rows] = await connection.query(`SELECT s.name, v.capabilities_json FROM authorization_schemes s
       JOIN authorization_scheme_versions v ON v.org_id = s.org_id AND v.scheme_id = s.id AND v.version = s.published_version
       WHERE s.org_id = ? AND s.id = ? AND ${activeRole('s')} FOR SHARE`, [orgId, id]);

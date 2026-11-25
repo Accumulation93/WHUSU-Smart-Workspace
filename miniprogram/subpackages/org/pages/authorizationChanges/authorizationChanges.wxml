@@ -14,27 +14,37 @@
     <view wx:if="{{previewOnly}}" class="permission-empty">{{ui.previewOnly}}</view>
     <view class="permission-card authorization-section">
       <view class="permission-section-title">{{targetName}}</view>
-      <block wx:if="{{relationshipComparison}}">
-        <view class="permission-admin-meta">{{ui.allocation.relationshipImpact}}</view>
-        <view class="authorization-comparison">
-          <view wx:for="{{relationshipComparison}}" wx:key="key">
-            <view class="authorization-label">{{item.title}}</view>
-            <view wx:if="{{item.labels.length}}" class="authorization-chips"><text wx:for="{{item.labels}}" wx:for-item="label" wx:key="*this" class="authorization-chip">{{label}}</text></view>
-            <view wx:else class="permission-admin-meta">{{ui.noConfiguredPermissions}}</view>
-          </view>
-        </view>
-      </block>
-      <block wx:else>
-        <view class="authorization-label">{{impactText}}</view>
-        <view class="permission-admin-meta">{{deletingDelegation ? (unified ? ui.unified.revokeDelegationCascadeNotice : ui.deleteDelegationNotice) : deleting ? ui.deleteRuleNotice : ui.publishSchemeNotice}}</view>
-        <view class="authorization-chips"><text wx:for="{{labels}}" wx:key="*this" class="authorization-chip">{{item}}</text></view>
-      </block>
+      <view class="authorization-label">{{impactText}}</view>
+      <view class="permission-admin-meta">{{deletingDelegation ? (unified ? ui.unified.revokeDelegationCascadeNotice : ui.deleteDelegationNotice) : deleting ? ui.deleteRuleNotice : ui.publishSchemeNotice}}</view>
+      <view class="authorization-chips"><text wx:for="{{labels}}" wx:key="*this" class="authorization-chip">{{item}}</text></view>
     </view>
     <view wx:for="{{cards}}" wx:key="id" class="permission-card authorization-section">
       <view class="permission-section-title">{{item.name}}</view>
       <view class="authorization-comparison">
-      <view wx:if="{{item.before}}"><view class="authorization-label">{{ui.beforeChange}} · {{item.before.effectText}}</view><view class="authorization-chips"><text wx:for="{{item.before.capabilityLabels}}" wx:for-item="label" wx:key="*this" class="authorization-chip">{{label}}</text></view><block wx:for="{{item.before.scopes}}" wx:for-item="scope" wx:key="key"><view>{{scope.label}}</view><view wx:for="{{scope.lines}}" wx:for-item="line" wx:key="key" class="permission-admin-meta">{{line.label}} {{line.value}}</view></block></view>
-      <view wx:if="{{item.after}}"><view class="authorization-label">{{ui.afterChange}} · {{item.after.effectText}}</view><view class="authorization-chips"><text wx:for="{{item.after.capabilityLabels}}" wx:for-item="label" wx:key="*this" class="authorization-chip">{{label}}</text></view><block wx:for="{{item.after.scopes}}" wx:for-item="scope" wx:key="key"><view>{{scope.label}}</view><view wx:for="{{scope.lines}}" wx:for-item="line" wx:key="key" class="permission-admin-meta">{{line.label}} {{line.value}}</view></block></view>
+      <view wx:if="{{item.before}}">
+        <view class="authorization-label">{{ui.beforeChange}} · {{item.before.effectText}}</view>
+        <view class="authorization-chips"><text wx:for="{{item.before.capabilityLabels}}" wx:for-item="label" wx:key="*this" class="authorization-chip">{{label}}</text></view>
+        <view wx:if="{{item.before.allocationSubjects.length}}" class="authorization-details">
+          <view class="authorization-label">{{item.before.allocationSubjectsTitle}}</view>
+          <view wx:for="{{item.before.allocationSubjects}}" wx:for-item="subject" wx:key="key">
+            <view>{{subject.label}}</view>
+            <view wx:for="{{subject.lines}}" wx:for-item="line" wx:key="key" class="permission-admin-meta">{{line.label}} {{line.value}}</view>
+          </view>
+        </view>
+        <block wx:for="{{item.before.scopes}}" wx:for-item="scope" wx:key="key"><view>{{scope.label}}</view><view wx:for="{{scope.lines}}" wx:for-item="line" wx:key="key" class="permission-admin-meta">{{line.label}} {{line.value}}</view></block>
+      </view>
+      <view wx:if="{{item.after}}">
+        <view class="authorization-label">{{ui.afterChange}} · {{item.after.effectText}}</view>
+        <view class="authorization-chips"><text wx:for="{{item.after.capabilityLabels}}" wx:for-item="label" wx:key="*this" class="authorization-chip">{{label}}</text></view>
+        <view wx:if="{{item.after.allocationSubjects.length}}" class="authorization-details">
+          <view class="authorization-label">{{item.after.allocationSubjectsTitle}}</view>
+          <view wx:for="{{item.after.allocationSubjects}}" wx:for-item="subject" wx:key="key">
+            <view>{{subject.label}}</view>
+            <view wx:for="{{subject.lines}}" wx:for-item="line" wx:key="key" class="permission-admin-meta">{{line.label}} {{line.value}}</view>
+          </view>
+        </view>
+        <block wx:for="{{item.after.scopes}}" wx:for-item="scope" wx:key="key"><view>{{scope.label}}</view><view wx:for="{{scope.lines}}" wx:for-item="line" wx:key="key" class="permission-admin-meta">{{line.label}} {{line.value}}</view></block>
+      </view>
       <view wx:else class="authorization-label">{{deletingDelegation ? ui.delegationWillBeRemoved : ui.ruleWillBeRemoved}}</view>
       </view>
       <view wx:for="{{item.roles}}" wx:for-item="person" wx:key="key" class="authorization-details"><view>{{person.name}}</view><view class="permission-admin-meta">{{person.assignmentLabel}}</view></view>

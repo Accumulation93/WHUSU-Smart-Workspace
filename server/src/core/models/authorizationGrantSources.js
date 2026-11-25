@@ -2,6 +2,7 @@
 
 const { CATALOG } = require('../services/authorizationCatalog');
 const { canDelegate, normalizePolicy, normalizeSubjects, subjectMatches, subjectsWithin } = require('../services/authorizationPolicy');
+const { authorityForRule, allocationDenied } = require('../services/authorizationAllocation');
 
 function inEffect(policy, now) {
   return policy.enabled && policy.effect === 'allow'
@@ -14,16 +15,29 @@ function matchesOwn(subjects, issuer, ownPositions) {
     || (ownPositions.get(issuer.personId) || []).some(actor => subjectMatches(subject, actor)));
 }
 
-function delegatedPermissionActive(policy, source, parent, issuer, ownPositions) {
+function delegatedPermissionActive(policy, source, parent, issuer, ownPositions, denials = [], now = Date.now()) {
   return Boolean(source.parentDelegationId && parent && issuer
     && parent.subjects.some(subject => subjectMatches(subject, issuer))
     && !matchesOwn(policy.subjects, issuer, ownPositions)
+    && !allocationDenied(issuer, policy, denials, now)
     && canDelegate(policy, parent.envelope, CATALOG, { unified: true }));
 }
 
-function resolveGrantSources(rows, delegations, issuers, now = Date.now(), related = []) {
+function resolveGrantSources(rows, delegations, issuers, now = Date.now(), related = [], rules = []) {
+  const policyById = new Map(rules.map(rule => [rule.id, rule.policy]));
   const sources = new Map(rows.map(row => [row.objectKind + ':' + row.objectId, row]));
-  const candidates = new Map(delegations.map(row => [row.id, row]));
+  const formal = rules.map(rule => { try { return authorityForRule(rule); } catch (_) { return null; } }).filter(Boolean);
+  for (const rule of rules) {
+    if (rule.sourceKind === 'legacy_allocation' && rule.sourceRef && sources.has('delegation:' + rule.sourceRef)) {
+      sources.set('rule:' + rule.id, sources.get('delegation:' + rule.sourceRef));
+    }
+  }
+  const aliases = new Set(formal.filter(row => row.sourceKind === 'delegation').map(row => row.id));
+  const authorities = delegations.filter(row => !aliases.has(row.id)).map(row => ({ ...row,
+    envelope: { ...row.envelope, allocationSubjects: row.envelope.subjects,
+      capabilities: [...new Set(row.envelope.capabilities.flatMap(key =>
+      CATALOG.has('assign:' + key) ? [key, 'assign:' + key] : [key]))].sort() } })).concat(formal);
+  const candidates = new Map(authorities.map(row => [row.id, row]));
   const directory = new Map(issuers.map(issuer => [issuer.assignment.id, issuer]));
   const ownPositions = new Map();
   for (const item of related) {
@@ -32,6 +46,7 @@ function resolveGrantSources(rows, delegations, issuers, now = Date.now(), relat
   }
   const resolved = new Map();
   const visiting = new Set();
+  let denials = [];
   function resolve(id) {
     if (resolved.has(id)) return resolved.get(id);
     if (visiting.has(id)) return null;
@@ -40,17 +55,17 @@ function resolveGrantSources(rows, delegations, issuers, now = Date.now(), relat
     visiting.add(id);
     let result = null;
     try {
-      const source = sources.get('delegation:' + id);
+      const source = sources.get((row.sourceKind || 'delegation') + ':' + (row.sourceId || id));
       const envelope = normalizePolicy(row.envelope, CATALOG);
       const subjects = normalizeSubjects(row.subjects);
       if (inEffect(envelope, now) && envelope.organizationId === row.organizationId) {
         const parent = source?.parentDelegationId ? resolve(source.parentDelegationId) : null;
         const issuer = source?.issuerAssignmentId ? directory.get(source.issuerAssignmentId) : null;
-        if (!source?.parentDelegationId || (parent?.allowRedelegation
+        if (!source?.parentDelegationId || (parent
           && subjectsWithin(subjects, parent.envelope.subjects)
           && issuer && !matchesOwn(subjects, issuer, ownPositions)
-          && delegatedPermissionActive(envelope, source, parent, issuer, ownPositions))) {
-          result = { ...row, envelope, subjects, allowRedelegation: source?.allowRedelegation === true,
+          && delegatedPermissionActive(envelope, source, parent, issuer, ownPositions, denials, now))) {
+          result = { ...row, envelope, subjects, allowRedelegation: true,
             parentDelegationId: source?.parentDelegationId || null };
         }
       }
@@ -62,19 +77,31 @@ function resolveGrantSources(rows, delegations, issuers, now = Date.now(), relat
     resolved.set(id, result);
     return result;
   }
-  const activeDelegations = delegations.map(row => resolve(row.id)).filter(Boolean);
   function filterRules(rules) {
     return rules.filter(rule => {
       const source = sources.get('rule:' + rule.id);
-      if (!source) return true;
+      if (!source?.parentDelegationId) return true;
       const parent = resolve(source.parentDelegationId);
-      return delegatedPermissionActive(rule.policy, source, parent, directory.get(source.issuerAssignmentId), ownPositions);
+      return delegatedPermissionActive(policyById.get(rule.id) || rule.policy, source, parent,
+        directory.get(source.issuerAssignmentId), ownPositions, denials, now);
     });
   }
-  return { activeDelegations, filterRules, sources };
+  // 先核实来源链，再让有效禁止规则约束分配与全部后代。
+  denials = filterRules(rules).filter(rule => rule.policy.effect === 'deny');
+  resolved.clear();
+  const activeDelegations = authorities.map(row => resolve(row.id)).filter(Boolean);
+  return { activeDelegations, filterRules, sources, denials };
 }
 
-async function readGrantSources(connection, organizationId, delegations, lock = false) {
+async function readGrantSources(connection, organizationId, delegations, lock = false, suppliedRules = null) {
+  let rules = suppliedRules;
+  if (rules === null) {
+    const [ruleRows] = await connection.query(`SELECT * FROM authorization_rules WHERE org_id = ?` + (lock ? ' FOR SHARE' : ''), [organizationId]);
+    rules = ruleRows.map(row => ({ id: row.id, name: row.name, version: Number(row.version),
+      sourceKind: row.source_kind, sourceRef: row.source_ref,
+      policy: typeof (row.allocation_policy_json || row.policy_json) === 'string'
+        ? JSON.parse(row.allocation_policy_json || row.policy_json) : row.allocation_policy_json || row.policy_json }));
+  }
   const [rows] = await connection.query(`SELECT object_kind AS objectKind, object_id AS objectId,
     parent_delegation_id AS parentDelegationId, issuer_assignment_id AS issuerAssignmentId,
     allow_redelegation AS allowRedelegation
@@ -88,9 +115,11 @@ async function readGrantSources(connection, organizationId, delegations, lock = 
       { role: 'user', unified: true, personIds: people })).assignments
     : [];
   const { candidateActor } = require('../services/authorizationImpact');
-  const legacyIds = [...new Set(delegations.flatMap(row =>
-    (row.envelope?.subjects || []).filter(subject => subject.kind === 'adminGrants').flatMap(subject => subject.ids)))];
+  const legacyIds = [...new Set(delegations.flatMap(row => (row.subjects || []).concat(row.envelope?.subjects || []))
+    .concat(rules.flatMap(row => row.policy.subjects.concat(row.policy.allocationSubjects || [])))
+    .filter(subject => subject.kind === 'adminGrants').flatMap(subject => subject.ids))];
   let projected = delegations;
+  let projectedRules = rules;
   if (legacyIds.length) {
     const [bindings] = await connection.query(`SELECT l.admin_grant_id AS grantId,l.assignment_id AS assignmentId
       FROM authorization_identity_assignment_links l
@@ -102,20 +131,24 @@ async function readGrantSources(connection, organizationId, delegations, lock = 
       if (!assigned.has(row.grantId)) assigned.set(row.grantId, []);
       assigned.get(row.grantId).push(row.assignmentId);
     }
-    projected = delegations.map(row => {
-      const ids = [...new Set(row.envelope.subjects.filter(subject => subject.kind === 'adminGrants')
+    const projectSubjects = original => {
+      const ids = [...new Set(original.filter(subject => subject.kind === 'adminGrants')
         .flatMap(subject => subject.ids.flatMap(id => assigned.get(id) || [])))];
-      if (!ids.length) return row;
-      const subjects = row.envelope.subjects.filter(subject => subject.kind !== 'adminGrants');
+      if (!ids.length) return original;
+      const subjects = original.filter(subject => subject.kind !== 'adminGrants');
       const explicit = new Set(subjects.filter(subject => subject.kind === 'assignments').flatMap(subject => subject.ids));
       for (const id of ids) explicit.add(id);
-      return { ...row, envelope: { ...row.envelope, subjects: [
+      return [
         ...subjects.filter(subject => subject.kind !== 'assignments'), { kind: 'assignments', ids: [...explicit] }
-      ] } };
-    });
+      ];
+    };
+    projected = delegations.map(row => ({ ...row, subjects: projectSubjects(row.subjects),
+      envelope: { ...row.envelope, subjects: projectSubjects(row.envelope.subjects) } }));
+    projectedRules = rules.map(row => ({ ...row, policy: { ...row.policy, subjects: projectSubjects(row.policy.subjects),
+      ...(row.policy.allocationSubjects ? { allocationSubjects: projectSubjects(row.policy.allocationSubjects) } : {}) } }));
   }
-  return resolveGrantSources(rows.map(row => ({ ...row, allowRedelegation: Boolean(row.allowRedelegation) })), projected,
-    issuers, Date.now(), otherPositions.map(item => candidateActor(item, organizationId, 'user')));
+  return { ...resolveGrantSources(rows.map(row => ({ ...row, allowRedelegation: Boolean(row.allowRedelegation) })), projected,
+    issuers, Date.now(), otherPositions.map(item => candidateActor(item, organizationId, 'user')), projectedRules), legacyDelegations: delegations };
 }
 
 async function persistSource(connection, organizationId, kind, id, source) {
