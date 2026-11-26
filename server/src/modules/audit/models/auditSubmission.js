@@ -144,10 +144,11 @@ async function countOwnUnread(hrId, assignmentId, reference) {
   return pool.withTransaction(async connection => {
     const activeSession = await ownReadSession(connection, organizationId, reference);
     const scope = ownCursorScope(organizationId, hrId, assignmentId, activeSession);
+    // 兼容旧游标表的编号排序规则；组织参数与scope一致，并保留游标组织/人员索引前缀。
     const [rows] = await connection.query(`SELECT COUNT(*) AS unread_count FROM audit_submissions s
-      LEFT JOIN audit_read_cursors c ON c.submission_id=s.id AND c.org_id=s.org_id AND c.hr_id=?
+      LEFT JOIN audit_read_cursors c ON c.submission_id=s.id COLLATE utf8mb4_unicode_ci AND c.org_id=? AND c.hr_id=?
       WHERE ${scope.sql} AND (c.submission_id IS NULL OR NOT(c.last_read_status COLLATE utf8mb4_unicode_ci <=> s.status COLLATE utf8mb4_unicode_ci)
-        OR NOT(c.last_read_step_index <=> s.current_step_index))`, [hrId, ...scope.params]);
+        OR NOT(c.last_read_step_index <=> s.current_step_index))`, [organizationId, hrId, ...scope.params]);
     return Number(rows[0].unread_count);
   });
 }

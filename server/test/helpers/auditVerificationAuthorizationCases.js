@@ -61,15 +61,37 @@ module.exports = async function auditVerificationAuthorizationCases(pool, orgSto
       VALUES ('audit-pending-own','audit-hidden',1,'pass',?,'submit-a')`, [JSON.stringify([{ conditionType: 'submitter' }])]);
     assert.deepEqual((await post('listPendingApprovals')).pending.map(item => item.submissionId), ['audit-hidden']);
     assert.equal((await post('checkPendingCount')).count, 1);
-    // 生产旧表与后续游标表采用不同排序规则，必须在真实数据库保留该差异。
-    await pool.query("ALTER TABLE audit_read_cursors MODIFY last_read_status VARCHAR(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT ''");
-    await assert.rejects(pool.query(`SELECT c.last_read_status <=> s.status FROM audit_submissions s
+    const standardUnread = await post('getUnreadCounts');
+    assert.equal(standardUnread.status, 'success', JSON.stringify(standardUnread));
+    assert.equal(standardUnread.mySubmissionsUnread, 1);
+    assert.equal((await post('markSubmissionRead', { submissionId: 'audit-hidden' })).status, 'success');
+    assert.equal((await post('getUnreadCounts')).mySubmissionsUnread, 0);
+    await pool.query("DELETE FROM audit_read_cursors WHERE submission_id='audit-hidden' AND org_id='submit-a' AND hr_id='audit-hr'");
+    // 生产旧游标表的编号和状态均为0900；只修改状态列会漏掉JOIN编号冲突。
+    await pool.query(`ALTER TABLE audit_read_cursors
+      MODIFY hr_id VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+      MODIFY submission_id VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+      MODIFY org_id VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '',
+      MODIFY last_read_status VARCHAR(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT ''`);
+    await assert.rejects(pool.query(`SELECT COUNT(*) FROM audit_submissions s
       LEFT JOIN audit_read_cursors c ON c.submission_id=s.id WHERE s.id='audit-hidden'`),
     error => error.code === 'ER_CANT_AGGREGATE_2COLLATIONS');
+    await assert.rejects(pool.query(`SELECT COUNT(*) FROM audit_submissions s
+      LEFT JOIN audit_read_cursors c ON c.org_id=s.org_id WHERE s.id='audit-hidden'`),
+    error => error.code === 'ER_CANT_AGGREGATE_2COLLATIONS');
+    await assert.rejects(pool.query(`SELECT c.last_read_status <=> s.status FROM audit_submissions s
+      LEFT JOIN audit_read_cursors c ON c.submission_id='audit-hidden' WHERE s.id='audit-hidden'`),
+    error => error.code === 'ER_CANT_AGGREGATE_2COLLATIONS');
+    // 另一组织或另一人的相同申请游标不能让本人申请变为已读。
+    await pool.query(`INSERT INTO audit_read_cursors(hr_id,submission_id,org_id,last_read_status,last_read_step_index)
+      VALUES ('audit-hr','audit-hidden','submit-b','in_progress',1),
+        ('other-hr','audit-hidden','submit-a','in_progress',1)`);
     const unread = await post('getUnreadCounts');
     assert.equal(unread.status, 'success', JSON.stringify(unread));
     assert.equal(unread.pendingCount, 1);
     assert.equal(unread.mySubmissionsUnread, 1);
+    assert.equal(unread.mySubmissionsUnread, standardUnread.mySubmissionsUnread);
+    await pool.query("DELETE FROM audit_read_cursors WHERE submission_id='audit-hidden' AND ((org_id='submit-b' AND hr_id='audit-hr') OR (org_id='submit-a' AND hr_id='other-hr'))");
     assert.equal((await post('markSubmissionRead', { submissionId: 'audit-hidden' })).status, 'success');
     assert.deepEqual((await pool.query("SELECT last_read_status,last_read_step_index FROM audit_read_cursors WHERE submission_id='audit-hidden' AND org_id='submit-a' AND hr_id='audit-hr'"))[0],
       [{ last_read_status: 'in_progress', last_read_step_index: 1 }]);
@@ -344,9 +366,14 @@ module.exports = async function auditVerificationAuthorizationCases(pool, orgSto
     assert.deepEqual((await pool.query("SELECT id FROM audit_verification_permissions WHERE id='verify-file-business'"))[0], []);
     await pool.query("UPDATE membership_assignments SET status='inactive' WHERE id='audit-assignment'");
     assert.equal((await post('getSubmissionDetail', { submissionId: 'audit-visible' })).status, 'forbidden');
+    assert.equal((await post('getUnreadCounts')).status, 'forbidden');
     assert.equal((await file('authorized-file')).status, 'forbidden');
     assert.equal((await post('getCurrentAuthorizationAccess')).status, 'authorization_forbidden');
     await pool.query("UPDATE membership_assignments SET status='active' WHERE id='audit-assignment'");
+    await pool.query("UPDATE accounts SET status='frozen' WHERE id='audit-account'");
+    assert.equal((await post('getUnreadCounts')).status, 'forbidden');
+    await pool.query("UPDATE accounts SET status='verified' WHERE id='audit-account'");
+    assert.equal((await post('getUnreadCounts')).status, 'success');
   } finally {
     await new Promise(resolve => server.close(resolve));
   }
