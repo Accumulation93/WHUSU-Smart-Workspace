@@ -177,8 +177,8 @@ module.exports = async function unifiedPermissionIntegrationCases(admin, post) {
     kind: 'authorization.schemes', sourceRecordId: generatedRole.id, targetOrganizationId: 'other'
   })).json();
   assert.equal(copiedOffer.status, 'success');
-  const [[targetSession]] = await admin.query("SELECT context_subject_id FROM auth_sessions WHERE id='target-session'");
-  await admin.query("UPDATE auth_sessions SET context_subject_id='grant' WHERE id='target-session'");
+  const [[targetSession]] = await admin.query("SELECT context_subject_id,context_type,role FROM auth_sessions WHERE id='target-session'");
+  await admin.query("UPDATE auth_sessions SET context_type='admin',role='admin',context_subject_id='grant' WHERE id='target-session'");
   try {
     const copiedDraft = await (await post('receiveOrganizationConfiguration', {
       shareId: copiedOffer.id, shareVersion: 1, requestId: 'generated-role-copy'
@@ -194,7 +194,8 @@ module.exports = async function unifiedPermissionIntegrationCases(admin, post) {
     assert.deepEqual(copiedRole.capabilities, editedCapabilities);
     assert.equal((await model.read(admin, 'other')).rules.some(rule => rule.schemeId === copiedRole.id), false);
   } finally {
-    await admin.query("UPDATE auth_sessions SET context_subject_id=? WHERE id='target-session'", [targetSession.context_subject_id]);
+    await admin.query("UPDATE auth_sessions SET context_subject_id=?,context_type=?,role=? WHERE id='target-session'",
+      [targetSession.context_subject_id,targetSession.context_type,targetSession.role]);
   }
   const legacyUpdate = async (rule, capabilities) => {
     const request = { ...body, id: rule.id, version: rule.version, expectedRevision: await revision(),

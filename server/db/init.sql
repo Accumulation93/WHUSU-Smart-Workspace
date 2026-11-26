@@ -115,7 +115,7 @@ CREATE TABLE IF NOT EXISTS admin_info (
   name VARCHAR(100) NOT NULL,
   student_id VARCHAR(32) DEFAULT NULL,
   openid VARCHAR(128) DEFAULT NULL,
-  admin_level VARCHAR(32) NOT NULL DEFAULT 'admin',
+  admin_level VARCHAR(32) NOT NULL DEFAULT 'super_admin',
   bind_status VARCHAR(16) NOT NULL DEFAULT 'invited',
   invite_code VARCHAR(32) DEFAULT NULL,
   invited_at DATETIME DEFAULT NULL,
@@ -130,7 +130,7 @@ CREATE TABLE IF NOT EXISTS admin_info (
   INDEX idx_ai_org (org_id),
   UNIQUE INDEX uk_ai_invite_code (invite_code),
   UNIQUE INDEX idx_ai_student (student_id, org_id),
-  CONSTRAINT chk_admin_level_two_tier CHECK (admin_level IN ('super_admin', 'admin'))
+  CONSTRAINT chk_admin_level_two_tier CHECK (admin_level = 'super_admin')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS auth_challenges (
@@ -1382,7 +1382,7 @@ CREATE TABLE IF NOT EXISTS admin_grants (
   id VARCHAR(64) NOT NULL PRIMARY KEY,
   person_id VARCHAR(64) NOT NULL,
   org_id VARCHAR(64) NOT NULL DEFAULT '',
-  admin_level VARCHAR(32) NOT NULL DEFAULT 'admin',
+  admin_level VARCHAR(32) NOT NULL DEFAULT 'super_admin',
   status VARCHAR(24) NOT NULL DEFAULT 'active',
   legacy_admin_id VARCHAR(64) DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1391,7 +1391,7 @@ CREATE TABLE IF NOT EXISTS admin_grants (
   UNIQUE INDEX uk_admin_grant_legacy (legacy_admin_id),
   INDEX idx_admin_grant_scope (org_id, admin_level, status),
   CONSTRAINT fk_admin_grant_person FOREIGN KEY (person_id) REFERENCES persons(id) ON DELETE RESTRICT,
-  CONSTRAINT chk_admin_grant_level CHECK (admin_level IN ('super_admin', 'admin'))
+  CONSTRAINT chk_admin_grant_level CHECK (admin_level = 'super_admin')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS auth_sessions (

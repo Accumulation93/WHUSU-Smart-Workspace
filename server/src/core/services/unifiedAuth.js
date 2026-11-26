@@ -93,30 +93,6 @@ async function decorateContext(context) {
     return value;
   }
   const effective = await loadEffectivePermissions(admin, value.organizationId);
-  if (value.unifiedAuthorization === true && value.adminLevel !== 'super_admin') {
-    const pool = require('../../config/db');
-    const { linkedAssignments } = require('../models/authorizationIdentityTransition');
-    const positions = await linkedAssignments(pool, value.organizationId, value.adminGrantId, value.personId);
-    if (!positions.length) {
-      value.permissions = [];
-      return value;
-    }
-    const actor = { role: 'admin', active: true, organizationId: value.organizationId, personId: value.personId,
-      adminGrantId: value.adminGrantId, legacyAdminGrantIds: [value.adminGrantId], unifiedAuthorization: true,
-      assignment: { ...positions[0], active: true } };
-    const { CATALOG, capabilitiesForLegacy } = require('./authorizationCatalog');
-    const catalog = await require('../models/authorizationProfileFields').catalog(pool, value.organizationId, CATALOG);
-    const { rules, mode } = await require('../models/authorization').read(pool, value.organizationId, false, true);
-    const granted = new Set(mode === 'enforced' ? require('./authorizationExplanation')
-      .explainCapabilities(actor, rules, catalog, Date.now())
-      .filter(entry => entry.status !== 'denied' && entry.rules.some(rule => rule.effect === 'allow'))
-      .map(entry => entry.capability) : []);
-    value.permissions = effective.keys.filter(key => capabilitiesForLegacy([key]).some(capability => granted.has(capability)));
-    if ((await require('./authorizationManagement').activeEnvelopes(pool, actor)).length) {
-      value.permissions.push('permissions.manage_regular_admins');
-    }
-    return value;
-  }
   value.permissions = effective.isSuper ? ['*'] : effective.keys;
   return value;
 }

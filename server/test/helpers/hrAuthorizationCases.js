@@ -133,11 +133,11 @@ module.exports = async function hrAuthorizationCases(db) {
     assert.deepEqual((await call('listHrInfo')).data.list.map(row => row.id), ['hr-actor-row']);
     await db.query("DELETE FROM authorization_rules WHERE id='hr-policy'");
     assert.deepEqual((await call('listHrProfileAdminData')).data.rows, []);
-    await db.query("INSERT INTO admin_grants(id,person_id,org_id,admin_level) VALUES ('hr-import-admin','hr-actor','hr-auth','admin')");
-    await db.query("UPDATE auth_sessions SET context_type='admin',context_subject_id='hr-import-admin',role='admin' WHERE id='hr-session'");
-    managementContext = true;
+    [[previousTransition]] = await db.query('SELECT phase,minimum_protocol FROM authorization_runtime_transition WHERE id=1');
+    await db.query("UPDATE authorization_runtime_transition SET phase='enforced',minimum_protocol=3 WHERE id=1");
+
     const importer = { id: 'hr-import-policy', organizationId: 'hr-auth', effect: 'allow', enabled: true,
-      subjects: [{ kind: 'adminGrants', ids: ['hr-import-admin'] }], capabilities: ['hr.import.read','hr.import.create'], scopes: [{ kind: 'organization' }], fields: null };
+      subjects: [{ kind: 'assignments', ids: ['hr-job'] }], capabilities: ['hr.import.read','hr.import.create'], scopes: [{ kind: 'organization' }], fields: null };
     await db.query("INSERT INTO authorization_rules(id,org_id,name,policy_json) VALUES ('hr-import-policy','hr-auth','导入测试',?)", [JSON.stringify(importer)]);
     assert.equal((await call('getHrImportMetadata')).data.status, 'success');
     const { createPage } = require('../hrImportPage.test');
@@ -238,12 +238,19 @@ module.exports = async function hrAuthorizationCases(db) {
       INSERT INTO org_hr_profile_template_snapshot_fields(id,snapshot_id,label,type) VALUES ('hr-source-phone','hr-source-snapshot','联系电话','text');
       INSERT INTO hr_profile_records(id,hr_id,template_snapshot_id,audit_status,org_id) VALUES ('hr-source-record','hr-source-row','hr-source-snapshot','approved','hr-source');
       INSERT INTO hr_profile_record_values(id,record_id,field_id,field_value,org_id) VALUES ('hr-source-value','hr-source-record','hr-source-phone','source-secret-phone','hr-source');
-      INSERT INTO admin_grants(id,person_id,org_id,admin_level) VALUES ('hr-source-admin','hr-actor','hr-source','admin');
       INSERT INTO auth_sessions(id,account_id,openid_hash,context_id,context_type,context_subject_id,organization_id,role,token_version,expires_at)
       VALUES ('hr-source-session','hr-account','','hr-source-context','admin','hr-source-admin','hr-source','admin',1,UTC_TIMESTAMP()+INTERVAL 1 DAY)`);
+    await db.query(`      INSERT INTO hr_info(id,name,student_id,org_id) VALUES ('hr-source-operator','来源审核员','HR-A','hr-source');
+      INSERT INTO organization_memberships(id,person_id,org_id,legacy_hr_id) VALUES ('hr-source-operator-membership','hr-actor','hr-source','hr-source-operator');
+      INSERT INTO departments(id,name,org_id) VALUES ('hr-source-department','来源部门','hr-source');
+      INSERT INTO identities(id,name,org_id) VALUES ('hr-source-identity','资料审核员','hr-source');
+      INSERT IGNORE INTO assignment_natures(id,org_id,name) VALUES ('staff','hr-source','本会岗位');
+      INSERT INTO membership_assignments(id,membership_id,org_id,assignment_kind,department_id,identity_id)
+        VALUES ('hr-source-assignment','hr-source-operator-membership','hr-source','staff','hr-source-department','hr-source-identity');
+UPDATE auth_sessions SET role='user',context_type='assignment',context_subject_id='hr-source-assignment' WHERE id='hr-source-session'`);
     const requester = { ...importer, id: 'hr-migration-policy', capabilities: ['hr.profileMigration.read','hr.profileMigration.request'] };
     await db.query("INSERT INTO authorization_organizations(org_id,mode) VALUES ('hr-source','enforced') ON DUPLICATE KEY UPDATE mode='enforced'");
-    const approver = { ...requester, id: 'hr-source-policy', organizationId: 'hr-source', subjects: [{ kind: 'adminGrants', ids: ['hr-source-admin'] }], capabilities: ['hr.profileMigration.read','hr.profileMigration.approve'] };
+    const approver = { ...requester, id: 'hr-source-policy', organizationId: 'hr-source', subjects: [{ kind: 'assignments', ids: ['hr-source-assignment'] }], capabilities: ['hr.profileMigration.read','hr.profileMigration.approve'] };
     await db.query("INSERT INTO authorization_rules(id,org_id,name,policy_json) VALUES ('hr-migration-policy','hr-auth','迁移申请',?),('hr-source-policy','hr-source','来源批准',?)", [JSON.stringify(requester), JSON.stringify(approver)]);
     const migrationInput = { sourceOrgId: 'hr-source', personIds: ['hr-target'], fieldActions: [{ sourceFieldId: 'hr-source-phone', action: 'copy', targetTemplateFieldId: 'hr-phone', conflictPolicy: 'overwrite' }] };
     const migrationPreview = await call('previewCrossOrgMigration', migrationInput);
@@ -254,7 +261,8 @@ module.exports = async function hrAuthorizationCases(db) {
     assert.notEqual((await call('reviewCrossOrgMigrationRequest', { id: migrationRequest.data.id, action: 'approve' })).data.status, 'success');
     sourceContext = false;
     assert.equal((await call('previewHrMemberDeletion', { scope: 'person', hrId: 'hr-target-row' })).code, 403);
-    await db.query("UPDATE admin_grants SET admin_level='super_admin',org_id='' WHERE id='hr-import-admin'");
+    await db.query("INSERT INTO admin_grants(id,person_id,org_id,admin_level) VALUES ('hr-import-admin','hr-actor','','super_admin'); UPDATE auth_sessions SET role='admin',context_type='admin',context_subject_id='hr-import-admin' WHERE id='hr-session'");
+    managementContext = true;
     const globalTarget = await call('saveHrInfo', { name: '全局删除测试', studentId: 'HR-GLOBAL' });
     assert.equal(globalTarget.data.status, 'success', JSON.stringify(globalTarget));
     const globalPreview = await call('previewHrMemberDeletion', { scope: 'person', hrId: globalTarget.data.id });
@@ -264,7 +272,8 @@ module.exports = async function hrAuthorizationCases(db) {
     assert.equal(globallyRemoved.data.status, 'success', JSON.stringify(globallyRemoved));
     const [[noPerson]] = await db.query("SELECT COUNT(*) AS count FROM persons WHERE normalized_student_id='HR-GLOBAL'");
     assert.equal(noPerson.count, 0);
-    await db.query("UPDATE admin_grants SET admin_level='admin',org_id='hr-auth' WHERE id='hr-import-admin'");
+    await db.query("UPDATE auth_sessions SET role='user',context_type='assignment',context_subject_id='hr-job' WHERE id='hr-session'; DELETE FROM admin_grants WHERE id='hr-import-admin'");
+    managementContext = false;
     sourceContext = true;
     await db.query("DELETE FROM authorization_rules WHERE id='hr-migration-policy'");
     assert.notEqual((await call('reviewCrossOrgMigrationRequest', { id: migrationRequest.data.id, action: 'approve' })).data.status, 'success');
@@ -290,7 +299,8 @@ module.exports = async function hrAuthorizationCases(db) {
     const [activeFields] = await db.query("SELECT f.label FROM org_hr_profile_template_snapshot_fields f JOIN org_hr_profile_template_snapshots s ON s.id=f.snapshot_id WHERE s.org_id='hr-auth' AND f.is_active=1");
     assert.deepEqual(activeFields.map(field => field.label), ['测试字段']);
     assert.equal((await call('previewPersonIdentityCorrection', { hrId: 'hr-target-row', name: '不应更改', studentId: 'HR-FAIL' })).code, 403);
-    await db.query("UPDATE admin_grants SET admin_level='super_admin',org_id='' WHERE id='hr-import-admin'");
+    await db.query("INSERT INTO admin_grants(id,person_id,org_id,admin_level) VALUES ('hr-import-admin','hr-actor','','super_admin'); UPDATE auth_sessions SET role='admin',context_type='admin',context_subject_id='hr-import-admin' WHERE id='hr-session'");
+    managementContext = true;
     const correctionSource = await call('saveHrInfo', { name: '更正前', studentId: 'HR-CORRECTION' });
     const correctionTarget = await call('saveHrInfo', { name: '合并目标', studentId: 'HR-MERGE-TARGET' });
     const correctionInput = { hrId: correctionSource.data.id, name: '更正后', studentId: 'HR-CORRECTED' };
@@ -309,7 +319,8 @@ module.exports = async function hrAuthorizationCases(db) {
     const [[mergedSource]] = await db.query('SELECT status,merged_into_person_id FROM persons WHERE id=?', [mergePreview.data.preview.personId]);
     assert.deepEqual([mergedSource.status,mergedSource.merged_into_person_id], ['merged',mergePreview.data.preview.conflictPerson.personId]);
     assert.equal((await call('getHrPersonDetail', { hrId: correctionTarget.data.id })).data.profile.name, '合并目标');
-    await db.query("UPDATE admin_grants SET admin_level='admin',org_id='hr-auth' WHERE id='hr-import-admin'");
+    await db.query("UPDATE auth_sessions SET role='user',context_type='assignment',context_subject_id='hr-job' WHERE id='hr-session'; DELETE FROM admin_grants WHERE id='hr-import-admin'");
+    managementContext = false;
     assert.equal((await call('applyPersonIdentityCorrection', { ...correctionInput, version: correctionPreview.data.preview.version })).code, 403);
     await verifyAssignmentMigration();
   } finally {
@@ -327,15 +338,7 @@ module.exports = async function hrAuthorizationCases(db) {
       '20261122170000_authorization_grant_sources.sql']) {
       await db.query(fs.readFileSync(path.join(__dirname, '../../db/deploy', file), 'utf8'));
     }
-    [[previousTransition]] = await db.query('SELECT phase,minimum_protocol FROM authorization_runtime_transition WHERE id=1');
     await db.query(`UPDATE authorization_runtime_transition SET phase='enforced', minimum_protocol=3 WHERE id=1;
-      INSERT INTO hr_info(id,name,student_id,org_id) VALUES ('hr-source-operator','来源审核员','HR-A','hr-source');
-      INSERT INTO organization_memberships(id,person_id,org_id,legacy_hr_id) VALUES ('hr-source-operator-membership','hr-actor','hr-source','hr-source-operator');
-      INSERT INTO departments(id,name,org_id) VALUES ('hr-source-department','来源部门','hr-source');
-      INSERT INTO identities(id,name,org_id) VALUES ('hr-source-identity','资料审核员','hr-source');
-      INSERT IGNORE INTO assignment_natures(id,org_id,name) VALUES ('staff','hr-source','本会岗位');
-      INSERT INTO membership_assignments(id,membership_id,org_id,assignment_kind,department_id,identity_id)
-        VALUES ('hr-source-assignment','hr-source-operator-membership','hr-source','staff','hr-source-department','hr-source-identity');
       UPDATE auth_sessions SET role='user',context_type='assignment',context_subject_id='hr-job' WHERE id='hr-session';
       UPDATE auth_sessions SET role='user',context_type='assignment',context_subject_id='hr-source-assignment' WHERE id='hr-source-session';
       UPDATE hr_profile_record_values SET field_value='modern-source' WHERE id='hr-source-value'`);

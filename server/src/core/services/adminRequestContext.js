@@ -15,7 +15,7 @@ function adminProfileFromContext(context) {
 
   const adminLevel = safeString(context.adminLevel);
   const organizationId = safeString(context.organizationId);
-  if (!['admin', 'super_admin'].includes(adminLevel) || !organizationId) return null;
+  if (adminLevel !== 'super_admin' || !organizationId) return null;
 
   const legacyAdminId = safeString(context.legacyAdminId);
   return {

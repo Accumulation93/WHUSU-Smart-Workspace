@@ -13,8 +13,9 @@ module.exports = async function venueApprovalAuthorizationCases(db) {
     contextId: context.contextId, organizationId: 'dir-auth' };
   await db.query("INSERT INTO admin_info(id,name,org_id) VALUES ('venue-limited-admin','测试管理员','dir-auth')");
   await db.query("INSERT INTO admin_grants(id,person_id,org_id,admin_level,legacy_admin_id) VALUES ('venue-limited-grant','dir-person','dir-auth','admin','venue-limited-admin')");
-  const adminContext = (await identity.listContexts('dir-account', db)).find(item => item.adminGrantId === 'venue-limited-grant');
-  assert(adminContext);
+  assert(!(await identity.listContexts('dir-account', db)).some(item => item.adminGrantId === 'venue-limited-grant'));
+  const adminContext = { ...context, role: 'admin', adminLevel: 'admin', assignmentId: null,
+    adminGrantId: 'venue-limited-grant', contextId: 'retired-venue-context', identityType: 'admin' };
   await db.query(`INSERT INTO auth_sessions(id,account_id,openid_hash,context_id,context_type,context_subject_id,organization_id,role,token_version,expires_at)
     VALUES ('venue-admin-session','dir-account','',?,'admin','venue-limited-grant','dir-auth','admin',1,UTC_TIMESTAMP()+INTERVAL 1 DAY)`, [adminContext.contextId]);
   let activeContext = context;
@@ -86,17 +87,15 @@ module.exports = async function venueApprovalAuthorizationCases(db) {
     await db.query("DELETE FROM authorization_rules WHERE id='venue-review-explicit'");
     activeContext = adminContext;
     const adminPending = await call('listPendingVenueApprovals');
-    assert.equal(adminPending.status, 'success', JSON.stringify(adminPending));
-    assert.equal(adminPending.pending.filter(item => item.id === 'permission-approve').length, 0,
-      '管理身份没有审批授权时不能取得待办');
+    assert.equal(adminPending.status, 'forbidden', JSON.stringify(adminPending));
     assert.equal((await call('approveVenueBookingStep', { id: 'permission-approve', flowId: 'permission-flow' })).status, 'forbidden',
       '管理身份不能隐含取得审批能力');
     await db.query("INSERT INTO authorization_rules(id,org_id,name,policy_json) VALUES ('venue-admin-allow','dir-auth','允许指定管理身份审批',?)", [JSON.stringify({
       ...policy, id: 'venue-admin-allow', effect: 'allow', subjects: [{ kind: 'adminGrants', ids: ['venue-limited-grant'] }],
       capabilities: ['venue.bookings.read', 'venue.bookings.approve']
     })]);
-    assert.equal((await call('listPendingVenueApprovals')).pending.filter(item => item.id === 'permission-approve').length, 1,
-      '管理身份取得明确授权后仍须匹配管理员流程');
+    assert.equal((await call('listPendingVenueApprovals')).status, 'forbidden',
+      '已退役身份即使仍有历史规则也不能取得待办');
     await db.query("DELETE FROM authorization_rules WHERE id='venue-admin-allow'");
     activeContext = context;
     await db.query("UPDATE venue_bookings SET approval_flow_snapshot_json=? WHERE id='permission-approve'", [JSON.stringify(definition)]);

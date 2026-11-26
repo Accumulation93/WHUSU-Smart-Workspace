@@ -27,7 +27,7 @@ const PERMISSION_GROUPS = [
     label: localeCopy.copy_860c048463,
     description: '',
     permissions: [
-      { key: 'permissions.manage_regular_admins', label: localeCopy.copy_0b7fec3735, description: localeCopy.copy_95ec2d2724, targetLevels: ['admin'], defaultLevels: [] }
+      { key: 'permissions.manage_regular_admins', label: localeCopy.copy_0b7fec3735, description: localeCopy.copy_95ec2d2724, targetLevels: ['admin'], defaultLevels: [], hidden: true }
     ]
   },
   {
@@ -303,6 +303,7 @@ function isApplicable(permissionKey, adminLevel) {
 }
 
 function canConfigureAdminPermissions(operator, effective, target, orgId) {
+  // 只用于旧授权迁移对照；现行身份解析和数据库约束已拒绝普通管理员。
   if (!operator || !target || target.org_id !== orgId || target.id === operator.id) return false;
   if (operator.admin_level === 'super_admin') return target.admin_level === 'admin';
   return operator.admin_level === 'admin'

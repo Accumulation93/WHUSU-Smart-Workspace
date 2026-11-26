@@ -39,7 +39,7 @@ async function authorizedConfig(reference, input, updatedAt) {
     const write = input !== null;
     const decision = session.check({ capability: 'system.settings.' + (write ? 'update' : 'read'),
       resource: { id: CONFIG_ID, type: 'system.settings', organizationId: reference.organizationId },
-      requestedFields: write ? Object.keys(input) : [], businessAllowed: Boolean(actor && actor.role === 'admin'), legacyAllowed: false });
+      requestedFields: write ? Object.keys(input) : [], businessAllowed: Boolean(actor && (!write || actor.isSuper)), legacyAllowed: false });
     if (session.mode !== 'enforced' || !decision.allowed) throw authorizationError('authorization_forbidden');
     if (write) {
       if (Object.hasOwn(input, 'currentOrganization')) {

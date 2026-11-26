@@ -45,7 +45,7 @@ module.exports = async function identityNatureSessionCases(connection) {
   assert.equal(await authorization.loadActor(connection, reference), null);
   const partiallyAvailable = await contexts();
   assert.deepEqual(partiallyAvailable.filter(item => item.identityType === 'assignment').map(item => item.assignmentId), ['nature-session-liaison']);
-  assert.equal(partiallyAvailable.filter(item => item.identityType === 'admin').length, 1);
+  assert.equal(partiallyAvailable.filter(item => item.identityType === 'admin').length, 0);
   await connection.beginTransaction();
   try {
     await assert.rejects(identity.lockActiveBusinessSubjects(connection, [{ personId: person, organizationId: org, assignmentId: selected.assignmentId }]), { code: 'assignment_not_found' });
@@ -55,7 +55,7 @@ module.exports = async function identityNatureSessionCases(connection) {
   const pending = await contexts();
   assert.equal(pending.filter(item => item.identityType === 'assignment').length, 0);
   assert.equal(pending.filter(item => item.identityType === 'membership').length, 1);
-  assert.equal(pending.filter(item => item.identityType === 'admin').length, 1);
+  assert.equal(pending.filter(item => item.identityType === 'admin').length, 0);
   const membershipContext = pending.find(item => item.identityType === 'membership');
   await connection.query('UPDATE auth_sessions SET context_id=?,context_type=?,context_subject_id=? WHERE id=?',
     [membershipContext.contextId, 'membership', membership, 'nature-session']);

@@ -6,6 +6,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const express = require('express');
 const mysql = require('mysql2/promise');
+const { allowLegacyAdminFixture } = require('./helpers/legacyAdminSchema');
 const { isDeepStrictEqual } = require('node:util');
 
 async function postVerification(reference, body = {}) {
@@ -49,6 +50,7 @@ async function run() {
     await connection.query("GRANT ALL PRIVILEGES ON ??.* TO ?@'%'", [database, username]);
     await connection.query('USE ??', [database]);
     await connection.query(fs.readFileSync(path.join(__dirname, '../db/init.sql'), 'utf8'));
+    await allowLegacyAdminFixture(connection);
     await connection.query(`CREATE TABLE cache_domain_versions (org_id VARCHAR(64), domain VARCHAR(32), version BIGINT UNSIGNED NOT NULL,
       PRIMARY KEY(org_id,domain)); INSERT INTO organizations(id,name) VALUES ('migration-org','迁移隔离组织'),('other-org','其他组织')`);
     for (const name of ['20261031160000_unified_authorization.sql', '20261101023000_organization_config_copy.sql',
@@ -209,7 +211,8 @@ async function verifyUnifiedIdentityTransition(connection, pool) {
   assert.equal(staged.assignmentCount, 3);
   assert.equal((await transition.stage(pool)).changed, false);
   assert.equal(await transition.isUnified(connection), false);
-  const [adminBefore] = (await identity.listContexts('account-a')).filter(context => context.role === 'admin');
+  const adminBefore = { contextId: identity.contextId('admin', 'grant-a', 'migration-org') };
+  assert(!(await identity.listContexts('account-a')).some(context => context.contextId === adminBefore.contextId));
   assert.equal(identity.selectClientContexts(await identity.listContexts('account-a'), 'unified').identityModel, 'legacy');
   const release = { compatibleSha: 'c'.repeat(40), fallbackSha: 'd'.repeat(40) };
   const verifyDeployment = async request => request.protocol === 3;
@@ -241,7 +244,7 @@ async function verifyUnifiedIdentityTransition(connection, pool) {
   assert.equal(activated.equivalence.valid, true);
   assert(activated.equivalence.comparisons > 0);
   const contexts = await identity.listContexts('account-a');
-  assert(contexts.some(context => context.contextId === adminBefore.contextId));
+  assert(!contexts.some(context => context.contextId === adminBefore.contextId));
   const modern = identity.selectClientContexts(contexts, 'unified');
   assert.equal(modern.identityModel, 'unified');
   assert.equal(modern.contexts.length, 2);
@@ -251,9 +254,7 @@ async function verifyUnifiedIdentityTransition(connection, pool) {
     VALUES ('session-legacy','account-a','',?,'admin','grant-a','migration-org','admin',1,UTC_TIMESTAMP() + INTERVAL 1 DAY)`, [adminBefore.contextId]);
   const ref = { accountId: 'account-a', personId: 'migration-a', sessionId: 'session-legacy', contextId: adminBefore.contextId, organizationId: 'migration-org' };
   const legacyActor = await loadActor(connection, ref);
-  assert.equal(legacyActor.role, 'admin');
-  assert.deepEqual(legacyActor.legacyAdminGrantIds, ['grant-a']);
-  assert.equal(legacyActor.assignment.id, 'a-post-1');
+  assert.equal(legacyActor, null);
   await assert.rejects(identity.activateSelection('session-legacy', 'account-a', { contextId: adminBefore.contextId, identityModel: 'unified' }),
     error => error.code === 'context_forbidden');
   const assigned = modern.contexts.find(context => context.assignmentId === 'a-post-2');

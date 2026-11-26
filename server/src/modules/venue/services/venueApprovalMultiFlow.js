@@ -584,15 +584,16 @@ async function countStepCandidates(flow, st, applicantHrInfo, orgId, conn) {
   const mode = safeString(step.approval_mode) || ((step.rules || []).length ? 'hr_rule' : 'admin_any');
   if (mode === 'admin_any') {
     const db = conn || pool;
+    const unified = await require('../../../core/models/authorizationIdentityTransition').isUnified(db);
     const [rows] = await db.query(
       `SELECT COUNT(DISTINCT g.person_id) AS total
          FROM admin_grants g
          JOIN persons p ON p.id = g.person_id AND p.status = 'active'
          JOIN accounts a ON a.person_id = p.id AND a.status = 'verified'
         WHERE g.status = 'active'
-          AND ((g.admin_level = 'admin' AND g.org_id = ?)
-            OR (g.admin_level = 'super_admin' AND g.org_id = ''))`,
-      [orgId]
+          AND g.admin_level = 'super_admin'
+          AND (g.org_id = '' OR g.org_id = ? OR ? = 1)`,
+      [orgId, unified ? 1 : 0]
     );
     return Number(rows[0] && rows[0].total) || 0;
   }

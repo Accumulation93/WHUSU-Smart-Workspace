@@ -59,16 +59,14 @@ Module._load = originalLoad;
     }
   });
   assert.strictEqual(requestedLegacyId, '', '当前管理资料只投影认证角色，不读取旧绑定资料');
-  assert.strictEqual(regularAdmin.id, 'legacy-admin');
-  assert.strictEqual(regularAdmin.org_id, 'org-44', '当前组织必须覆盖 legacy 资料中的旧组织');
-  assert.strictEqual(regularAdmin.name, '当前姓名');
+  assert.strictEqual(regularAdmin, null, '历史普通管理员记录不得恢复为可用身份');
 
   assert.strictEqual(await resolveCurrentAdmin({ authAccount: {}, authContext: { role: 'user' } }), null);
   const request = {
     authAccount: { id: 'account-admin', personId: 'person-admin' },
     authContext: {
       role: 'admin', contextId: 'ctx-admin', organizationId: 'org-44',
-      personId: 'person-admin', adminGrantId: 'grant-admin', adminLevel: 'admin', name: '本人'
+      personId: 'person-admin', adminGrantId: 'grant-admin', adminLevel: 'super_admin', name: '本人'
     }
   };
   const expected = await resolveCurrentAdmin(request);

@@ -95,7 +95,7 @@ const password = crypto.randomBytes(32).toString('hex');
         ['target-' + i, '成员' + i, 'T' + i, 't' + i]);
       await pool.query('INSERT INTO organization_memberships (id,person_id,org_id,legacy_hr_id) VALUES (?,?,?,?)',
         ['membership-' + i, 'target-' + i, 'org', 'hr-' + i]);
-      const parameters = { name: '成员' + i, studentId: 'T' + i, adminLevel: 'admin', organizationId: 'org', ...variants[i] };
+      const parameters = { name: '成员' + i, studentId: 'T' + i, adminLevel: 'super_admin', organizationId: 'org', ...variants[i] };
       const created = await post(parameters);
       assert.equal(created.body.status, 'success', JSON.stringify(created));
       const [rows] = await pool.query('SELECT * FROM admin_info WHERE id = ?', [created.body.id]);
@@ -106,10 +106,10 @@ const password = crypto.randomBytes(32).toString('hex');
       assert.equal(grants[0].person_id, 'target-' + i);
     }
     const [before] = await pool.query('SELECT COUNT(*) AS count FROM admin_info');
-    assert.notEqual((await post({ name: '没有人事记录', studentId: 'missing', adminLevel: 'admin', organizationId: 'org', inviteCode: 'ignored' })).body.status, 'success');
+    assert.notEqual((await post({ name: '没有人事记录', studentId: 'missing', adminLevel: 'super_admin', organizationId: 'org', inviteCode: 'ignored' })).body.status, 'success');
     const [after] = await pool.query('SELECT COUNT(*) AS count FROM admin_info'); assert.equal(after[0].count, before[0].count);
     actorEnabled = false;
-    assert.equal((await post({ name: '成员0', studentId: 'T0', adminLevel: 'admin', inviteCode: 'ignored' })).code, 403);
+    assert.equal((await post({ name: '成员0', studentId: 'T0', adminLevel: 'super_admin', inviteCode: 'ignored' })).code, 403);
     console.log('管理员邀请码列实际删除后：4类新旧请求创建、编辑、回读、授权关联、失败回滚及未认证拒绝通过；会话旧摘要列删除后口令/微信会话创建、读取、撤销与旧schema默认值兼容通过');
   } finally {
     if (server) await new Promise(resolve => server.close(resolve));

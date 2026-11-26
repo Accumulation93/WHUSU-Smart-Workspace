@@ -15,45 +15,13 @@ module.exports = async function authorizationConsistencyCases({ db, model, edito
   assert.equal(ownAccess.canInspectOthersAuthorization, false);
   assert.equal((await success('getEffectiveAuthorization')).subjectId, 'jd-actor');
   await rejected('getEffectiveAuthorization', { role: 'user', subjectId: 'jd-target' });
-  await db.query(`INSERT INTO admin_grants(id,person_id,org_id,admin_level) VALUES ('jd-admin','jd-person','job-delegate','admin');
-    INSERT INTO departments(id,name,org_id) VALUES ('jd-hidden-department','不得下发部门','job-delegate');
+  await db.query(`INSERT INTO departments(id,name,org_id) VALUES ('jd-hidden-department','不得下发部门','job-delegate');
     INSERT INTO org_hr_profile_template_snapshots(id,org_id) VALUES ('jd-profile','job-delegate');
     INSERT INTO org_hr_profile_template_snapshot_fields(id,snapshot_id,label,type) VALUES
       ('jd-field-visible','jd-profile','可见资料项','text'),('jd-field-hidden','jd-profile','不得下发资料项','text'),
       ('jd-field-protected','jd-profile','历史学号字段','text');
     INSERT INTO auth_sessions(id,account_id,openid_hash,context_id,context_type,context_subject_id,organization_id,role,token_version,expires_at)
       VALUES ('jd-admin-session','jd-account','','jd-admin-context','admin','jd-admin','job-delegate','admin',1,UTC_TIMESTAMP()+INTERVAL 1 DAY)`);
-  await success('saveAuthorizationRule', { name: '管理员只有业务权', policy: { ...base,
-    subjects: [{ kind: 'adminGrants', ids: ['jd-admin'] }] }, expectedRevision: await revision() }, true);
-  const businessAdmin = await success('getAuthorizationManagement', {}, 'admin');
-  assert.equal(businessAdmin.canManage, false);
-  assert.equal(businessAdmin.canInspectOwn, true);
-  assert.equal(businessAdmin.canInspectOthers, false);
-  assert.equal(businessAdmin.canManageDelegations, false);
-  await rejected('saveAuthorizationRule', { name: '业务权不等于分配', policy: base, expectedRevision: await revision() }, 'admin');
-  const ownOnlyInspection = (await success('saveAuthorizationRule', { name: '仅查当前管理身份', policy: { ...base,
-    subjects: [{ kind: 'adminGrants', ids: ['jd-admin'] }], capabilities: ['authorization.effective.read'],
-    scopes: [{ kind: 'records', ids: ['jd-admin'] }] }, expectedRevision: await revision() }, true)).rule;
-  assert.equal((await success('getAuthorizationManagement', {}, 'admin')).canInspectOthers, false);
-  assert.equal((await success('getCurrentAuthorizationAccess', {}, 'admin')).canInspectOthersAuthorization, false);
-  const ownOnlyCandidates = await success('getAuthorizationCandidates', { purpose: 'inspection' }, 'admin');
-  assert.deepEqual(ownOnlyCandidates.assignments, []);
-  assert.deepEqual(ownOnlyCandidates.adminGrants, []);
-  assert.equal((await success('getEffectiveAuthorization', {}, 'admin')).subjectId, 'jd-admin');
-  await success('deleteAuthorizationRules', { rules: [{ id: ownOnlyInspection.id, version: ownOnlyInspection.version }], expectedRevision: await revision() }, true);
-  const inspectRule = (await success('saveAuthorizationRule', { name: '查询一个岗位', policy: { ...base,
-    subjects: [{ kind: 'adminGrants', ids: ['jd-admin'] }], capabilities: ['authorization.effective.read'],
-    scopes: [{ kind: 'records', ids: ['jd-target'] }] }, expectedRevision: await revision() }, true)).rule;
-  assert.equal((await success('getAuthorizationManagement', {}, 'admin')).canInspectOthers, true);
-  assert.equal((await success('getCurrentAuthorizationAccess', {}, 'admin')).canInspectOthersAuthorization, true);
-  assert.equal((await success('getEffectiveAuthorization', { role: 'user', subjectId: 'jd-target' }, 'admin')).subjectId, 'jd-target');
-  const denyInspection = (await success('saveAuthorizationRule', { name: '逐记录禁止全部可查对象', policy: {
-    ...inspectRule.policy, effect: 'deny' }, expectedRevision: await revision() }, true)).rule;
-  assert.equal((await success('getAuthorizationManagement', {}, 'admin')).canInspectOthers, false);
-  assert.equal((await success('getCurrentAuthorizationAccess', {}, 'admin')).canInspectOthersAuthorization, false);
-  await rejected('getEffectiveAuthorization', { role: 'user', subjectId: 'jd-target' }, 'admin');
-  await success('deleteAuthorizationRules', { rules: [{ id: inspectRule.id, version: inspectRule.version },
-    { id: denyInspection.id, version: denyInspection.version }], expectedRevision: await revision() }, true);
   // 只查询本人时，仅传解释实际引用的名称，不取得人事目录或其他资料项。
   const ownPolicy = { ...base, subjects: [{ kind: 'assignments', ids: ['jd-actor'] }], capabilities: ['hr.people.read'],
     scopes: [{ kind: 'assignmentScope', dimensions: { natureId: ['staff'], departmentId: ['jd-department'] } }],
@@ -85,18 +53,6 @@ module.exports = async function authorizationConsistencyCases({ db, model, edito
   assert(!userFields.find(item => item.id === unrestrictedRule.id).displayFields.includes('studentId'));
   assert(!userFields.find(item => item.id === unrestrictedRule.id).displayFields.includes('profile:jd-field-protected'));
   assert.equal(userExplanation.fieldLabels['profile:jd-field-protected'], undefined);
-  const inspectUser = (await success('saveAuthorizationRule', { name: '管理员查普通岗位仍受保护', policy: { ...base,
-    subjects: [{ kind: 'adminGrants', ids: ['jd-admin'] }], capabilities: ['authorization.effective.read'],
-    scopes: [{ kind: 'records', ids: ['jd-actor'] }] }, expectedRevision: await revision() }, true)).rule;
-  const inspectedByAdmin = await success('getEffectiveAuthorization', { role: 'user', subjectId: 'jd-actor' }, 'admin');
-  assert.deepEqual(inspectedByAdmin.capabilities.find(item => item.capability === 'hr.people.read').rules, userFields);
-  assert.equal(inspectedByAdmin.fieldLabels['profile:jd-field-protected'], undefined);
-  await success('saveAuthorizationRule', { name: '管理身份人事读取', policy: { ...base, fields: null,
-    subjects: [{ kind: 'adminGrants', ids: ['jd-admin'] }], capabilities: ['hr.people.read'] }, expectedRevision: await revision() }, true);
-  const adminExplanation = await success('getEffectiveAuthorization', {}, 'admin');
-  assert(adminExplanation.capabilities.find(item => item.capability === 'hr.people.read').rules.some(item => item.displayFields.includes('studentId')));
-  await success('deleteAuthorizationRules', { rules: [{ id: inspectUser.id, version: inspectUser.version }], expectedRevision: await revision() }, true);
-
   // 实际共用前端 helper 继承字段、期限及指定记录，生成简单身份分配参数后经 HTTP 保存回读。
   const limited = { ...base, capabilities: ['hr.people.read'], fields: ['name'],
     startsAt: '2000-01-01T00:00:00.000Z', endsAt: '2099-01-01T00:00:00.000Z',
@@ -196,6 +152,7 @@ module.exports = async function authorizationConsistencyCases({ db, model, edito
   await success('deleteAuthorizationDelegation', { id: second.id, version: second.version, expectedRevision: await revision() }, true);
 
   // 新增受控管理动作被拒绝；历史值兼容保留但不得扩充另一受控能力。
+  await db.query("INSERT INTO admin_grants(id,person_id,org_id,admin_level) VALUES ('jd-admin','jd-person','job-delegate','admin')");
   const controlled = 'authorization.rules.read';
   const adminPolicy = { ...base, subjects: [{ kind: 'adminGrants', ids: ['jd-admin'] }], capabilities: [controlled] };
   await rejected('saveAuthorizationRule', { name: '不能新增受控动作', policy: adminPolicy, expectedRevision: await revision() }, true);

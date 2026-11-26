@@ -1,32 +1,23 @@
 const SUPER_ADMIN_LEVEL = 'super_admin';
-const REGULAR_ADMIN_LEVEL = 'admin';
-const ADMIN_LEVELS = [SUPER_ADMIN_LEVEL, REGULAR_ADMIN_LEVEL];
+// 旧组织管理员授权只作历史权限的内部引用，不再作为可管理身份。
+const ADMIN_LEVELS = [SUPER_ADMIN_LEVEL];
 function isSuperAdmin(admin) {
   return Boolean(admin && admin.admin_level === SUPER_ADMIN_LEVEL);
 }
 
 function canViewTarget(operator, target, orgId) {
   if (!operator || !target) return false;
-  if (isSuperAdmin(operator)) {
-    return (target.admin_level === SUPER_ADMIN_LEVEL && target.org_id === '')
-      || (target.admin_level === REGULAR_ADMIN_LEVEL && target.org_id === orgId);
-  }
-  return operator.admin_level === REGULAR_ADMIN_LEVEL
-    && target.admin_level === REGULAR_ADMIN_LEVEL
-    && operator.org_id === orgId
-    && target.org_id === orgId;
+  return isSuperAdmin(operator) && target.admin_level === SUPER_ADMIN_LEVEL && target.org_id === '';
 }
 
 function canManageTarget(operator, target, orgId) {
   if (!canViewTarget(operator, target, orgId) || operator.id === target.id) return false;
-  if (isSuperAdmin(operator)) return true;
-  return operator.admin_level === REGULAR_ADMIN_LEVEL && target.admin_level === REGULAR_ADMIN_LEVEL;
+  return isSuperAdmin(operator);
 }
 
 function canCreateLevel(operator, adminLevel) {
   if (!operator || !ADMIN_LEVELS.includes(adminLevel)) return false;
-  if (isSuperAdmin(operator)) return true;
-  return operator.admin_level === REGULAR_ADMIN_LEVEL && adminLevel === REGULAR_ADMIN_LEVEL;
+  return isSuperAdmin(operator);
 }
 
 function canDeleteTarget(operator, target, orgId, activeSuperAdminCount) {
@@ -37,7 +28,6 @@ function canDeleteTarget(operator, target, orgId, activeSuperAdminCount) {
 
 module.exports = {
   SUPER_ADMIN_LEVEL,
-  REGULAR_ADMIN_LEVEL,
   ADMIN_LEVELS,
   isSuperAdmin,
   canViewTarget,

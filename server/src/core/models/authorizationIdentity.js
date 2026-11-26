@@ -37,18 +37,13 @@ async function loadRole(connection, session, lock) {
         AND (org_id = ? OR (admin_level = 'super_admin' AND (org_id = '' OR ? = 1)))${suffix}`,
     [session.subjectId, session.personId, session.organizationId, unifiedAuthorization ? 1 : 0]);
     const grant = grants[0];
-    if (!grant || !['admin', 'super_admin'].includes(grant.admin_level)) return null;
+    if (!grant || grant.admin_level !== 'super_admin') return null;
     actor.adminGrantId = grant.id;
     actor.legacyAdminId = grant.legacy_admin_id || grant.id;
     actor.isSuper = grant.admin_level === 'super_admin';
     if (actor.isSuper) {
       actor.assignment = { id: superAssignmentId(grant.id, actor.organizationId),
         organizationId: actor.organizationId, personId: actor.personId, active: true, systemRole: 'super_admin' };
-    } else if (unifiedAuthorization) {
-      const positions = await identityTransition.linkedAssignments(connection, actor.organizationId, grant.id, actor.personId, lock);
-      if (!positions.length) return null;
-      actor.assignment = { ...positions[0], active: true };
-      actor.legacyAdminGrantIds = [grant.id];
     }
     return actor;
   }

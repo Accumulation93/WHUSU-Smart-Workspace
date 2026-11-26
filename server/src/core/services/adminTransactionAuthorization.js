@@ -14,7 +14,7 @@ async function authorizePermission(db, actor, permission) {
   if (!people[0] || people[0].status !== 'active') fail('forbidden');
   const [grants] = await db.query("SELECT * FROM admin_grants WHERE id = ? AND person_id = ? AND (org_id = ? OR (admin_level = 'super_admin' AND (org_id = '' OR org_id IS NULL))) FOR UPDATE", [actor.grantId, actor.personId, actor.orgId]);
   const grant = grants[0];
-  if (!grant || grant.status !== 'active' || (grant.admin_level !== 'super_admin' && grant.org_id !== actor.orgId)) fail('forbidden');
+  if (!grant || grant.status !== 'active' || grant.admin_level !== 'super_admin') fail('forbidden');
   const admin = { id: grant.legacy_admin_id || grant.id, org_id: grant.org_id, admin_level: grant.admin_level };
   const effective = await loadEffectivePermissions(admin, actor.orgId, db);
   if (!hasAnyPermission(effective, [permission])) fail('forbidden');

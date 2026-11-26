@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const mysql = require('mysql2/promise');
+const { allowLegacyAdminFixture } = require('./helpers/legacyAdminSchema');
 
 async function run() {
   // 隔离测试使用临时身份密钥，不读取生产凭据，也不把密钥写入文件。
@@ -24,6 +25,7 @@ async function run() {
     await admin.query("GRANT ALL PRIVILEGES ON ??.* TO ?@'%'", [database, username]);
     await admin.query('USE ??', [database]);
     await admin.query(fs.readFileSync(path.join(__dirname, '../db/init.sql'), 'utf8'));
+    await allowLegacyAdminFixture(admin);
     await admin.query(`CREATE TABLE cache_domain_versions (org_id VARCHAR(64), domain VARCHAR(32), version BIGINT UNSIGNED NOT NULL,
         PRIMARY KEY (org_id, domain));
       INSERT INTO organizations (id, name) VALUES ('org', '权限测试组织'), ('other', '隔离组织');`);
@@ -285,13 +287,13 @@ async function run() {
       'workGroupId', 'workGroupName'].sort());
     assert(!JSON.stringify(superCandidates).includes('fixture'));
     const delegationInput = { name: '借用读取权限分配', enabled: true,
-      subjects: [{ kind: 'adminGrants', ids: ['regular'] }], envelope: { ...scoped, scopes: [{ kind: 'organization' }] },
+      subjects: [{ kind: 'assignments', ids: ['second-assignment'] }], envelope: { ...scoped, scopes: [{ kind: 'organization' }] },
       expectedRevision: (await state()).revision };
     const beforeDelegationPreview = await state();
     const delegationPreview = await model.previewDelegation(delegationInput, 'org', createGuard(reference));
     assert.deepEqual(await state(), beforeDelegationPreview);
     assert.equal(delegationPreview.impact.peopleCount, 1);
-    assert.deepEqual(delegationPreview.impact.roles.map(row => row.subjectId), ['regular']);
+    assert.deepEqual(delegationPreview.impact.roles.map(row => row.subjectId), ['second-assignment']);
     const delegation = await model.saveDelegation(delegationInput, 'org', createGuard(reference));
     const storedDelegation = (await model.listDelegations(admin, 'org')).find(row => row.id === delegation.id);
     assert.deepEqual(storedDelegation.envelope.capabilities, delegationPreview.delegation.envelope.capabilities);
@@ -299,7 +301,7 @@ async function run() {
     const delegationDeletionPreview = await model.previewDelegationDeletion(deletionInput, 'org', createGuard(reference));
     assert.equal(delegationDeletionPreview.impact.roles[0].after, null);
     assert.equal((await model.listDelegations(admin, 'org')).length, 1);
-    await admin.query("UPDATE auth_sessions SET context_subject_id='regular' WHERE id='session'");
+    await admin.query("UPDATE auth_sessions SET context_type='assignment',role='user',context_subject_id='second-assignment' WHERE id='session'");
     await assert.rejects(model.previewDelegationDeletion(deletionInput, 'org', createGuard(reference)),
       error => error.code === 'authorization_forbidden');
     const delegatedCandidates = await readCandidates(admin, reference);
@@ -314,7 +316,7 @@ async function run() {
     await assert.rejects(model.saveRule({ name: '超出委托', policy: { ...scoped, capabilities: ['venue.bookings.delete'] },
       expectedRevision: beforeEscalation.revision }, 'org', createGuard(reference)), error => error.code === 'authorization_forbidden');
     await assert.rejects(model.saveDelegation({ name: '转授权', enabled: true,
-      subjects: [{ kind: 'adminGrants', ids: ['regular'] }], envelope: scoped,
+      subjects: [{ kind: 'assignments', ids: ['second-assignment'] }], envelope: scoped,
       expectedRevision: beforeEscalation.revision }, 'org', createGuard(reference)), error => error.code === 'authorization_forbidden');
     assert.deepEqual(await state(), beforeEscalation);
     // 进入事务时看过旧委托，其他连接撤销后，保存草稿也必须复核最新事实。
@@ -331,13 +333,13 @@ async function run() {
     const [schemesAfterRevocation] = await admin.query('SELECT COUNT(*) AS count FROM authorization_schemes');
     assert.equal(schemesAfterRevocation[0].count, schemesBeforeRevocation[0].count);
     await admin.query('UPDATE authorization_delegations SET enabled = 1 WHERE id = ?', [delegation.id]);
-    await admin.query("UPDATE auth_sessions SET context_subject_id='grant' WHERE id='session'");
+    await admin.query("UPDATE auth_sessions SET context_type='admin',role='admin',context_subject_id='grant' WHERE id='session'");
     await model.deleteDelegation({ id: delegation.id, version: delegation.version, expectedRevision: (await state()).revision }, 'org', createGuard(reference));
-    await admin.query("UPDATE auth_sessions SET context_subject_id='regular' WHERE id='session'");
+    await admin.query("UPDATE auth_sessions SET context_type='assignment',role='user',context_subject_id='second-assignment' WHERE id='session'");
     await assert.rejects(readCandidates(admin, reference), error => error.code === 'authorization_forbidden');
     await assert.rejects(model.saveRule({ id: delegatedRule.id, name: '撤权后保存', version: delegatedRule.version,
       policy: scoped, expectedRevision: (await state()).revision }, 'org', createGuard(reference)), error => error.code === 'authorization_forbidden');
-    await admin.query("UPDATE auth_sessions SET context_subject_id='grant' WHERE id='session'");
+    await admin.query("UPDATE auth_sessions SET context_type='admin',role='admin',context_subject_id='grant' WHERE id='session'");
     const natures = require('../src/core/models/assignmentNature');
     const natureGuard = connection => createGuard(reference).authorize(connection);
     const organizations = require('../src/core/models/organization');
@@ -519,10 +521,9 @@ async function run() {
     assert.equal((await post('listAssignmentNatures', {})).status, 403);
     assert.equal((await post('deleteAssignmentNature', natureUpdated.nature)).status, 403);
     assert.equal((await post('getEffectiveAuthorization', { role: 'user', subjectId: 'assignment' })).status, 403);
-    assert.equal((await post('getEffectiveAuthorization', {})).status, 200);
+    assert.equal((await post('getEffectiveAuthorization', {})).status, 403);
     const noInspectionCandidates = await (await post('getAuthorizationCandidates', { purpose: 'inspection' })).json();
-    assert.deepEqual(noInspectionCandidates.assignments, []);
-    assert.deepEqual(noInspectionCandidates.adminGrants, []);
+    assert.equal(noInspectionCandidates.status, 'authorization_forbidden');
     assert.equal((await post('previewAuthorizationRule', { name: '越权预览', policy: scoped, expectedRevision: reopened.revision })).status, 403);
     assert.equal((await post('saveAuthorizationRule', { name: '越权HTTP', policy: scoped, expectedRevision: reopened.revision })).status, 403);
     await admin.query("UPDATE auth_sessions SET context_subject_id='grant' WHERE id='session'");
@@ -539,11 +540,16 @@ async function run() {
     assert(!(await (await post('getAuthorizationManagement', {})).json()).rules.some(rule => rule.id === httpRule.id));
     assert.equal((await post('deleteAssignmentNature', clearedNature.nature)).status, 200);
     assert(!(await (await post('listAssignmentNatures', {})).json()).list.some(item => item.id === natureCreated.nature.id));
+    for (const file of ['20261102193000_authorization_runtime_transition.sql',
+      '20261122153000_unified_identity_assignment_links.sql', '20261122170000_authorization_grant_sources.sql']) {
+      await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy', file), 'utf8'));
+    }
+    await admin.query("UPDATE authorization_runtime_transition SET phase='enforced',minimum_protocol=3 WHERE id=1");
     const inspectionPolicy = { ...scoped, capabilities: ['authorization.effective.read'],
-      subjects: [{ kind: 'adminGrants', ids: ['regular'] }], scopes: [{ kind: 'records', ids: ['assignment'] }] };
+      subjects: [{ kind: 'assignments', ids: ['second-assignment'] }], scopes: [{ kind: 'records', ids: ['assignment'] }] };
     const inspectionRule = await model.saveRule({ name: '只查询指定工作角色', policy: inspectionPolicy,
       expectedRevision: (await state()).revision }, 'org', createGuard(reference));
-    await admin.query("UPDATE auth_sessions SET context_subject_id='regular' WHERE id='session'");
+    await admin.query("UPDATE auth_sessions SET context_type='assignment', context_subject_id='second-assignment', role='user' WHERE id='session'");
     const scopedCandidates = await (await post('getAuthorizationCandidates', { purpose: 'inspection' })).json();
     const inspectionOnlyPage = await (await post('getAuthorizationManagement', {})).json();
     assert.equal(inspectionOnlyPage.canManage, false);
@@ -552,13 +558,14 @@ async function run() {
     assert.equal((await post('getAuthorizationCandidates', {})).status, 403);
     assert.deepEqual(scopedCandidates.assignments.map(item => item.assignmentId), ['assignment']);
     assert.deepEqual(scopedCandidates.adminGrants, []);
-    const excludedAssignment = inspectionCandidates.assignments.find(item => item.assignmentId !== 'assignment');
-    assert.equal((await post('getEffectiveAuthorization', { role: 'user', subjectId: excludedAssignment.assignmentId })).status, 403);
+    const ownAssignment = inspectionCandidates.assignments.find(item => item.assignmentId === 'second-assignment');
+    assert.equal((await post('getEffectiveAuthorization', { role: 'user', subjectId: ownAssignment.assignmentId })).status, 200);
+    assert.equal((await post('getEffectiveAuthorization', { role: 'user', subjectId: 'missing' })).status, 403);
     assert.equal((await post('getEffectiveAuthorization', { role: 'user', subjectId: 'assignment' })).status, 200);
-    await admin.query("UPDATE auth_sessions SET context_subject_id='grant' WHERE id='session'");
+    await admin.query("UPDATE auth_sessions SET context_type='admin', context_subject_id='grant', role='admin' WHERE id='session'");
     await model.saveRule({ ...inspectionRule, policy: { ...inspectionRule.policy, enabled: false },
       expectedRevision: (await state()).revision }, 'org', createGuard(reference));
-    await admin.query("UPDATE auth_sessions SET context_subject_id='regular' WHERE id='session'");
+    await admin.query("UPDATE auth_sessions SET context_type='assignment', context_subject_id='second-assignment', role='user' WHERE id='session'");
     assert.equal((await post('getEffectiveAuthorization', { role: 'user', subjectId: 'assignment' })).status, 403);
     assert.deepEqual((await (await post('getAuthorizationCandidates', { purpose: 'inspection' })).json()).assignments, []);
     await admin.query("UPDATE auth_sessions SET context_type='assignment', context_subject_id='assignment', role='user' WHERE id='session'");
@@ -569,7 +576,7 @@ async function run() {
     await admin.query("UPDATE auth_sessions SET context_type='admin', context_subject_id='grant', role='admin' WHERE id='session'");
     const scopedNature = await (await post('saveAssignmentNature', { name: '指定范围性质' })).json();
     const naturePolicy = { ...scoped, capabilities: ['hr.assignmentNatures.read', 'hr.assignmentNatures.update'],
-      subjects: [{ kind: 'adminGrants', ids: ['regular'] }], scopes: [{ kind: 'records', ids: [scopedNature.nature.id] }] };
+      subjects: [{ kind: 'assignments', ids: ['second-assignment'] }], scopes: [{ kind: 'records', ids: [scopedNature.nature.id] }] };
     const natureAuthorization = await model.saveRule({ name: '仅维护一个性质', policy: naturePolicy,
       expectedRevision: (await state()).revision }, 'org', createGuard(reference));
     await admin.query("UPDATE authorization_organizations SET mode='enforced' WHERE org_id='org'");
@@ -581,19 +588,22 @@ async function run() {
     assert.equal((await admin.query("SELECT timezone FROM system_config WHERE id='default'"))[0][0].timezone, 9);
     assert.equal((await post('saveSystemConfig', { timezone: 10, currentOrganization: 'missing' })).status, 403);
     assert.equal((await admin.query("SELECT timezone FROM system_config WHERE id='default'"))[0][0].timezone, 9);
-    const systemRule = await model.saveRule({ name: '仅修改显示时区', policy: { ...blank,
-      subjects: [{ kind: 'adminGrants', ids: ['regular'] }], capabilities: ['system.settings.read', 'system.settings.update'],
+    await assert.rejects(model.saveRule({ name: '专属设置不能转给普通岗位', policy: { ...blank,
+      subjects: [{ kind: 'adminGrants', ids: ['regular'] }], capabilities: ['system.settings.update'],
+      fields: ['timezone'] }, expectedRevision: (await state()).revision }, 'org', createGuard(reference)),
+    error => error.code === 'authorization_special_capabilities');
+    await model.saveRule({ name: '仅查看显示时区', policy: { ...blank,
+      subjects: [{ kind: 'assignments', ids: ['second-assignment'] }], capabilities: ['system.settings.read'],
       fields: ['timezone'] }, expectedRevision: (await state()).revision }, 'org', createGuard(reference));
-    await admin.query("UPDATE auth_sessions SET context_subject_id='regular' WHERE id='session'");
-    assert.equal((await (await post('saveSystemConfig', { timezone: 8 })).json()).status, 'success');
+    await admin.query("UPDATE auth_sessions SET context_type='assignment',context_subject_id='second-assignment',role='user' WHERE id='session'");
+    const ordinarySystemSave = await post('saveSystemConfig', { timezone: 8 });
+    assert.equal((await ordinarySystemSave.json()).status, 'forbidden');
     const limitedSystem = await (await post('getSystemConfig', {})).json();
-    assert.equal(limitedSystem.config.timezone, 8);
+    assert.equal(limitedSystem.status, 'success', JSON.stringify(limitedSystem));
+    assert.equal(limitedSystem.config.timezone, 9);
     assert.equal(Object.hasOwn(limitedSystem.config, 'currentOrganization'), false);
-    assert.equal((await post('saveSystemConfig', { timezone: 7, currentOrganization: 'org' })).status, 403);
-    await admin.query('UPDATE authorization_rules SET policy_json=? WHERE id=?',
-      [JSON.stringify({ ...systemRule.policy, enabled: false }), systemRule.id]);
-    assert.equal((await post('saveSystemConfig', { timezone: 7 })).status, 403);
-    assert.equal((await admin.query("SELECT timezone FROM system_config WHERE id='default'"))[0][0].timezone, 8);
+    assert.equal((await (await post('saveSystemConfig', { timezone: 7, currentOrganization: 'org' })).json()).status, 'forbidden');
+    assert.equal((await admin.query("SELECT timezone FROM system_config WHERE id='default'"))[0][0].timezone, 9);
     const scopedNatureList = await (await post('listAssignmentNatures', {})).json();
     assert.deepEqual(scopedNatureList.list.map(item => item.id), [scopedNature.nature.id]);
     assert.equal(scopedNatureList.canCreate, false);
@@ -626,14 +636,15 @@ async function run() {
         businessAllowed: true }).allowed, false);
       await permissionConnection.rollback();
     } finally { permissionConnection.release(); }
-    await admin.query("UPDATE auth_sessions SET context_subject_id='grant' WHERE id='session'");
+    await admin.query("UPDATE auth_sessions SET context_type='admin',role='admin',context_subject_id='grant' WHERE id='session'");
     await model.deleteRules({ expectedRevision: (await state()).revision,
       rules: [{ id: natureAuthorization.id, version: natureAuthorization.version }] }, 'org', createGuard(reference));
-    await admin.query("UPDATE auth_sessions SET context_subject_id='regular' WHERE id='session'");
+    await admin.query("UPDATE auth_sessions SET context_type='assignment',role='user',context_subject_id='second-assignment' WHERE id='session'");
     assert.equal((await post('saveAssignmentNature', { ...scopedNature.nature, version: 2, name: '撤权后改名' })).status, 403);
-    await admin.query("UPDATE auth_sessions SET context_subject_id='grant' WHERE id='session'");
+    await admin.query("UPDATE auth_sessions SET context_type='admin',role='admin',context_subject_id='grant' WHERE id='session'");
     assert.equal((await post('deleteAssignmentNature', { ...scopedNature.nature, version: 2 })).status, 200);
     await admin.query("UPDATE authorization_organizations SET mode='shadow' WHERE org_id='org'");
+    await admin.query("UPDATE authorization_runtime_transition SET phase='shadow',minimum_protocol=0 WHERE id=1");
     const { createScopeCompiler } = require('../src/core/services/authorizationSqlScope');
     const { evaluate } = require('../src/core/services/authorizationPolicy');
     const compile = createScopeCompiler({ resourceType: 'venue.bookings', organization: 'r.org_id', id: 'r.id',
@@ -980,23 +991,30 @@ async function run() {
     const configCopy = require('../src/core/services/organizationConfigCopy');
     const copyInput = { kind: 'venue.purposes', sourceRecordId: 'copy-purpose', targetOrganizationId: 'other' };
     await assert.rejects(configCopy.share(copyInput, reference), error => error.code === 'authorization_forbidden');
-    await admin.query("UPDATE auth_sessions SET context_subject_id='grant' WHERE id='session'");
+    await admin.query("UPDATE auth_sessions SET context_type='admin',role='admin',context_subject_id='grant' WHERE id='session'");
     const sourceCopyRule = await model.saveRule({ name: '来源事由分享', policy: { ...blank,
-      subjects: [{ kind: 'adminGrants', ids: ['regular'] }], capabilities: ['venue.purposes.share', 'venue.purposes.read'],
+      subjects: [{ kind: 'assignments', ids: ['second-assignment'] }], capabilities: ['venue.purposes.share', 'venue.purposes.read'],
       scopes: [{ kind: 'records', ids: ['copy-purpose'] }] }, expectedRevision: (await state()).revision }, 'org', createGuard(reference));
     const sourceFieldDeny = await model.saveRule({ name: '不得复制事由文字', policy: { ...blank,
-      effect: 'deny', subjects: [{ kind: 'adminGrants', ids: ['regular'] }], capabilities: ['venue.purposes.read'],
+      effect: 'deny', subjects: [{ kind: 'assignments', ids: ['second-assignment'] }], capabilities: ['venue.purposes.read'],
       scopes: [{ kind: 'records', ids: ['copy-purpose'] }], fields: ['text'] }, expectedRevision: (await state()).revision }, 'org', createGuard(reference));
-    await admin.query("UPDATE auth_sessions SET context_subject_id='regular' WHERE id='session'");
+    await admin.query("UPDATE auth_sessions SET context_type='assignment',role='user',context_subject_id='second-assignment' WHERE id='session'");
     assert.equal((await post('shareOrganizationConfiguration', copyInput, true)).status, 401);
     assert.equal((await post('shareOrganizationConfiguration', copyInput)).status, 403);
     await admin.query("UPDATE authorization_rules SET policy_json=JSON_SET(policy_json,'$.enabled',false) WHERE id=?", [sourceFieldDeny.id]);
     const copyShare = await (await post('shareOrganizationConfiguration', copyInput)).json();
     assert.equal(copyShare.status, 'success');
+    await admin.query(`INSERT INTO departments(id,name,org_id) VALUES ('copy-target-dept','复制授权岗位部门','other');
+      INSERT INTO identities(id,name,org_id) VALUES ('copy-target-identity','目标岗位','other');
+      INSERT INTO hr_info(id,name,student_id,org_id) VALUES ('copy-target-hr','目标成员','fixture','other');
+      INSERT INTO organization_memberships(id,person_id,org_id,legacy_hr_id) VALUES ('copy-target-membership','person','other','copy-target-hr');
+      INSERT INTO membership_assignments(id,membership_id,org_id,assignment_kind,department_id,identity_id)
+        VALUES ('copy-operator-assignment','copy-target-membership','other','staff','copy-target-dept','copy-target-identity');
+      INSERT INTO identity_nature_links(org_id,identity_id,nature_id) VALUES ('other','copy-target-identity','staff')`);
     await admin.query(`INSERT INTO admin_grants(id,person_id,org_id,admin_level) VALUES ('target-grant','person','other','admin');
       INSERT INTO auth_sessions(id,account_id,openid_hash,context_id,context_type,context_subject_id,
         organization_id,role,token_version,expires_at)
-      VALUES ('target-session','account','','target-context','admin','target-grant','other','admin',1,UTC_TIMESTAMP() + INTERVAL 1 DAY);
+      VALUES ('target-session','account','','target-context','assignment','copy-operator-assignment','other','user',1,UTC_TIMESTAMP() + INTERVAL 1 DAY);
       UPDATE authorization_organizations SET mode='enforced' WHERE org_id='other';`);
     const copyTarget = { ...reference, organizationId: 'other', sessionId: 'target-session', contextId: 'target-context' };
     const receiveCopy = { shareId: copyShare.id, shareVersion: 1, requestId: 'auth-copy' };
@@ -1005,7 +1023,7 @@ async function run() {
     // 明确建立目标组织授权，不能因同一自然人在来源已有权限而自动接收。
     const targetGuard = { ...guard, authorize: async () => ({ contextId: 'target-context', organizationId: 'other' }) };
     const targetRule = await model.saveRule({ name: '目标接收事由', policy: { ...blank,
-      subjects: [{ kind: 'adminGrants', ids: ['target-grant'] }], capabilities: ['venue.purposes.receive'],
+      subjects: [{ kind: 'assignments', ids: ['copy-operator-assignment'] }], capabilities: ['venue.purposes.receive'],
       scopes: [{ kind: 'organization' }] }, expectedRevision: (await model.read(admin, 'other')).revision }, 'other', targetGuard);
     const offered = await (await post('listSharedOrganizationConfigurations', { kind: 'venue.purposes' }, false, true)).json();
     assert.equal(offered.status, 'success');
@@ -1016,7 +1034,7 @@ async function run() {
     assert.equal(copyDraft.state, 'draft');
     await assert.rejects(configCopy.apply({ id: copyDraft.id, version: 1 }, copyTarget), error => error.code === 'authorization_forbidden');
     const targetUpdate = await model.saveRule({ id: targetRule.id, version: 1, name: '目标接收并创建事由', policy: { ...blank,
-      subjects: [{ kind: 'adminGrants', ids: ['target-grant'] }], capabilities: ['venue.purposes.receive', 'venue.purposes.create'],
+      subjects: [{ kind: 'assignments', ids: ['copy-operator-assignment'] }], capabilities: ['venue.purposes.receive', 'venue.purposes.create'],
       scopes: [{ kind: 'organization' }] }, expectedRevision: (await model.read(admin, 'other')).revision }, 'other', targetGuard);
     const copyResult = await (await post('applyOrganizationConfigurationDraft', { id: copyDraft.id, version: 1 }, false, true)).json();
     assert.equal(copyResult.status, 'success');
@@ -1032,7 +1050,7 @@ async function run() {
     await assert.rejects(configCopy.share(copyInput, reference), error => error.code === 'authorization_forbidden');
     assert(sourceCopyRule.id);
     await admin.query("UPDATE authorization_organizations SET mode='enforced' WHERE org_id IN ('org','other')");
-    await admin.query("UPDATE auth_sessions SET context_subject_id='grant' WHERE id IN ('session','target-session')");
+    await admin.query("UPDATE auth_sessions SET context_type='admin',role='admin',context_subject_id='grant' WHERE id IN ('session','target-session')");
     const schemeShare = await configCopy.share({ kind: 'authorization.schemes', sourceRecordId: scheme.id,
       targetOrganizationId: 'other' }, reference);
     const schemeCopyDraft = await configCopy.receive({ shareId: schemeShare.id, shareVersion: 1, requestId: 'scheme-copy' }, copyTarget);
@@ -1057,9 +1075,10 @@ async function run() {
     assert.deepEqual(peopleDetail.payload.rule.audience[0].personIds, ['ref-1']);
     assert.deepEqual(peopleDetail.payload.rule.fieldIds, ['ref-2']);
     const mappedPeople = { id: peopleDraft.id, version: 1, references: { 'ref-1': 'person', 'ref-2': 'target-field' } };
-    // 同一个人在目标组织只有管理身份，没有成员关系，也不能直接成为通讯录规则指定人员。
+    // 目标成员关系失效时，即使仍有超级管理员会话，也不能成为指定成员。
+    await admin.query("UPDATE organization_memberships SET status='left' WHERE id='copy-target-membership'");
     await assert.rejects(configCopy.apply(mappedPeople, copyTarget), error => error.code === 'config_copy_reference');
-    await admin.query("INSERT INTO organization_memberships(id,person_id,org_id,legacy_hr_id) VALUES ('target-membership','person','other','target-hr')");
+    await admin.query("UPDATE organization_memberships SET status='active' WHERE id='copy-target-membership'");
     await assert.rejects(configCopy.apply({ ...mappedPeople, references: { 'ref-1': 'person', 'ref-2': 'wrong-type-field' } }, copyTarget), error => error.code === 'config_copy_reference');
     await assert.rejects(configCopy.apply({ ...mappedPeople, references: { 'ref-1': 'person', 'ref-2': 'private-field' } }, copyTarget), error => error.code === 'config_copy_reference');
     const peopleResult = await configCopy.apply(mappedPeople, copyTarget);
@@ -1069,7 +1088,7 @@ async function run() {
     await admin.query(`INSERT INTO identities(id,org_id,name) VALUES ('target-identity','other','目标身份');
       INSERT INTO identity_nature_links(org_id,identity_id,nature_id) VALUES ('other','target-identity','staff');
       INSERT INTO membership_assignments(id,membership_id,org_id,assignment_kind,department_id,identity_id)
-      VALUES ('target-assignment','target-membership','other','staff','target-department','target-identity');
+      VALUES ('target-assignment','copy-target-membership','other','staff','target-department','target-identity');
       INSERT INTO audit_flow_templates(id,org_id,name,starter_type,starter_conditions_json)
       VALUES ('audit-copy','org','复制审核模板','conditions','[{"conditionType":"identity_scope","departmentScope":"specific","specificDepartmentId":"department","identityScope":"all","workGroupScope":"all"}]');`);
     for (const [index, action] of ['pass', 'sign', 'estamp', 'both', 'either'].entries()) {
@@ -1088,7 +1107,7 @@ async function run() {
     const auditMapping = { 'ref-1': 'target-department', 'ref-2': 'target-assignment' };
     const auditCandidates = await (await post('getOrganizationConfigurationCandidates', { id: auditDraft.id }, false, true)).json();
     assert.equal(auditCandidates.status, 'success');
-    assert.deepEqual(auditCandidates.assignments.map(item => item.id), ['target-assignment']);
+    assert.deepEqual(auditCandidates.assignments.map(item => item.id).sort(), ['copy-operator-assignment', 'target-assignment']);
     assert.equal(JSON.stringify(auditCandidates).includes('studentId'), false);
     assert.equal((await post('getOrganizationConfigurationCandidates', { id: auditDraft.id })).status, 404);
     const outgoing = await (await post('getOrganizationConfigurationWorkspace', { kind: 'audit.templates', tab: 'outgoing' })).json();
@@ -1112,7 +1131,7 @@ async function run() {
     const copiedConditions = (await admin.query(`SELECT c.* FROM audit_flow_template_step_conditions c JOIN audit_flow_template_steps s ON s.id=c.template_step_id
       WHERE s.template_id=? AND c.org_id=?`, [auditApplied.resultId, 'other']))[0];
     assert.equal(copiedConditions.length, 5);
-    assert(copiedConditions.every(item => item.assignment_ids === 'target-assignment' && item.person_hr_ids === 'target-hr'));
+    assert(copiedConditions.every(item => item.assignment_ids === 'target-assignment' && item.person_hr_ids === 'copy-target-hr'));
     const auditCopyAdapter = require('../src/core/models/auditTemplateCopy');
     assert.throws(() => auditCopyAdapter.normalize({ ...auditDetail.payload, steps: auditDetail.payload.steps.map(step => ({ ...step, actionType: undefined })) }),
       error => error.code === 'config_copy_invalid');
@@ -1181,7 +1200,7 @@ async function run() {
       assert.equal(saved.scope_department_id, 'target-department');
       assert.equal(saved.approver_identity_id, ruleType === 'identity' ? 'target-identity' : null);
       assert.equal(saved.approver_assignment_id, ruleType === 'person' ? 'target-assignment' : null);
-      assert.equal(saved.approver_hr_id, ruleType === 'person' ? 'target-hr' : null);
+      assert.equal(saved.approver_hr_id, ruleType === 'person' ? 'copy-target-hr' : null);
       assert.equal((await admin.query("SELECT COUNT(*) AS n FROM venue_approval_flows WHERE org_id='other'"))[0][0].n, 1);
       const reopened = await (await post('getOrganizationConfigurationDraft', { id: draft.id }, false, true)).json();
       assert.equal(reopened.resultId, applied.resultId);
@@ -1218,10 +1237,10 @@ async function run() {
       VALUES ('copy-activity','copy-venue','周期会议','monthly','{"values":[4],"periodMode":"count","periodStartDate":"2026-11-01","periodStartTime":"00:00","repeatCount":12}','16:30','18:30')`);
     const globalKinds = [['venue.openRules', 'copy-open', 'venue_open_rules'], ['venue.activityRules', 'copy-activity', 'venue_activity_rules']];
     await model.saveRule({ name: '来源仅有时间规则分享权', policy: { ...blank,
-      subjects: [{ kind: 'adminGrants', ids: ['regular'] }],
+      subjects: [{ kind: 'assignments', ids: ['second-assignment'] }],
       capabilities: globalKinds.flatMap(([kind]) => [kind + '.read', kind + '.share']),
       scopes: [{ kind: 'organization' }] }, expectedRevision: (await state()).revision }, 'org', createGuard(reference));
-    await admin.query("UPDATE auth_sessions SET context_subject_id='regular' WHERE id='session'");
+    await admin.query("UPDATE auth_sessions SET context_type='assignment',role='user',context_subject_id='second-assignment' WHERE id='session'");
     for (const [kind, sourceRecordId] of globalKinds) {
       const beforeShares = (await admin.query('SELECT COUNT(*) AS total FROM organization_config_shares'))[0][0].total;
       assert.equal((await post('shareOrganizationConfiguration', { kind, sourceRecordId, targetOrganizationId: 'other' })).status, 403);
@@ -1229,15 +1248,15 @@ async function run() {
       assert.deepEqual(sourceWorkspace.items, []);
       assert.equal((await admin.query('SELECT COUNT(*) AS total FROM organization_config_shares'))[0][0].total, beforeShares);
     }
-    await admin.query("UPDATE auth_sessions SET context_subject_id='grant' WHERE id='session'");
+    await admin.query("UPDATE auth_sessions SET context_type='admin',role='admin',context_subject_id='grant' WHERE id='session'");
     const sourceCopies = [];
     for (const [kind, sourceRecordId] of globalKinds) {
       const offered = await (await post('shareOrganizationConfiguration', { kind, sourceRecordId, targetOrganizationId: 'other' })).json();
       assert.equal(offered.status, 'success');
       sourceCopies.push(offered);
     }
-    await admin.query("UPDATE auth_sessions SET context_subject_id='target-grant' WHERE id='target-session'");
-    await model.saveRule({ name: '仅可接收场地时间', policy: { ...blank, subjects: [{ kind: 'adminGrants', ids: ['target-grant'] }],
+    await admin.query("UPDATE auth_sessions SET context_type='assignment',role='user',context_subject_id='copy-operator-assignment' WHERE id='target-session'");
+    await model.saveRule({ name: '仅可接收场地时间', policy: { ...blank, subjects: [{ kind: 'assignments', ids: ['copy-operator-assignment'] }],
       capabilities: globalKinds.flatMap(([kind]) => [kind + '.receive', kind + '.create']), scopes: [{ kind: 'organization' }] },
       expectedRevision: (await model.read(admin, 'other')).revision }, 'other', targetGuard);
     const receivedGlobal = [];
@@ -1251,13 +1270,14 @@ async function run() {
       const choices = await (await post('getOrganizationConfigurationCandidates', { id: received.id }, false, true)).json();
       assert.deepEqual(choices.choices.venue, []);
     }
+    await admin.query("UPDATE authorization_runtime_transition SET phase='enforced',minimum_protocol=3 WHERE id=1");
     const globalRule = await model.saveRule({ name: '只配置目标场地的共享时间', policy: { ...blank,
-      subjects: [{ kind: 'adminGrants', ids: ['target-grant'] }], capabilities: ['venue.sharedConfiguration.configure'],
+      subjects: [{ kind: 'assignments', ids: ['copy-operator-assignment'] }], capabilities: ['venue.sharedConfiguration.configure'],
       scopes: [{ kind: 'records', ids: ['copy-target-venue'] }] }, expectedRevision: (await model.read(admin, 'other')).revision }, 'other', targetGuard);
     const referenceValidator = require('../src/core/models/authorizationReferences');
     for (const [capability, id] of [['venue.resources.update', 'copy-target-venue'],
       ['venue.openRules.share', 'copy-open'], ['venue.activityRules.share', 'copy-activity']]) {
-      const referencePolicy = { ...blank, organizationId: 'other', subjects: [{ kind: 'adminGrants', ids: ['target-grant'] }],
+      const referencePolicy = { ...blank, organizationId: 'other', subjects: [{ kind: 'assignments', ids: ['copy-operator-assignment'] }],
         capabilities: [capability], scopes: [{ kind: 'records', ids: [id] }] };
       await pool.withTransaction(connection => referenceValidator.validateReferences(connection, referencePolicy));
       await assert.rejects(pool.withTransaction(connection => referenceValidator.validateReferences(connection,
@@ -1265,7 +1285,7 @@ async function run() {
       error => error.code === 'authorization_stale_reference');
     }
     await pool.withTransaction(connection => referenceValidator.validateReferences(connection,
-      { ...blank, organizationId: 'other', subjects: [{ kind: 'adminGrants', ids: ['target-grant'] }],
+      { ...blank, organizationId: 'other', subjects: [{ kind: 'assignments', ids: ['copy-operator-assignment'] }],
         capabilities: ['venue.sharedConfiguration.configure'], scopes: [{ kind: 'records', ids: ['copy-target-venue'] }] }));
     for (const [index, received] of receivedGlobal.entries()) {
       const [kind, sourceId, table] = globalKinds[index];
@@ -1291,7 +1311,7 @@ async function run() {
       assert.equal(beforeGrant.activation, null);
       assert.equal((await post('enableOrganizationConfiguration', { id: received.id, revision: '0'.repeat(64) }, false, true)).status, 403);
       await model.saveRule({ name: '维护已复制的共享时间', policy: { ...blank,
-        subjects: [{ kind: 'adminGrants', ids: ['target-grant'] }], capabilities: [kind + '.read', kind + '.update'],
+        subjects: [{ kind: 'assignments', ids: ['copy-operator-assignment'] }], capabilities: [kind + '.read', kind + '.update'],
         scopes: [{ kind: 'records', ids: [applied.resultId] }] }, expectedRevision: (await model.read(admin, 'other')).revision }, 'other', targetGuard);
       const activation = (await (await post('getOrganizationConfigurationDraft', { id: received.id }, false, true)).json()).activation;
       assert.equal(activation.shared, true);
@@ -1338,11 +1358,14 @@ async function run() {
     assert.equal((await (await post('getOrganizationConfigurationDraft', { id: receivedGlobal[0].id }, false, true)).json()).activation, null);
     assert.equal((await post('applyOrganizationConfigurationDraft', { id: receivedGlobal[0].id, version: 1,
       references: { venueId: 'copy-target-venue' } }, false, true)).status, 403);
+    await admin.query("UPDATE authorization_runtime_transition SET phase='shadow',minimum_protocol=0 WHERE id=1");
     await require('./helpers/assignmentDelegationCases')(admin);
     await require('./helpers/directoryAuthorizationCases')(admin);
     await require('./helpers/hrAuthorizationCases')(admin);
     await require('./helpers/adminAccountAuthorizationCases')(admin);
+    await admin.query("UPDATE authorization_runtime_transition SET phase='enforced',minimum_protocol=3 WHERE id=1");
     await require('./helpers/accountGovernanceAuthorizationCases')(admin);
+    await admin.query("UPDATE authorization_runtime_transition SET phase='shadow',minimum_protocol=0 WHERE id=1");
     await admin.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261019200000_notification_person_dismissals.sql'), 'utf8').split('DELIMITER $$')[0]);
     await require('./helpers/notificationAuthorizationCases')(admin);
     await require('./helpers/venueApprovalAuthorizationCases')(admin);

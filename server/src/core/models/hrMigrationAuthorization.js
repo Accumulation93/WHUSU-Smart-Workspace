@@ -111,16 +111,10 @@ async function previousRequesterActor(connection, reference) {
       AND (g.org_id=? OR (g.admin_level='super_admin' AND (g.org_id='' OR ?=1))) FOR UPDATE`,
   [reference.accountId, reference.personId, reference.adminGrantId, reference.organizationId, unifiedAuthorization ? 1 : 0]);
   const grant = rows[0];
-  if (!grant) return null;
+  if (!grant || grant.admin_level !== 'super_admin') return null;
   const active = { accountId: reference.accountId, personId: reference.personId, organizationId: reference.organizationId,
     contextId: reference.contextId, role: 'admin', active: true, assignment: null, adminGrantId: grant.id,
     isSuper: grant.admin_level === 'super_admin', unifiedAuthorization, legacyAdminGrantIds: [] };
-  if (unifiedAuthorization && !active.isSuper) {
-    const positions = await identityTransition.linkedAssignments(connection, reference.organizationId, grant.id, reference.personId, true);
-    if (!positions.length) return null;
-    active.assignment = { ...positions[0], active: true };
-    active.legacyAdminGrantIds = [grant.id];
-  }
   return active;
 }
 

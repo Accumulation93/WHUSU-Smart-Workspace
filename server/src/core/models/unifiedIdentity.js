@@ -1125,6 +1125,7 @@ async function syncLegacyAdminGrant(connection, legacyAdminId) {
   );
   const admin = adminRows[0];
   if (!admin) return null;
+  if (admin.admin_level !== 'super_admin') return null;
   const studentId = normalizeStudentId(admin.student_id);
   const name = normalizeName(admin.name);
   const [personRows] = await connection.query(
@@ -1353,19 +1354,13 @@ async function queryContexts(accountId, connection) {
        JOIN organizations o ON (ag.admin_level = 'super_admin' AND (ag.org_id = '' OR ? = 1))
                               OR CONVERT(o.id USING utf8mb4) COLLATE utf8mb4_unicode_ci = ag.org_id
        WHERE a.id = ? AND ${accountStatusCondition}
+         AND ag.admin_level = 'super_admin'
       ORDER BY ag.admin_level = 'super_admin' DESC, o.created_at DESC, (ag.org_id = '') DESC, ag.created_at, ag.id`,
     [unified ? 1 : 0, safeString(accountId)]
   );
-  let legacyAdminIds = null;
-  if (unified && adminRows.some(row => row.admin_level === 'admin')) {
-    const assignmentIds = new Set(assignmentRows.map(row => row.assignment_id));
-    const links = await identityTransition.activeLinksForPerson(executor, adminRows[0].person_id);
-    legacyAdminIds = new Set(links.filter(link => assignmentIds.has(link.assignmentId)).map(link => link.grantId));
-  }
   const contexts = assignmentRows.map(mapAssignmentContext)
     .concat(membershipRows.map(mapMembershipContext))
-    .concat(adminRows.filter(row => row.admin_level === 'super_admin' || !legacyAdminIds || legacyAdminIds.has(row.admin_grant_id))
-      .map(row => mapAdminContext(row, unified)));
+    .concat(adminRows.map(row => mapAdminContext(row, unified)));
   if (unified) for (const context of contexts) context.unifiedAuthorization = true;
   const seen = new Set();
   return contexts.filter((item) => {

@@ -12,7 +12,7 @@ async function getById(id) {
 async function getByIdGlobal(id, connection, lock) {
   const db = connection || pool;
   const [rows] = await db.query(
-    `SELECT * FROM admin_info WHERE id = ? AND admin_level IN ('super_admin', 'admin') LIMIT 1${lock ? ' FOR UPDATE' : ''}`,
+    `SELECT * FROM admin_info WHERE id = ? AND admin_level = 'super_admin' LIMIT 1${lock ? ' FOR UPDATE' : ''}`,
     [id]
   );
   return rows[0] || null;
@@ -20,19 +20,9 @@ async function getByIdGlobal(id, connection, lock) {
 
 async function listVisible(operator, orgId, connection) {
   const db = connection || pool;
-  if (operator.admin_level === 'super_admin') {
-    const [rows] = await db.query(
-      `SELECT * FROM admin_info
-        WHERE (admin_level = 'super_admin' AND org_id = '')
-           OR (admin_level = 'admin' AND org_id = ?)
-        ORDER BY FIELD(admin_level, 'super_admin', 'admin'), name, student_id`,
-      [orgId]
-    );
-    return rows;
-  }
+  if (operator.admin_level !== 'super_admin') return [];
   const [rows] = await db.query(
-    "SELECT * FROM admin_info WHERE admin_level = 'admin' AND org_id = ? ORDER BY name, student_id",
-    [orgId]
+    "SELECT * FROM admin_info WHERE admin_level = 'super_admin' AND org_id = '' ORDER BY name, student_id"
   );
   return rows;
 }
@@ -63,7 +53,7 @@ async function create(id, data, connection) {
     `INSERT INTO admin_info
       (id, name, student_id, openid, admin_level, bind_status, org_id)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [id, name || '', studentId || '', openid || '', adminLevel || 'admin',
+    [id, name || '', studentId || '', openid || '', adminLevel || 'super_admin',
      bindStatus || 'invited', orgId]
   );
 }
@@ -144,9 +134,7 @@ async function getByAdminLevel(level) {
     const [rows] = await pool.query("SELECT * FROM admin_info WHERE admin_level = 'super_admin' AND org_id = ''");
     return rows;
   }
-  const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query('SELECT * FROM admin_info WHERE admin_level = ? AND org_id = ?', [level, orgId]);
-  return rows;
+  return [];
 }
 
 // 跨组织写入必须在目标事务内复核本人账号与有效管理授权，不依赖微信绑定。
@@ -161,11 +149,10 @@ async function getActiveGrantForAccountInOrganization(accountId, personId, orgId
        JOIN persons p ON p.id = a.person_id AND p.status = 'active'
        JOIN admin_grants g ON g.person_id = p.id AND g.status = 'active'
       WHERE a.id = ? AND a.person_id = ? AND a.status = 'verified'
-        AND ((g.admin_level = 'super_admin' AND g.org_id = '')
-          OR (g.admin_level = 'admin' AND g.org_id = ?))
+        AND g.admin_level = 'super_admin' AND g.org_id = ''
       ORDER BY g.admin_level = 'super_admin' DESC, g.id
       LIMIT 1${lock ? ' FOR UPDATE' : ''}`,
-    [accountId, personId, orgId]
+    [accountId, personId]
   );
   return rows[0] || null;
 }

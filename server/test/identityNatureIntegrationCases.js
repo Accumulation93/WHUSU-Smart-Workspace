@@ -109,13 +109,18 @@ module.exports = async function runIdentityNatureCases(connection) {
   assert.equal(visibleImpact.usages.find(item => item.kind === 'audit_templates').details[0].title, 'impact-template');
   assert.equal(visibleImpact.usages.find(item => item.kind === 'copy_drafts').count,1);
   assert.equal(visibleImpact.usages.find(item => item.kind === 'copy_drafts').details[0].id,'impact-share');
-  await connection.query('UPDATE admin_grants SET admin_level=? WHERE id=?', ['admin','impact-admin']);
+  await connection.query('INSERT INTO departments(id,name,org_id) VALUES (?,?,?)', ['impact-role-dept','impact-role-dept',org]);
+  await connection.query('INSERT INTO hr_info(id,name,student_id,org_id) VALUES (?,?,?,?)', ['impact-hr','impact-person','impact-person',org]);
+  await connection.query('INSERT INTO organization_memberships(id,person_id,org_id,legacy_hr_id) VALUES (?,?,?,?)', ['impact-member','impact-person',org,'impact-hr']);
+  await connection.query(`INSERT INTO membership_assignments(id,membership_id,org_id,assignment_kind,department_id,identity_id)
+    VALUES ('impact-assignment','impact-member',?,'staff','impact-role-dept',?)`, [org,created.id]);
+  await connection.query("UPDATE auth_sessions SET role='user',context_type='assignment',context_subject_id='impact-assignment' WHERE id='impact-session'");
   await connection.beginTransaction();
   const deniedImpact = await impactModel.collect(connection, org, created.id, ['liaison'], reference);
   await connection.commit();
   assert.equal(deniedImpact.usages.find(item => item.kind === 'authorization_rules').details.length, 0);
   assert.equal(deniedImpact.usages.find(item => item.kind === 'copy_drafts').details.length,0);
-  const createOnly = { id:'impact-create-only',organizationId:org,effect:'allow',enabled:true,subjects:[{kind:'adminGrants',ids:['impact-admin']}],
+  const createOnly = { id:'impact-create-only',organizationId:org,effect:'allow',enabled:true,subjects:[{kind:'assignments',ids:['impact-assignment']}],
     capabilities:['hr.identities.create'],scopes:[{kind:'organization'}],fields:null };
   await connection.query('INSERT INTO authorization_rules(id,org_id,name,policy_json) VALUES (?,?,?,?)', ['impact-create-only',org,'create-only',JSON.stringify(createOnly)]);
   await assert.rejects(model.save({ organizationId:org,newId:'cannot-merge',name:'role',description:'first',natureIds:['liaison'],preview:true,authorizationReference:reference }), {code:'authorization_forbidden'});

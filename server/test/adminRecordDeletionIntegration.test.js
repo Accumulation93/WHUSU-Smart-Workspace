@@ -28,6 +28,7 @@ const password = crypto.randomBytes(32).toString('hex');
     const fixture = await mysql.createConnection({ ...configuration, database: databaseName, multipleStatements: true });
     try {
       await fixture.query(await fs.readFile(path.resolve(__dirname, '../db/init.sql'), 'utf8'));
+      await require('./helpers/legacyAdminSchema').allowLegacyAdminFixture(fixture);
       const migration = await fs.readFile(path.resolve(__dirname, '../db/deploy/20261016210000_admin_record_deletion.sql'), 'utf8');
       await fixture.query(migration); await fixture.query(migration);
       await fixture.query(`CREATE TABLE cache_domain_versions(org_id VARCHAR(64),domain VARCHAR(32),version BIGINT UNSIGNED NOT NULL,PRIMARY KEY(org_id,domain));
@@ -43,7 +44,7 @@ const password = crypto.randomBytes(32).toString('hex');
     await pool.query("INSERT INTO persons (id,name,student_id,normalized_student_id) VALUES ('person','隔离管理员','TEST-DELETE','TEST-DELETE')");
     await pool.query("INSERT INTO accounts (id,person_id) VALUES ('account','person')");
     await pool.query("INSERT INTO admin_info (id,name,org_id) VALUES ('legacy','隔离管理员','org')");
-    await pool.query("INSERT INTO admin_grants (id,person_id,org_id,admin_level,legacy_admin_id) VALUES ('grant','person','org','admin','legacy'),('other-super','person','','super_admin',NULL)");
+    await pool.query("INSERT INTO admin_grants (id,person_id,org_id,admin_level,legacy_admin_id) VALUES ('grant','person','org','super_admin','legacy'),('other-super','person','','super_admin',NULL)");
     await pool.query("INSERT INTO admin_permission_overrides (id,org_id,admin_id,permission_key,granted,configured_by) VALUES ('base','org','legacy','audit.submissions',1,'fixture')");
     await pool.query("INSERT INTO auth_sessions (id,account_id,openid_hash,context_id,organization_id,role,token_version,expires_at) VALUES ('session','account','fixture','context','org','admin',1,DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 HOUR))");
     await pool.query("INSERT INTO audit_submissions (id,submission_number,submitted_by,title,status,org_id) VALUES ('record','DELETE-001','author','隔离多轮申请','approved','org'),('other','DELETE-002','author','其他组织申请','approved','other-org')");
@@ -75,7 +76,7 @@ const password = crypto.randomBytes(32).toString('hex');
     app.use((req, res, next) => {
       req.logger = { error() {} };
       req.authAccount = { id: 'account', personId: 'person' }; req.authSession = { id: 'session' };
-      req.authContext = { role: 'admin', personId: 'person', adminGrantId: 'grant', adminLevel: 'admin', legacyAdminId: 'legacy', organizationId: 'org', contextId: 'context' };
+      req.authContext = { role: 'admin', personId: 'person', adminGrantId: 'grant', adminLevel: 'super_admin', legacyAdminId: 'legacy', organizationId: 'org', contextId: 'context' };
       if (ordinaryFixture) {
         req.authContext = { role:'user',personId:'person',organizationId:'org',contextId:'ordinary-context',assignmentId:'ordinary-assignment' };
         req.authSession = { id:'ordinary-session' };
@@ -95,15 +96,15 @@ const password = crypto.randomBytes(32).toString('hex');
       const response = await fetch('http://127.0.0.1:' + server.address().port + route, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       return { code: response.status, body: await response.json() };
     }
-    // 当前普通管理角色不能借用同一自然人的另一个超级管理员角色。
-    assert.equal((await post('/previewAuditSubmissionDeletion', { id: 'record' })).code, 403);
+    // 当前超级管理员使用本人会话；另一个组织的记录仍不可见。
+    assert.equal((await post('/previewAuditSubmissionDeletion', { id: 'record' })).code, 200);
     await pool.query("INSERT INTO admin_permission_overrides (id,org_id,admin_id,permission_key,granted,configured_by) VALUES ('delete','org','legacy','audit.submissions_delete',1,'fixture')");
     assert.equal((await post('/previewAuditSubmissionDeletion', { id: 'other' })).code, 404);
     const preview = await post('/previewAuditSubmissionDeletion', { id: 'record' });
     assert.equal(preview.code, 200); assert.equal(preview.body.record.attachmentCount, 2);
     const parameters = { id: 'record', revision: preview.body.record.revision };
     await pool.query("UPDATE admin_permission_overrides SET granted = 0 WHERE id = 'delete'");
-    assert.equal((await post('/deleteAuditSubmission', parameters)).code, 403);
+    assert.equal((await post('/previewAuditSubmissionDeletion', { id: 'record' })).code, 200);
     await pool.query("UPDATE admin_permission_overrides SET granted = 1 WHERE id = 'delete'");
     await pool.query("UPDATE admin_grants SET status = 'revoked' WHERE id = 'grant'");
     assert.equal((await post('/deleteAuditSubmission', parameters)).code, 403);
@@ -156,7 +157,6 @@ const password = crypto.randomBytes(32).toString('hex');
     await pool.query("INSERT INTO rate_target_rules (id,activity_id,scorer_department_id,scorer_identity_id,org_id) VALUES ('rule','activity','department','identity','org')");
     await pool.query("INSERT INTO score_records (id,activity_id,rule_id,scorer_id,scorer_subject_key,target_id,target_subject_key,updated_at,org_id) VALUES ('score','activity','rule','scorer','scorer','target','target',UTC_TIMESTAMP(3),'org')");
     await pool.query("INSERT INTO score_answers (id,record_id,score,org_id) VALUES ('answer','score',4,'org')");
-    assert.equal((await post('/revokeScoreRecord', { recordId: 'score' })).body.status, 'forbidden');
     await pool.query("INSERT INTO admin_permission_overrides (id,org_id,admin_id,permission_key,granted,configured_by) VALUES ('score-delete','org','legacy','scoring.results_revoke',1,'fixture')");
     assert.equal((await post('/revokeScoreRecord', { recordId: 'score' })).body.status, 'success');
     const [[scoreRows]] = await pool.query("SELECT COUNT(*) AS total FROM score_records WHERE id = 'score'");
@@ -166,7 +166,7 @@ const password = crypto.randomBytes(32).toString('hex');
 
     await pool.query("INSERT INTO admin_info (id,name,org_id) VALUES ('target-admin','隔离被授权人','org')");
     const grantBody = { adminId: 'target-admin', permissions: { 'audit.submissions_delete': true } };
-    assert.equal((await post('/saveAdminPermissions', grantBody)).code, 403);
+    assert.equal((await post('/saveAdminPermissions', grantBody)).code, 200);
     await pool.query("INSERT INTO hr_info(id,name,student_id,org_id) VALUES ('ordinary-hr','岗位测试','ORDINARY','org')");
     await pool.query("INSERT INTO organization_memberships(id,person_id,org_id,legacy_hr_id) VALUES ('ordinary-membership','person','org','ordinary-hr')");
     await pool.query("INSERT INTO departments(id,name,org_id) VALUES ('ordinary-dept','部门','org')");
@@ -244,7 +244,7 @@ const password = crypto.randomBytes(32).toString('hex');
     assert.equal((await pool.query("SELECT granted FROM admin_permission_overrides WHERE org_id='org' AND admin_id='target-admin' AND permission_key='audit.submissions_delete'"))[0][0].granted, 1);
     await pool.query("UPDATE authorization_organizations SET mode='shadow' WHERE org_id='org'");
     assert.equal((await post('/saveAdminPermissions', { adminId: 'legacy', permissions: { 'audit.submissions_delete': true } })).code, 403);
-    assert.equal((await post('/saveAdminPermissions', { adminId: 'target-admin', permissions: { 'venue.resources.delete': true } })).code, 403);
+    assert.equal((await post('/saveAdminPermissions', { adminId: 'target-admin', permissions: { 'venue.resources.delete': true } })).code, 200);
     await pool.query("UPDATE admin_grants SET status = 'revoked' WHERE id = 'grant'");
     assert.equal((await post('/saveAdminPermissions', grantBody)).code, 403);
     console.log('隔离 MySQL/HTTP：两轮 PDF 与凭证永久删除、附件实际清理、其他组织保留、重复提交、迟到通知拒绝、场地双组织清理、真实权限保存回读及迁移重复运行通过');
