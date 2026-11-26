@@ -23,6 +23,57 @@ function loadPage(relative, dependencies) {
   return Object.assign({}, definition, { data: { ...definition.data }, setData(patch) { Object.assign(this.data, patch); } });
 }
 
+test('共享身份卡的姓名、工作角色和配色随同一会话变化，页面旧配色不能覆盖身份', () => {
+  const filename = path.resolve(__dirname, '../../miniprogram/components/workspace-hero/workspace-hero.js');
+  const localRequire = createRequire(filename);
+  let definition;
+  let snapshot = { role: 'admin', contextId: 'admin', orgName: 'Organization A' };
+  const handlers = new Map();
+  const dependencies = {
+    orgSession: { getSnapshot: () => snapshot },
+    eventBus: { on: (name, handler) => handlers.set(name, handler), off: name => handlers.delete(name) },
+    authContext: {
+      getRuntimeProfile: role => ({ name: role === 'admin' ? 'Admin A' : 'Member B', assignmentLabel: role === 'user' ? 'Department B' : '' }),
+      getWorkContexts: () => [{ contextId: 'admin', name: 'Administrator' }, { contextId: 'member', name: 'Department B' }]
+    },
+    trustedNavigation: {}
+  };
+  vm.runInNewContext(fs.readFileSync(filename, 'utf8'), {
+    Component: value => { definition = value; },
+    require: name => dependencies[name.split('/').at(-1)] || localRequire(name)
+  }, { filename });
+  const component = Object.assign({}, definition.methods, {
+    data: { ...definition.data, tone: 'blue' },
+    setData(patch) { Object.assign(this.data, patch); }
+  });
+  definition.lifetimes.attached.call(component);
+  assert.equal(component.data.resolvedTone, 'admin');
+  assert.equal(component.data.personName, 'Admin A');
+  assert.equal(component.data.identityName, 'Administrator');
+  assert.equal(handlers.size, 3);
+
+  component.data.tone = 'admin';
+  snapshot = { role: 'user', contextId: 'member', orgName: 'Organization B' };
+  handlers.get('auth:selectionChanged')();
+  assert.equal(component.data.resolvedTone, 'blue');
+  assert.equal(component.data.personName, 'Member B');
+  assert.equal(component.data.identityName, 'Department B');
+  assert.equal(component.data.organizationName, 'Organization B');
+
+  snapshot = { role: 'admin', contextId: 'admin', orgName: 'Organization A' };
+  definition.pageLifetimes.show.call(component);
+  assert.equal(component.data.resolvedTone, 'admin');
+  assert.equal(component.data.personName, 'Admin A');
+  snapshot = { role: '', contextId: '', orgName: '' };
+  component[definition.properties.tone.observer]();
+  assert.equal(component.data.resolvedTone, 'admin');
+  component.data.tone = 'unknown';
+  component[definition.properties.tone.observer]();
+  assert.equal(component.data.resolvedTone, 'blue');
+  definition.lifetimes.detached.call(component);
+  assert.equal(handlers.size, 0);
+});
+
 test('门户同岗位返回时保留入口，丢弃迟到权限结果，明确撤权后清空', async () => {
   let sequence = 0;
   let fetchAccess = async () => { throw new Error('network'); };

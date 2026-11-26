@@ -24,6 +24,9 @@ const venueBookingModel = require('../models/venueBooking');
 const venueBookingPurposeModel = require('../models/venueBookingPurpose');
 const venuePurposeAuthorization = require('../models/venuePurposeAuthorization');
 const venueConfigurationAuthorization = require('../models/venueConfigurationAuthorization');
+const { CalendarError } = require('../../../core/services/calendarRecurrence');
+const { DirectoryError } = require('../../../core/services/contactDirectoryPolicy');
+const calendarCopy = require('../../../locales/zh-CN/calendar');
 const venueApprovalFlowModel = require('../models/venueApprovalFlow');
 const { createVenueBookingStatusNotification } = require('../utils/venueNotificationHelper');
 const notificationModel = require('../../audit/models/notification');
@@ -276,7 +279,24 @@ router.post('/listVenueActivityRules', async (req, res) => {
   }
 });
 
-// saveVenueActivityRule
+// 仅返回当前活动编辑与名单修改权限允许使用的人员候选。
+router.post('/getVenueActivityParticipantConfiguration', async (req, res) => {
+  try {
+    const reference = req.unifiedAuthorization?.reference;
+    const admin = reference ? null : await ensureAdmin(req);
+    if (!reference && !admin) return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const result = await venueConfigurationAuthorization.activityParticipantConfiguration(reference
+      || require('../../../core/services/authorizationReference').referenceFromRequest(req),
+    getAuthenticatedContext(req), safeString(req.body.venueId), safeString(req.body.id), Boolean(admin));
+    res.json({ status: 'success', ...result });
+  } catch (error) {
+    if (error.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (error instanceof CalendarError || error instanceof DirectoryError) return res.json({ status: 'calendar_' + error.code, message: calendarCopy[error.code] || calendarCopy.operationFailed });
+    res.json({ status: 'error', message: calendarCopy.operationFailed });
+  }
+});
+
+// 活动占用与显式提交的参会名单在同一事务保存。
 router.post('/saveVenueActivityRule', async (req, res) => {
   try {
     const reference = req.unifiedAuthorization?.reference;
@@ -295,11 +315,15 @@ router.post('/saveVenueActivityRule', async (req, res) => {
     };
     const validationError = ruleValidationError(data);
     if (validationError) return res.json({ status: 'invalid_params', message: validationError });
-    const { existing } = await venueConfigurationAuthorization.writeSharedRule(reference,
-      reference?.organizationId || await getCurrentOrgId(), 'activityRules', id, data);
-    res.json({ status: 'success', id, message: existing ? localeCopy.copy_11748a2634 : localeCopy.copy_cf3264f4d8 });
+    const participants = Object.hasOwn(req.body, 'participantTargets') ? { actor: getAuthenticatedContext(req),
+      targets: req.body.participantTargets, version: req.body.participantVersion } : undefined;
+    const result = await venueConfigurationAuthorization.writeSharedRule(reference,
+      reference?.organizationId || await getCurrentOrgId(), 'activityRules', id, data, false, participants);
+    res.json({ status: 'success', id, ...(result.participantVersion !== undefined ? { participantVersion: result.participantVersion } : {}),
+      message: result.existing ? localeCopy.copy_11748a2634 : localeCopy.copy_cf3264f4d8 });
   } catch (e) {
     if (e.code === 'authorization_forbidden') return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    if (e instanceof CalendarError || e instanceof DirectoryError) return res.json({ status: 'calendar_' + e.code, message: calendarCopy[e.code] || calendarCopy.operationFailed });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });

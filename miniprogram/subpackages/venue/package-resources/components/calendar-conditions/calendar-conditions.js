@@ -1,12 +1,12 @@
 'use strict';
-const copy=require('../../../../locales/zh-CN/calendar');
-const relations=require('../../../../locales/zh-CN/identityNatureRelations');
-const directory=require('../../package-resources/utils/contactDirectoryView');
-const calendarView=require('../../package-resources/utils/calendarView');
+const copy=require('../../../../../locales/zh-CN/calendar');
+const relations=require('../../../../../locales/zh-CN/identityNatureRelations');
+const directory=require('../../utils/contactDirectoryView');
+const calendarView=require('../../utils/calendarView');
 const dimensions=[{key:'departmentIds',same:'sameDepartment',label:'department',options:'departments'},{key:'identityCategoryIds',same:'sameIdentity',label:'identity',options:'identities'},{key:'workGroupIds',same:'sameWorkGroup',label:'workGroup',options:'workGroups'}];
 Component({
   options:{styleIsolation:'apply-shared'},
-  properties:{value:{type:Array,value:[]},metadata:{type:Object,value:{}},audience:Boolean,participants:Boolean,disabled:Boolean},
+  properties:{value:{type:Array,value:[]},metadata:{type:Object,value:{}},audience:Boolean,participants:Boolean,disabled:Boolean,allowEmpty:Boolean,embedded:Boolean},
   data:{copy,relations,rows:[],types:[],activeIndex:-1,pickerVisible:false,people:[],selected:[]},
   observers:{'value,metadata,audience':function(){this.rebuild();}},
   lifetimes:{attached:function(){this._visible=true;},detached:function(){this._visible=false;this._scrollPending=null;}},
@@ -29,6 +29,7 @@ Component({
       this._types=types;this.setData({rows,people,types:types.map(type=>copy[type==='people'?'choosePeople':type==='scope'?'chooseScope':'self'])},()=>{
         if(this._scrollPending==null)return;
         const index=this._scrollPending;this._scrollPending=null;
+        if(this.properties.embedded){this.triggerEvent('reveal',{index});return;}
         this.createSelectorQuery().select('#calendar-source-'+index).boundingClientRect().selectViewport().scrollOffset().exec(result=>{
           if(this._visible!==false&&this.data.activeIndex===index&&result[0]&&result[1])wx.pageScrollTo({scrollTop:Math.max(0,result[0].top+result[1].scrollTop),duration:200});
         });
@@ -40,7 +41,7 @@ Component({
     add:function(e){if(this.properties.disabled)return;const type=e&&e.currentTarget.dataset.type||'scope';this._scrollPending=this.properties.value.length;this.setData({activeIndex:this.properties.value.length});this.publish(this.properties.value.concat(directory.blankClause(type)));},
     editSource:function(e){if(!this.properties.disabled)this.setData({activeIndex:Number(e.currentTarget.dataset.index)},()=>this.rebuild());},
     finishSource:function(){this.setData({activeIndex:-1},()=>this.rebuild());},
-    remove:function(e){if(this.properties.value.length>1){this.setData({activeIndex:-1});this.publish(this.properties.value.filter((_,i)=>i!==Number(e.currentTarget.dataset.index)));}},
+    remove:function(e){if(this.properties.allowEmpty||this.properties.value.length>1){this.setData({activeIndex:-1});this.publish(this.properties.value.filter((_,i)=>i!==Number(e.currentTarget.dataset.index)));}},
     expand:function(e){const key=e.currentTarget.dataset.index+e.currentTarget.dataset.key;this._expanded=this._expanded||{};this._expanded[key]=!this._expanded[key];this.rebuild();},
     toggle:async function(e){
       const {index,key,id}=e.currentTarget.dataset,source=this.properties.value[Number(index)];if(this.properties.disabled||!source)return;

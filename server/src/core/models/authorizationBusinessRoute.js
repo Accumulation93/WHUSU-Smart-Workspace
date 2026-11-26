@@ -61,7 +61,7 @@ const ADAPTED = new Set(['/saveVenueBookingPurpose', '/deleteVenueBookingPurpose
   '/directApproveVenueBooking',
   '/listPendingVenueApprovals',
   '/listVenueApprovalHistory', '/getVenueApprovalHistoryDetail',
-  '/listVenueActivityRules', '/saveVenueActivityRule', '/deleteVenueActivityRule',
+  '/listVenueActivityRules', '/getVenueActivityParticipantConfiguration', '/saveVenueActivityRule', '/deleteVenueActivityRule',
   '/getAuditTemplateEditorData', '/listAuditFlowTemplates', '/saveAuditFlowTemplate', '/deleteAuditFlowTemplate',
   '/listStamps', '/saveStamp', '/deleteStamp', '/listStampCandidates', '/saveStampGrants',
   '/listAuditVerificationCandidates', '/listVerificationPermissions', '/saveVerificationPermission',

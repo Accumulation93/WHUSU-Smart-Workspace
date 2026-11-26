@@ -1,7 +1,7 @@
 {
   "navigationStyle": "custom",
   "usingComponents": {
-    "calendar-conditions": "/subpackages/workspace/components/calendarConditions/calendarConditions",
+    "calendar-conditions": "/subpackages/workspace/package-resources/components/calendar-conditions/calendar-conditions",
     "ui-navbar": "/components/ui-navbar/ui-navbar"
   },
   "navigationBarTitleText": ""

@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "personnel-picker": "/subpackages/venue/package-resources/components/personnel-picker/personnel-picker"
+  }
+}

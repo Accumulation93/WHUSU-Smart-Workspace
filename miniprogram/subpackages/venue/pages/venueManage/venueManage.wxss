@@ -173,6 +173,21 @@ page {
   box-shadow: 0 0 14rpx rgba(59, 130, 246, 0.24);
 }
 
+/* 规则窗口经 root-portal 移到页面外，蓝条尺寸不能依赖 page 祖先。 */
+.venue-rule-section-title::before {
+  width: 3.5px;
+  height: 14px;
+  border-radius: 3px;
+  box-shadow: none;
+}
+
+@media (min-width: 520px) {
+  .venue-rule-section-title::before {
+    width: 5px;
+    height: 20px;
+  }
+}
+
 /* ═══ Glass cards — exact HR admin .edit-box / .list-card ═══ */
 .edit-box,
 .list-card,

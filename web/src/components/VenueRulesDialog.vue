@@ -22,6 +22,13 @@
     <template v-if="active === 'bookingWindow' && canWriteApprovals" #footer><button type="button" class="btn btn-primary" :disabled="blocked" @click="saveWindow">{{ ui.copy_ac9827b75d }}</button></template>
   </GlassDialog>
   <VenueCycleRuleEditor v-if="editor" :type="editor.type" :value="editor" :busy="busy || awaitingRead" :disabled="blocked" @close="editor = null" @save="saveRule">
+    <section v-if="editor.type === 'activity'" class="stack activity-participants">
+      <h3 class="section-title">{{ calendarCopy.participantSources }}</h3>
+      <AppLoading v-if="editor.participants.state === 'loading'" :text="calendarCopy.participantSettingsLoading" />
+      <template v-else-if="editor.participants.state === 'failed'"><p role="alert" class="notice-line">{{ calendarCopy.participantSettingsFailed }}</p><button type="button" class="btn btn-secondary" :disabled="busy || awaitingRead" @click="loadParticipants(editor)">{{ calendarCopy.retry }}</button></template>
+      <template v-else-if="editor.participants.canEdit"><CalendarConditions v-model="editor.participants.targets" :metadata="editor.participants.metadata" participants allow-empty :disabled="blocked" /></template>
+      <p v-else class="muted">{{ calendarCopy.participantSettingsReadOnly }}</p>
+    </section>
     <p v-if="actionNotice" role="alert" class="notice-line">{{ actionNotice }}</p><template v-if="loadNotice"><p role="alert" class="notice-line">{{ loadNotice }}</p><button type="button" class="btn-quiet" :disabled="loading || busy" @click="load">{{ copy.common.retry }}</button></template>
   </VenueCycleRuleEditor>
   <GlassDialog v-if="activity" :title="ui.copy_c4df6642e3" @close="activity = null"><VenueActivityDetail :source-id="activity.id" :name="activity.activity_name" :venue="venue.name" :time="activity.time_start + ' - ' + activity.time_end" :cycle="cycleLabel(activity.cycle_type, activity.cycle_values)" :period="activityPeriodLabel(activity.cycle_type, activity.cycle_values)" :note="ui.copy_e90ee137d6" /></GlassDialog>
@@ -39,6 +46,9 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import GlassDialog from '@/components/GlassDialog.vue';
 import VenueActivityDetail from '@/components/VenueActivityDetail.vue';
 import VenueCycleRuleEditor from '@/components/VenueCycleRuleEditor.vue';
+import CalendarConditions from '@/components/CalendarConditions.vue';
+import calendarCopy from '@/locales/zh-CN/shared/calendar.js';
+import natureCopy from '@/locales/zh-CN/shared/identityNatureRelations.js';
 import VenueBookingWindowFields from '@/components/VenueBookingWindowFields.vue';
 import VenueApprovalRules from '@/components/VenueApprovalRules.vue';
 import copy from '@/locales/zh-CN/index.js';
@@ -63,7 +73,7 @@ const tabs = computed(() => {
   const resources = { open: ['venue.openRules'], activity: ['venue.activityRules'], booking: ['venue.approvals', 'venue.bookingRules'], bookingWindow: ['venue.bookingWindows'] };
   return items.filter(item => resources[item.key].some(key => authorizationAccess.value.grantedCapabilities.some(capability => capability.startsWith(key + '.'))));
 });
-const blocked = computed(() => busy.value || loading.value || !!loadNotice.value || awaitingRead.value);
+const blocked = computed(() => busy.value || loading.value || !!loadNotice.value || awaitingRead.value || editor.value?.participants?.state === 'loading');
 const rows = computed(() => records.value[active.value] || []);
 const scope = () => [session.context?.organizationId, session.context?.contextId].join('|');
 const originalScope = scope(); let disposed = false, generation = 0;
@@ -99,10 +109,30 @@ function edit(row = {}) {
     const legacyInterval = type === 'activity' && ['datetime_range', 'repeat'].includes(cycleType);
     editor.value = { type, id: row.id || '', name: row.name || row.activity_name || '', legacyInterval,
       cycleType: type === 'activity' && !legacyInterval && !['daily', 'weekly', 'monthly', 'yearly'].includes(cycleType) ? 'daily' : cycleType,
-      cycleValues: type === 'activity' && !legacyInterval ? activityValues(cycleType, row.cycle_values) : parseValues(row.cycle_values), timeStart: row.time_start || '09:00', timeEnd: row.time_end || '18:00' }; actionNotice.value = '';
+      cycleValues: type === 'activity' && !legacyInterval ? activityValues(cycleType, row.cycle_values) : parseValues(row.cycle_values), timeStart: row.time_start || '09:00', timeEnd: row.time_end || '18:00',
+      participants: { state: 'loading', canEdit: false, targets: [], original: '', version: 0, metadata: {} } }; actionNotice.value = '';
+    if (type === 'activity') loadParticipants(editor.value);
+    else editor.value.participants.state = 'unused';
   } catch (error) { actionNotice.value = errorText(error, ui.copy_e52119b17e); }
 }
 function viewActivity(row) { if (active.value === 'activity' && !busy.value) activity.value = row; }
+async function loadParticipants(target) {
+  if (!target || target !== editor.value || target.type !== 'activity' || busy.value || awaitingRead.value) return;
+  const state = target.participants;
+  state.state = 'loading';
+  try {
+    const result = requireSuccess(await callApi('getVenueActivityParticipantConfiguration', { venueId: props.venue.id, id: target.id }));
+    if (!current() || editor.value !== target) return;
+    if (typeof result.canEdit !== 'boolean' || result.canEdit && (!Array.isArray(result.targets) || !Number.isInteger(result.version)
+      || !['people', 'natures', 'departments', 'identities', 'workGroups'].every(key => Array.isArray(result[key])))) throw new Error();
+    state.canEdit = result.canEdit;
+    state.targets = result.canEdit ? structuredClone(result.targets) : [];
+    state.original = JSON.stringify(state.targets);
+    state.version = result.version;
+    state.metadata = result;
+    state.state = 'loaded';
+  } catch (error) { if (current() && editor.value === target) state.state = 'failed'; }
+}
 async function write(endpoint, payload) {
   if (blocked.value || !current()) return;
   busy.value = true; actionNotice.value = '';
@@ -113,7 +143,7 @@ async function write(endpoint, payload) {
     const successText = { saveVenueActivityRule: ui.activityRuleSaved, saveVenueOpenRule: ui.openRuleSaved, saveVenueBookingWindow: ui.bookingWindowSaved }[endpoint];
     if (current() && successText) showToast(successText);
   }
-  catch (error) { if (current()) actionNotice.value = errorText(error, ui.copy_215e3c57da); }
+  catch (error) { if (current()) actionNotice.value = error?.code === 'calendar_invalidRule' ? flowCopy.incomplete : errorText(error, ui.copy_215e3c57da); }
   finally { if (current()) busy.value = false; }
 }
 function saveRule() {
@@ -130,6 +160,12 @@ function saveRule() {
   }
   const payload = { id: value.id, venueId: props.venue.id, cycleType: value.cycleType, cycleValues: value.cycleValues, timeStart: value.timeStart, timeEnd: value.timeEnd };
   payload[value.type === 'activity' ? 'activityName' : 'name'] = value.name;
+  const participants = value.participants;
+  if (value.type === 'activity' && participants.state === 'loaded' && participants.canEdit && JSON.stringify(participants.targets) !== participants.original) {
+    if (participants.targets.some(clause => clause.type === 'scope' && !clause.sameNature && !clause.natureIds?.length)) { actionNotice.value = natureCopy.selectNatureRequired; return; }
+    payload.participantTargets = JSON.parse(JSON.stringify(participants.targets));
+    payload.participantVersion = participants.version;
+  }
   return write(value.type === 'activity' ? 'saveVenueActivityRule' : 'saveVenueOpenRule', payload);
 }
 function saveWindow() {

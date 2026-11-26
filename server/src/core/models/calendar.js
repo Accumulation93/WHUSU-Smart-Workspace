@@ -310,18 +310,22 @@ async function mutate(input,actor,authorize) {
     return {id:event.id,version:event.version+1};
   });
 }
-async function saveParticipants(input,actor,authorize) {
+async function prepareParticipants(connection,input,actor,authorize) {
   validId(input.sourceId);
-  const targets=directoryPolicy.normalizeClauses(input.targets,true);
-  return pool.withTransaction(async connection=>{
+  const targets=Array.isArray(input.targets)&&input.targets.length===0 ? [] : directoryPolicy.normalizeClauses(input.targets,true);
     const permissions=await authorize(connection,'read');
     await identity.lockActiveBusinessSubjects(connection,[{personId:actor.personId,organizationId:actor.organizationId,assignmentId:actor.assignmentId,requireMembership:actor.role!=='admin'}]);
     await lockOrganizationDictionaryWrites(actor.organizationId,connection);
-    await sources.assertEditable(connection,input.sourceKind,input.sourceId,actor,permissions);
     const data=await directory.catalog(connection,actor.organizationId,true);
+  return {targets,permissions,data};
+}
+async function savePreparedParticipants(connection,input,actor,prepared) {
+    const {targets,permissions,data}=prepared;
+    await sources.assertEditable(connection,input.sourceKind,input.sourceId,actor,permissions);
     const existing=(await connection.query('SELECT * FROM calendar_events WHERE org_id=? AND source_kind=? AND source_id=? FOR UPDATE',[actor.organizationId,input.sourceKind,input.sourceId]))[0][0];
+    if(!existing && input.version!==undefined && input.version!==0)throw new CalendarError('conflict');
     if(permissions.eventAuthorization && !permissions.eventAuthorization.can(existing?'update':'create',existing?decode(existing):null,true))throw new CalendarError('forbidden');
-    const selected=policy.selectedPeople(targets,existing ? parse(existing.creator_context_json) : actor,data);
+    const selected=targets.length ? policy.selectedPeople(targets,existing ? parse(existing.creator_context_json) : actor,data) : [];
     await identity.lockActiveBusinessSubjects(connection,selected.map(personId=>({personId,organizationId:actor.organizationId})));
     // 场地来源由原业务授权安排参会者，日程不能反向批准或修改场地占用。
     if (existing) {
@@ -333,7 +337,18 @@ async function saveParticipants(input,actor,authorize) {
     await connection.query(`INSERT INTO calendar_events (id,org_id,creator_person_id,creator_context_json,visibility,source_kind,source_id,spec_json,targets_json)
       VALUES (?,?,?,?,?,?,?,?,?)`,[id,actor.organizationId,actor.personId,JSON.stringify(actorSnapshot(actor,data)),'organization',input.sourceKind,input.sourceId,JSON.stringify(spec),JSON.stringify(targets)]);
     return {id,version:1};
+}
+async function saveParticipants(input,actor,authorize) {
+  return pool.withTransaction(async connection=>{
+    const prepared=await prepareParticipants(connection,input,actor,authorize);
+    return savePreparedParticipants(connection,input,actor,prepared);
   });
+}
+function participantMetadata(catalog) {
+  return {people:catalog.people.map(person=>({personId:person.personId,name:person.name,
+    assignments:person.assignments.map(a=>({id:a.id,nature:a.nature,departmentId:a.departmentId,identityCategoryId:a.identityCategoryId,
+      workGroupId:a.workGroupId,departmentName:a.departmentName,identityCategoryName:a.identityCategoryName,workGroupName:a.workGroupName}))})),
+    natures:catalog.natures,departments:catalog.departments,identities:catalog.identities,workGroups:catalog.workGroups};
 }
 async function getParticipants(input,actor,authorize) {
   validId(input.sourceId);
@@ -350,8 +365,7 @@ async function getParticipants(input,actor,authorize) {
     if (!row && !canRead && !access.emptyVisible) throw new CalendarError('forbidden');
     if (!row && (!canEdit || input.edit!==true)) return {id:null,version:0,canEdit,targets:[],participants:[]};
     const catalog=await directory.catalog(connection,actor.organizationId);
-    const metadata=canEdit && input.edit===true ? {people:catalog.people.map(person=>({personId:person.personId,name:person.name,assignments:person.assignments.map(a=>({id:a.id,departmentId:a.departmentId,identityCategoryId:a.identityCategoryId,workGroupId:a.workGroupId,departmentName:a.departmentName,identityCategoryName:a.identityCategoryName,workGroupName:a.workGroupName}))})),
-      departments:catalog.departments,identities:catalog.identities,workGroups:catalog.workGroups,timezoneOffset:await timezone(connection)} : {};
+    const metadata=canEdit && input.edit===true ? Object.assign(participantMetadata(catalog),{timezoneOffset:await timezone(connection)}) : {};
     if (!row) return Object.assign(metadata,{id:null,version:0,canEdit,targets:[{type:'self'}],participants:[]});
     const event=decode(row), linked=await related(connection,[event],actor.organizationId);
     const offset=await timezone(connection);
@@ -371,4 +385,4 @@ async function getParticipants(input,actor,authorize) {
     return Object.assign(metadata,{id:event.id,version:event.version,canEdit,targets:canEdit?event.targets:[],participants:publicMembers(participants,actor.organizationId)});
   });
 }
-module.exports={configuration,saveRule,batchRules,save,list,mutate,saveParticipants,getParticipants,listForActor,load,related,members,publicMembers,canModify,rules,decode,timezone,validId,actorSnapshot};
+module.exports={configuration,saveRule,batchRules,save,list,mutate,saveParticipants,prepareParticipants,savePreparedParticipants,participantMetadata,getParticipants,listForActor,load,related,members,publicMembers,canModify,rules,decode,timezone,validId,actorSnapshot};

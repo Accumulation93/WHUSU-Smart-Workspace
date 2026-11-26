@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "personnel-picker": "/components/personnel-picker/personnel-picker"
+  }
+}

@@ -2,13 +2,13 @@
   <section class="calendar-condition-stack">
     <p v-if="participants" class="muted">{{ copy.participantSourcesHelp }}</p>
     <div v-for="(clause,index) in modelValue" :id="'calendar-source-' + index" :key="index" class="list-row calendar-condition-card">
-      <template v-if="participants"><span v-for="line in summary(clause)" :key="line" class="muted">{{ line }}</span><div class="card-actions calendar-source-actions"><button v-if="activeIndex !== index" type="button" class="btn btn-secondary calendar-condition-action" :disabled="disabled" @click="activeIndex = index">{{ copy.editParticipantSource }}</button><button type="button" class="btn btn-secondary calendar-condition-action" :disabled="disabled || modelValue.length === 1" @click="remove(index)">{{ copy.removeParticipantSource }}</button></div></template>
+      <template v-if="participants"><span v-for="line in summary(clause)" :key="line" class="muted">{{ line }}</span><div class="card-actions calendar-source-actions"><button v-if="activeIndex !== index" type="button" class="btn btn-secondary calendar-condition-action" :disabled="disabled" @click="activeIndex = index">{{ copy.editParticipantSource }}</button><button type="button" class="btn btn-secondary calendar-condition-action" :disabled="disabled || (!allowEmpty && modelValue.length === 1)" @click="remove(index)">{{ copy.removeParticipantSource }}</button></div></template>
       <template v-if="!participants || activeIndex === index">
       <div class="calendar-condition-toolbar">
       <select class="field-input" :value="clause.type" :disabled="disabled" :aria-label="copy.conditions" @change="changeType(index,$event.target.value)">
         <option value="people">{{ copy.choosePeople }}</option><option value="scope">{{ copy.chooseScope }}</option><option v-if="!audience" value="self">{{ copy.self }}</option>
       </select>
-      <button v-if="!participants" type="button" class="btn btn-secondary calendar-condition-action" :disabled="disabled || modelValue.length===1" @click="remove(index)">{{ copy.delete }}</button>
+      <button v-if="!participants" type="button" class="btn btn-secondary calendar-condition-action" :disabled="disabled || (!allowEmpty && modelValue.length===1)" @click="remove(index)">{{ copy.delete }}</button>
       </div>
       <template v-if="clause.type==='people'"><p v-if="names(clause.personIds)" class="muted break-all">{{ names(clause.personIds) }}</p><button type="button" class="btn btn-secondary calendar-condition-action" :disabled="disabled" @click="picker=index">{{ copy.choosePeople }}</button></template>
       <template v-if="clause.type==='scope'">
@@ -40,7 +40,7 @@ import relations from '@/locales/zh-CN/shared/identityNatureRelations.js';
 import calendarView from '@/shared/calendarView.js';
 import directory from '@/shared/contactDirectoryView.js';
 import { confirmAction } from '@/runtime/notify.js';
-const props=defineProps({modelValue:{type:Array,required:true},metadata:{type:Object,required:true},audience:Boolean,participants:Boolean,disabled:Boolean});
+const props=defineProps({modelValue:{type:Array,required:true},metadata:{type:Object,required:true},audience:Boolean,participants:Boolean,disabled:Boolean,allowEmpty:Boolean});
 const emit=defineEmits(['update:modelValue']);
 const picker=ref(null), people=computed(()=>directory.peopleOptions(props.metadata.people));
 const activeIndex=ref(props.modelValue.findIndex(clause=>clause.type==='people'&&!(clause.personIds||[]).length||clause.type==='scope'&&Array.isArray(clause.natureIds)&&!clause.natureIds.length&&!clause.sameNature));
@@ -60,7 +60,7 @@ async function toggle(index,key,id) {
 }
 function setSame(index,dimension,value) { patch(index,clause=>{clause[dimension.same]=value;clause[dimension.key]=[];}); }
 async function add(type) { if(props.disabled)return;activeIndex.value=props.modelValue.length;emit('update:modelValue',props.modelValue.concat(directory.blankClause(type)));await nextTick();document.getElementById('calendar-source-'+activeIndex.value)?.scrollIntoView({block:'nearest'}); }
-function remove(index) { if(props.disabled||props.modelValue.length===1)return;activeIndex.value=-1;emit('update:modelValue',props.modelValue.filter((_,i)=>i!==index)); }
+function remove(index) { if(props.disabled||(!props.allowEmpty&&props.modelValue.length===1))return;activeIndex.value=-1;emit('update:modelValue',props.modelValue.filter((_,i)=>i!==index)); }
 function confirm(items) { patch(picker.value,clause=>{clause.personIds=items.map(item=>item.id);});picker.value=null;activeIndex.value=-1; }
 function names(ids) { return people.value.filter(person=>ids.includes(person.id)).map(person=>person.name).join(' / '); }
 function department(option) { return option.departmentId ? ' · '+(props.metadata.departments.find(item=>item.id===option.departmentId)?.name || '') : ''; }

@@ -11,6 +11,10 @@ const openRules = require('./venueOpenRule');
 const activityRules = require('./venueActivityRule');
 const flowSteps = require('./venueApprovalFlowStep');
 const venueModel = require('./venue');
+const calendar = require('../../../core/models/calendar');
+const calendarDirectory = require('../../../core/models/contactDirectory');
+const calendarAuthorization = require('../../../core/services/calendarEventAuthorization');
+const { CalendarError } = require('../../../core/services/calendarRecurrence');
 const SHARED_RULES = Object.freeze({
   openRules: { table: 'venue_open_rules', model: openRules, title: 'name', column: 'name' },
   activityRules: { table: 'venue_activity_rules', model: activityRules, title: 'activityName', column: 'activity_name' }
@@ -53,10 +57,23 @@ async function assertSharedVenue(connection, session, organizationId, venueId) {
   }
 }
 
-async function writeSharedRule(reference, organizationId, kind, id, data, remove = false) {
+async function writeSharedRule(reference, organizationId, kind, id, data, remove = false, participants) {
   const definition = sharedDefinition(kind);
   return pool.withTransaction(async connection => {
     const session = await sharedSession(connection, reference, organizationId);
+    let participantInput, preparedParticipants;
+    if (participants) {
+      if (kind !== 'activityRules' || remove || !session || !participants.actor
+        || participants.actor.organizationId !== organizationId
+        || participants.actor.personId !== reference.personId
+        || participants.actor.contextId !== reference.contextId) throw authorizationError('authorization_forbidden');
+      if (!Number.isSafeInteger(participants.version) || participants.version < 0) throw new CalendarError('conflict');
+      participantInput = { sourceKind: 'venue_activity', sourceId: id, targets: participants.targets, version: participants.version };
+      const permissions = { eventAuthorization: calendarAuthorization.eventAuthorization(session, participants.actor),
+        sourceAuthorization: calendarAuthorization.sourceAuthorization(session, participants.actor) };
+      // 与独立名单写入保持一致的人员/字典→场地/来源锁顺序。
+      preparedParticipants = await calendar.prepareParticipants(connection, participantInput, participants.actor, async () => permissions);
+    }
     // 全局场地配置遵守场地锁顺序；规则不能被请求中的 venueId 搬到另一个场地。
     const [before] = await connection.query('SELECT venue_id FROM ' + definition.table + ' WHERE id=?', [id]);
     if (remove && !before.length && !session) return { id, existing: false };
@@ -77,7 +94,48 @@ async function writeSharedRule(reference, organizationId, kind, id, data, remove
     if (remove) await definition.model.remove(id, connection);
     else if (existing) await definition.model.update(id, data, connection);
     else await definition.model.create(id, data, connection);
-    return { id, existing: Boolean(existing) };
+    const participantResult = participants
+      ? await calendar.savePreparedParticipants(connection, participantInput, participants.actor, preparedParticipants) : null;
+    return { id, existing: Boolean(existing), ...(participantResult ? { participantVersion: participantResult.version } : {}) };
+  });
+}
+
+async function activityParticipantConfiguration(reference, actor, venueId, id, legacyAllowed = false) {
+  if (!actor || !reference || actor.organizationId !== reference.organizationId || actor.personId !== reference.personId
+    || actor.contextId !== reference.contextId) throw authorizationError('authorization_forbidden');
+  calendar.validId(venueId);
+  if (id) calendar.validId(id);
+  return pool.withTransaction(async connection => {
+    const session = await createAuthorizationSession(connection, reference, { lock: true });
+    const sourceId = id || generateId();
+    const action = id ? 'update' : 'create';
+    const legacyReadOnly = session.mode === 'shadow' && legacyAllowed === true;
+    if (session.mode !== 'enforced' && !(legacyReadOnly && session.check({
+      capability: 'venue.activityRules.' + action,
+      resource: { id: sourceId, type: 'venue.activityRules', organizationId: actor.organizationId },
+      businessAllowed: true, legacyAllowed: true
+    }).allowed)) throw authorizationError('authorization_forbidden');
+    const [venues] = await connection.query('SELECT id,is_active FROM venues WHERE id=?', [venueId]);
+    if (!venues.length) throw authorizationError('venue_missing');
+    const [rows] = id ? await connection.query('SELECT id,venue_id,is_active FROM venue_activity_rules WHERE id=?', [id]) : [[]];
+    if (id && (!rows.length || rows[0].venue_id !== venueId)) throw new CalendarError('unavailable');
+    // 旧授权只保留原活动规则编辑；参会名单仍须正式权限授权。
+    if (legacyReadOnly) return { canEdit: false };
+    await assertSharedVenue(connection, session, actor.organizationId, venueId);
+    requireDecision(session, actor.organizationId, 'venue.sharedConfiguration', venueId, 'configure');
+    requireDecision(session, actor.organizationId, 'venue.activityRules', sourceId, action,
+      ['activityName', 'cycleType', 'cycleValues', 'timeStart', 'timeEnd']);
+    // 停用来源的时间规则仍可维护，但不能修改名单或读取候选。
+    if (Number(venues[0].is_active) !== 1 || (id && Number(rows[0].is_active) !== 1)) return { canEdit: false };
+    const canEdit = calendarAuthorization.sourceAuthorization(session, actor)('venue_activity', 'update', sourceId).allowed;
+    if (!canEdit) return { canEdit: false };
+    const [events] = id ? await connection.query('SELECT * FROM calendar_events WHERE org_id=? AND source_kind=? AND source_id=?',
+      [actor.organizationId, 'venue_activity', id]) : [[]];
+    const event = events[0];
+    if (!calendarAuthorization.eventAuthorization(session, actor).can(event ? 'update' : 'create', event ? calendar.decode(event) : null, true)) return { canEdit: false };
+    const catalog = await calendarDirectory.catalog(connection, actor.organizationId);
+    return { ...calendar.participantMetadata(catalog), timezoneOffset: await calendar.timezone(connection), canEdit: true,
+      targets: event ? calendar.decode(event).targets : [], version: event ? event.version : 0 };
   });
 }
 
@@ -297,5 +355,5 @@ async function writeVenue(reference, organizationId, id, data, remove = false) {
   });
 }
 
-module.exports = { readCandidates, saveBookingWindow, writeSharedRule, listSharedRules, listVenues, writeVenue,
+module.exports = { readCandidates, activityParticipantConfiguration, saveBookingWindow, writeSharedRule, listSharedRules, listVenues, writeVenue,
   begin: sharedSession, requireDecision, authorizeBookingWindow, listOrganizationConfiguration };

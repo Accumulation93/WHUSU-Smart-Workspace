@@ -34,7 +34,7 @@ const invalid=conditions.buildConditions({conditionFacts:[{...fact,natureIds:['m
 assert.equal(invalid.groups[0].notice,conditionCopy.approvalConditionIncomplete);
 
 const root=path.resolve(__dirname,'..');
-for(const relative of ['web/src/components/CalendarConditions.vue','web/src/components/ContactDirectoryAdmin.vue','web/src/components/VenueFlowEditor.vue','web/src/components/AuditConditionEditor.vue','miniprogram/components/contact-directory/contact-directory.js','miniprogram/subpackages/workspace/components/calendarConditions/calendarConditions.js']){
+for(const relative of ['web/src/components/CalendarConditions.vue','web/src/components/ContactDirectoryAdmin.vue','web/src/components/VenueFlowEditor.vue','web/src/components/AuditConditionEditor.vue','miniprogram/components/contact-directory/contact-directory.js','miniprogram/components/calendar-conditions/calendar-conditions.js']){
   const source=fs.readFileSync(path.join(root,relative),'utf8');
   for(const match of source.matchAll(/\brelations\.([A-Za-z][A-Za-z0-9_]*)/g))assert.ok(Object.hasOwn(relations,match[1]),relative+': '+match[1]);
 }

@@ -49,7 +49,8 @@ Component({
     },
     tone: {
       type: String,
-      value: 'blue'
+      value: 'blue',
+      observer: 'refresh'
     }
   },
 
@@ -60,6 +61,7 @@ Component({
     identityName: '',
     identityDetail: '',
     organizationName: '',
+    resolvedTone: 'blue',
     signedIn: false
   },
 
@@ -97,6 +99,7 @@ Component({
     refresh: function () {
       const profile = getProfile();
       this.setData({
+        resolvedTone: profile.role === 'admin' ? 'admin' : profile.role === 'user' ? 'blue' : this.data.tone === 'admin' ? 'admin' : 'blue',
         personName: profile.name,
         identityName: profile.workContextName || localeCopy.copy_0c1ba11af0,
         identityDetail: '',

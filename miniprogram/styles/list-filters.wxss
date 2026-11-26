@@ -114,6 +114,11 @@
   line-height: 1.4;
 }
 
+/* 独立搜索与结果区的间距由搜索行承担；已有 stack 的筛选组不叠加。 */
+.ui-list-filter-search--results {
+  margin-bottom: var(--ui-card-gap);
+}
+
 .ui-list-filter-clear {
   align-self: flex-start;
   color: var(--ui-blue-700);

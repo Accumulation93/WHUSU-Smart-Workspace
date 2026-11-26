@@ -14,13 +14,14 @@ const scope = { type: 'scope', natureIds: ['staff'], departmentIds: [], identity
 const lines = calendar.participantSourceSummary(scope, metadata, copy, relations);
 assert(lines.includes(copy.scopeFieldLine(copy.department, copy.sameDepartment)));
 assert(!lines.some(line => line.includes('查看者')));
-const filename = path.resolve(__dirname, '../miniprogram/subpackages/workspace/components/calendarConditions/calendarConditions.js');
-let definition;
-vm.runInNewContext(fs.readFileSync(filename, 'utf8'), { Component(value) { definition = value; }, require: createRequire(filename), wx: { pageScrollTo() {} }, console });
+const filename = path.resolve(__dirname, '../miniprogram/components/calendar-conditions/calendar-conditions.js');
+let definition, pageScrolls = 0;
+vm.runInNewContext(fs.readFileSync(filename, 'utf8'), { Component(value) { definition = value; }, require: createRequire(filename), wx: { pageScrollTo() { pageScrolls++; } }, console });
 const changes = [];
+const reveals = [];
 const component = { ...definition.methods, data: { ...definition.data }, properties: { value: [{ type: 'people', personIds: ['p'] }, scope], metadata, participants: true, audience: false, disabled: false },
   setData(patch, callback) { Object.assign(this.data, patch); if(callback)callback(); },
-  triggerEvent(name, detail) { if(name === 'change') { changes.push(detail.value); this.properties.value = detail.value; this.rebuild(); } },
+  triggerEvent(name, detail) { if(name === 'reveal') reveals.push(detail); if(name === 'change') { changes.push(detail.value); this.properties.value = detail.value; this.rebuild(); } },
   createSelectorQuery() { return { select() { return this; }, boundingClientRect() { return this; }, selectViewport() { return this; }, scrollOffset() { return this; }, exec(done) { done([{ top: 100 }, { scrollTop: 0 }]); } }; }
 };
 const event = index => ({ currentTarget: { dataset: { index } } });
@@ -35,4 +36,10 @@ component.openPicker(event(2));component.confirmPicker({ detail: { items: [{ per
 assert.equal(component.data.activeIndex, -1);assert.deepEqual(Array.from(component.properties.value[2].personIds), ['p']);
 component.remove(event(2));assert.equal(component.properties.value.length, 2);assert.equal(component.properties.value[1].sameDepartment, true);
 component.properties.disabled = true;const before = changes.length;component.add({ currentTarget: { dataset: { type: 'scope' } } });assert.equal(changes.length, before);
+component.properties.disabled = false; component.properties.value = [{ type: 'people', personIds: ['p'] }];
+component.remove(event(0)); assert.equal(component.properties.value.length, 1);
+component.properties.allowEmpty = true; component.remove(event(0)); assert.equal(component.properties.value.length, 0);
+component.properties.embedded = true; const previousScrolls = pageScrolls;
+component.add({ currentTarget: { dataset: { type: 'people' } } });
+assert.equal(pageScrolls, previousScrolls); assert.equal(reveals.at(-1).index, 0);
 console.log('PASS 参会来源摘要、相同岗位主体、单组编辑、人员取消/确认、草稿保留及禁用写入');

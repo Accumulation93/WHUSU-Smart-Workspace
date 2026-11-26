@@ -1,5 +1,6 @@
 const calendarDateTime = require('../../../../utils/dateTime');
 const factsCopy = require('../../../../locales/zh-CN/venueFacts');
+const calendarCopy = require('../../../../locales/zh-CN/calendar');
 const natureCopy = require('../../../../locales/zh-CN/identityNatureRelations');
 function readNatureIds(rule) {
   const value=rule.natureIds==null?rule.nature_ids:rule.natureIds;
@@ -287,11 +288,20 @@ module.exports = Behavior({
     controlLayoutCopy,
     localeCopy,
     flowManagementCopy,
+    calendarCopy,
+    activityParticipantState: 'unused',
+    activityParticipantCanEdit: false,
+    activityParticipantMetadata: {},
+    activityParticipantTargets: [],
+    activityParticipantVersion: 0,
+    activityParticipantPickerVisible: false,
+    ruleSaving: false,
     // 弹窗标志位清单：页面卸载时统一复位，避免页面被 page-meta 的 overflow:hidden 锁住。
     dialogLockKeys: [
       'editing',
       'rulesVisible',
       'ruleEditorVisible',
+      'activityParticipantPickerVisible',
       'bookingApproverPickerVisible',
       'scheduleVisible',
       'occupiedPopupVisible',
@@ -523,9 +533,12 @@ module.exports = Behavior({
   },
 
   managementHide() {
+    this._activityParticipantGeneration = (this._activityParticipantGeneration || 0) + 1;
+    this._activityParticipantOriginal = '';
     this._authorizationVisible = false;
     this.setData({ actionCapabilities: {}, hasPermission: false, visibleTabs: [],
-      editing: false, rulesVisible: false, ruleEditorVisible: false, purposeVisible: false,
+      editing: false, rulesVisible: false, ruleEditorVisible: false, purposeVisible: false, activityParticipantPickerVisible: false, ruleSaving: false,
+      activityParticipantState: 'unused', activityParticipantCanEdit: false, activityParticipantMetadata: {}, activityParticipantTargets: [], activityParticipantVersion: 0,
       venues: [], configurationVenues: [], additionalVenues: [], bookings: [], purposes: [], openRules: [], activityRules: [], bookingRules: [], approvalFlows: [], approvalFlowsLoaded: false });
     this.releaseDialogScrollLock();
     this.unbindDialogKeyboard();
@@ -987,6 +1000,9 @@ module.exports = Behavior({
   },
 
   openRuleEditor(e) {
+    if (this.data.ruleSaving) return;
+    this._activityParticipantGeneration = (this._activityParticipantGeneration || 0) + 1;
+    this._activityParticipantOriginal = '';
     const type = e.currentTarget.dataset.type; // 'open' | 'activity' | 'booking'
     const ruleId = e.currentTarget.dataset.id || '';
     if (!canOperate(this, ruleResource(type, false), ruleId ? 'update' : 'create')) return;
@@ -1034,6 +1050,8 @@ module.exports = Behavior({
     form._editingCondition = null;
     this.setData({
       ruleEditorVisible: true, ruleEditId: ruleId, ruleEditorType: type, ruleForm: form,
+      activityParticipantState: type === 'activity' ? 'loading' : 'unused', activityParticipantCanEdit: false,
+      activityParticipantMetadata: {}, activityParticipantTargets: [], activityParticipantVersion: 0,
       ruleEditorScrollIntoView: '',
       yearlyRangeLabels: yearlyRangeLabels(form.cycleValues),
       weeklyChecked: buildWeeklyChecked(form.cycleValues),
@@ -1043,7 +1061,33 @@ module.exports = Behavior({
       this.loadFlowReferenceData();
     }
     if (type === 'booking') this.loadBookingRuleReferences();
+    if (type === 'activity') this.loadActivityParticipantConfiguration();
   },
+
+  async loadActivityParticipantConfiguration() {
+    if (!this.data.ruleEditorVisible || this.data.ruleEditorType !== 'activity' || this.data.ruleSaving) return;
+    const generation = this._activityParticipantGeneration = (this._activityParticipantGeneration || 0) + 1;
+    const request = orgSession.beginRequest(this, 'activityParticipants');
+    const current = () => generation === this._activityParticipantGeneration && this.data.ruleEditorVisible && orgSession.isRequestCurrent(this, request);
+    this.setData({ activityParticipantState: 'loading' });
+    try {
+      const result = await callFunction({ name: 'getVenueActivityParticipantConfiguration', data: { venueId: this.data.rulesVenueId, id: this.data.ruleEditId } });
+      if (!current()) return;
+      if (result.status !== 'success' || typeof result.canEdit !== 'boolean' || result.canEdit && (!Array.isArray(result.targets) || !Number.isInteger(result.version)
+        || !['people', 'natures', 'departments', 'identities', 'workGroups'].every(key => Array.isArray(result[key])))) throw new Error();
+      const targets = result.canEdit ? JSON.parse(JSON.stringify(result.targets)) : [];
+      this._activityParticipantOriginal = JSON.stringify(targets);
+      this.setData({ activityParticipantState: 'loaded', activityParticipantCanEdit: result.canEdit,
+        activityParticipantTargets: targets, activityParticipantVersion: result.version || 0, activityParticipantMetadata: result });
+    } catch (error) { if (current()) this.setData({ activityParticipantState: 'failed' }); }
+  },
+
+  changeActivityParticipants(e) {
+    if (this.data.ruleSaving || this.data.activityParticipantState !== 'loaded' || !this.data.activityParticipantCanEdit) return;
+    this.setData({ activityParticipantTargets: e.detail.value });
+  },
+  activityParticipantPickerChange(e) { this.setData({ activityParticipantPickerVisible: Boolean(e.detail.visible) }); },
+  revealActivityParticipants() { this._revealRuleEditorPart('activity-participant-settings'); },
 
   async loadBookingRuleReferences() {
     const generation = this._bookingReferencesGeneration = (this._bookingReferencesGeneration || 0) + 1;
@@ -1103,10 +1147,15 @@ module.exports = Behavior({
   },
 
   closeRuleEditor() {
+    if (this.data.ruleSaving) return;
+    this._activityParticipantGeneration = (this._activityParticipantGeneration || 0) + 1;
+    this._activityParticipantOriginal = '';
     this._clearRuleEditorRevealTimer();
     this._bookingReferencesGeneration = (this._bookingReferencesGeneration || 0) + 1;
     this.setData({
       bookingApproverPickerVisible: false,
+      activityParticipantPickerVisible: false,
+      activityParticipantState: 'unused', activityParticipantCanEdit: false, activityParticipantMetadata: {}, activityParticipantTargets: [], activityParticipantVersion: 0,
       ruleEditorVisible: false,
       ruleEditorScrollIntoView: '',
       'ruleForm._editingStepIdx': null,
@@ -1141,11 +1190,13 @@ module.exports = Behavior({
   },
 
   onRuleFormField(e) {
+    if (this.data.ruleSaving) return;
     const f = e.currentTarget.dataset.field;
     this.setData({ ['ruleForm.' + f]: e.detail.value });
   },
 
   onCycleTypeChange(e) {
+    if (this.data.ruleSaving) return;
     const isActivity = this.data.ruleEditorType === 'activity';
     const types = isActivity ? ['daily', 'weekly', 'monthly', 'yearly'] : ['daily', 'weekly', 'monthly', 'yearly', 'range'];
     const idx = parseInt(e.detail.value);
@@ -1203,6 +1254,7 @@ module.exports = Behavior({
 
   // Toggle a weekly day
   onToggleWeekDay(e) {
+    if (this.data.ruleSaving) return;
     const idx = parseInt(e.currentTarget.dataset.idx); // 0-6
     const checked = [...this.data.weeklyChecked];
     checked[idx] = !checked[idx];
@@ -1221,6 +1273,7 @@ module.exports = Behavior({
 
   // Toggle a monthly day
   onToggleMonthDay(e) {
+    if (this.data.ruleSaving) return;
     const idx = parseInt(e.currentTarget.dataset.idx); // 0-30
     const checked = [...this.data.monthlyChecked];
     checked[idx] = !checked[idx];
@@ -1238,20 +1291,25 @@ module.exports = Behavior({
 
   // Yearly range: month pickers
   onYearlyRangeStartMonthChange(e) {
+    if (this.data.ruleSaving) return;
     this.setData({ yearlyRangeStartMonth: parseInt(e.detail.value) + 1 });
   },
   onYearlyRangeStartDayChange(e) {
+    if (this.data.ruleSaving) return;
     this.setData({ yearlyRangeStartDay: parseInt(e.detail.value) + 1 });
   },
   onYearlyRangeEndMonthChange(e) {
+    if (this.data.ruleSaving) return;
     this.setData({ yearlyRangeEndMonth: parseInt(e.detail.value) + 1 });
   },
   onYearlyRangeEndDayChange(e) {
+    if (this.data.ruleSaving) return;
     this.setData({ yearlyRangeEndDay: parseInt(e.detail.value) + 1 });
   },
 
   // Add a date range to yearly cycle values
   onAddYearlyRange() {
+    if (this.data.ruleSaving) return;
     const sm = this.data.yearlyRangeStartMonth;
     const sd = this.data.yearlyRangeStartDay;
     const em = this.data.yearlyRangeEndMonth;
@@ -1273,6 +1331,7 @@ module.exports = Behavior({
 
   // Remove a yearly range by index
   onRemoveYearlyRange(e) {
+    if (this.data.ruleSaving) return;
     const idx = parseInt(e.currentTarget.dataset.idx);
     const currentValues = this.data.ruleForm.cycleValues;
     let vals = [...(Array.isArray(currentValues) ? currentValues : ((currentValues && currentValues.values) || []))];
@@ -1282,6 +1341,7 @@ module.exports = Behavior({
 
   // ── Range cycle type date handlers ──
   onRangeStartDateChange(e) {
+    if (this.data.ruleSaving) return;
     const d = e.detail.value;
     const cv = Object.assign({}, this.data.ruleForm.cycleValues || {});
     cv.startDate = d;
@@ -1289,6 +1349,7 @@ module.exports = Behavior({
   },
 
   onRangeEndDateChange(e) {
+    if (this.data.ruleSaving) return;
     const d = e.detail.value;
     const cv = Object.assign({}, this.data.ruleForm.cycleValues || {});
     cv.endDate = d;
@@ -1296,6 +1357,7 @@ module.exports = Behavior({
   },
 
   async saveRule() {
+    if (this.data.ruleSaving || this.data.ruleEditorType === 'activity' && this.data.activityParticipantState === 'loading') return;
     const flow = this.data.ruleEditorType === 'booking' && this.data.ruleForm.ruleType === 'flow';
     if (!canOperate(this, ruleResource(this.data.ruleEditorType, flow), (flow ? this.data.selectedFlowId : this.data.ruleEditId) ? 'update' : 'create')) return;
     if (this.data.ruleEditorType === 'booking' && this.data.ruleForm.ruleType !== 'flow'
@@ -1308,6 +1370,14 @@ module.exports = Behavior({
     } else if (ruleEditorType === 'activity') {
       endpoint = 'saveVenueActivityRule';
       data = { id: ruleEditId, venueId: rulesVenueId, activityName: ruleForm.name, cycleType: ruleForm.cycleType, cycleValues: ruleForm.cycleValues, timeStart: ruleForm.timeStart, timeEnd: ruleForm.timeEnd };
+      if (this.data.activityParticipantState === 'loaded' && this.data.activityParticipantCanEdit
+        && JSON.stringify(this.data.activityParticipantTargets) !== this._activityParticipantOriginal) {
+        if (this.data.activityParticipantTargets.some(clause => clause.type === 'scope' && !clause.sameNature && !(clause.natureIds || []).length)) {
+          showShortToast(natureCopy.selectNatureRequired); return;
+        }
+        data.participantTargets = JSON.parse(JSON.stringify(this.data.activityParticipantTargets));
+        data.participantVersion = this.data.activityParticipantVersion;
+      }
     } else {
       // 'booking' type: admin / direct / flow
       if (ruleForm.ruleType === 'flow') {
@@ -1362,13 +1432,19 @@ module.exports = Behavior({
       if (!confirmed || !canOperate(this, ruleResource(ruleEditorType, ruleForm.ruleType === 'flow'),
         (ruleForm.ruleType === 'flow' ? this.data.selectedFlowId : ruleEditId) ? 'update' : 'create')) return;
     }
+    const saveRequest = orgSession.beginRequest(this, 'venueRuleSave');
+    this.setData({ ruleSaving: true });
     try {
       const res = await callFunction({ name: endpoint, data });
+      if (!orgSession.isRequestCurrent(this, saveRequest)) return;
       if (res.status === 'success') {
         const successText = { saveVenueOpenRule: localeCopy.openRuleSaved, saveVenueActivityRule: localeCopy.activityRuleSaved,
           saveVenueApprovalWholeFlow: localeCopy.approvalFlowSaved, saveVenueBookingRule: localeCopy.bookingRuleSaved }[endpoint];
         if (successText) showShortToast(successText);
-        this.setData({ ruleEditorVisible: false });
+        this._activityParticipantGeneration = (this._activityParticipantGeneration || 0) + 1;
+        this._activityParticipantOriginal = '';
+        this.setData({ ruleEditorVisible: false, activityParticipantPickerVisible: false,
+          activityParticipantState: 'unused', activityParticipantCanEdit: false, activityParticipantMetadata: {}, activityParticipantTargets: [], activityParticipantVersion: 0 });
         await Promise.all([
           this.loadOpenRules(),
           this.loadActivityRules(),
@@ -1376,7 +1452,8 @@ module.exports = Behavior({
         ]);
         await this.loadBookingRules();
       } else throw createResultError(res, localeCopy.copy_215e3c57da);
-    } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_215e3c57da)); }
+    } catch (e) { if (orgSession.isRequestCurrent(this, saveRequest)) showShortToast(e && e.code === 'calendar_invalidRule' ? flowManagementCopy.incomplete : getErrorText(e, localeCopy.copy_215e3c57da)); }
+    finally { if (orgSession.isRequestCurrent(this, saveRequest)) this.setData({ ruleSaving: false }); }
   },
 
   async deleteRule(e) {
@@ -1825,18 +1902,21 @@ module.exports = Behavior({
   },
 
   onActivityCycleDateChange(e) {
+    if (this.data.ruleSaving) return;
     const field = e.currentTarget.dataset.field;
     if (!field) return;
     this.setData({ ['ruleForm.cycleValues.' + field]: e.detail.value });
   },
 
   onActivityCycleTimeChange(e) {
+    if (this.data.ruleSaving) return;
     const field = e.currentTarget.dataset.field;
     if (!field) return;
     this.setData({ ['ruleForm.cycleValues.' + field]: e.detail.value });
   },
 
   onActivityPeriodModeTap(e) {
+    if (this.data.ruleSaving) return;
     const mode = e.currentTarget.dataset.mode;
     if (!['none', 'range', 'count'].includes(mode)) return;
     const currentMode = this.data.ruleForm.cycleValues.periodMode;
@@ -1844,11 +1924,13 @@ module.exports = Behavior({
   },
 
   onActivityIntervalUnitChange(e) {
+    if (this.data.ruleSaving) return;
     const unit = ['day', 'week'][Number(e.detail.value)];
     if (unit && this.data.ruleForm.cycleType === 'repeat') this.setData({ 'ruleForm.cycleValues.intervalUnit': unit });
   },
 
   onActivityRepeatField(e) {
+    if (this.data.ruleSaving) return;
     const field = e.currentTarget.dataset.field;
     const value = Math.max(0, Number(e.detail.value) || 0);
     if (!field) return;

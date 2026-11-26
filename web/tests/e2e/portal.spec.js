@@ -8,6 +8,37 @@ const ROLE_LABEL = '综合事务 · 办公室';
 // 测试会话里的当前组织名，用来证明底部不会显示它。
 const ORG_NAME = '测试组织';
 
+test('门户搜索与宫格、列表和空结果保持清晰间距', async ({ page }, testInfo) => {
+  await mockApi(page);
+  await page.goto(`${WEB_BASE}/portal`);
+  const search = page.locator('.app-search-bar');
+  const services = page.locator('section.card').filter({ has: search });
+  const measurements = [];
+  const checkResult = async (mode, selector) => {
+    const result = services.locator(selector).first();
+    await expect(result).toBeVisible();
+    await services.evaluate(async element => {
+      await Promise.all(element.getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => {})));
+    });
+    const searchBox = await search.boundingBox();
+    const resultBox = await result.boundingBox();
+    const expectedGap = await services.evaluate(element => parseFloat(getComputedStyle(element).gap));
+    const gap = resultBox.y - searchBox.y - searchBox.height;
+    expect(gap).toBeGreaterThanOrEqual(9);
+    expect(Math.abs(gap - expectedGap)).toBeLessThan(1);
+    measurements.push({ mode, width: page.viewportSize().width, gap, expectedGap });
+    await services.screenshot({ path: testInfo.outputPath(`portal-search-${mode}.png`) });
+  };
+  await checkResult('grid', '.app-grid-item');
+  await services.getByRole('button', { name: copy.portal.view.list, exact: true }).click();
+  await checkResult('list', '.nav-row');
+  await page.getByPlaceholder(copy.portal.view.searchPlaceholder).fill('no-matching-application-20261126');
+  await expect(services.getByText(copy.portal.view.noMatchingApps, { exact: true })).toBeVisible();
+  await checkResult('empty', '.notification-empty');
+  await testInfo.attach('portal-search-spacing', { body: JSON.stringify(measurements), contentType: 'application/json' });
+  console.log(JSON.stringify({ project: testInfo.project.name, measurements }));
+});
+
 for (const location of ['portal', 'messages?tab=notifications']) {
   test(`另一端删除通知后当前${location}在刷新时移除`, async ({ page }) => {
     await mockApi(page);

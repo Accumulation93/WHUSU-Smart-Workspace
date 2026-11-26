@@ -185,6 +185,22 @@
       },
       {
         "type": "file",
+        "value": "components/calendar-conditions/calendar-conditions.js"
+      },
+      {
+        "type": "file",
+        "value": "components/calendar-conditions/calendar-conditions.json"
+      },
+      {
+        "type": "file",
+        "value": "components/calendar-conditions/calendar-conditions.wxml"
+      },
+      {
+        "type": "file",
+        "value": "components/calendar-conditions/calendar-conditions.wxss"
+      },
+      {
+        "type": "file",
         "value": "components/contact-directory/contact-directory.js"
       },
       {

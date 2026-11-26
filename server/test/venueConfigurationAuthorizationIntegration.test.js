@@ -35,8 +35,19 @@ async function run() {
     await db.query("GRANT ALL PRIVILEGES ON ??.* TO ?@'%'", [database, user]);
     await db.query('USE ??', [database]);
     await db.query(fs.readFileSync(path.join(__dirname, '../db/init.sql'), 'utf8'));
+    await db.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261019210000_unified_calendar.sql'), 'utf8'));
     await db.query(`CREATE TABLE cache_domain_versions(org_id VARCHAR(64),domain VARCHAR(32),version BIGINT UNSIGNED NOT NULL,
       PRIMARY KEY(org_id,domain)); INSERT INTO organizations(id,name) VALUES ('org','场地授权测试'),('other','其他组织')`);
+    const lifecycleSql = fs.readFileSync(path.join(__dirname, '../db/deploy/20261023120000_notification_lifecycle_versions.sql'), 'utf8');
+    const triggerNames = ['cv_calendar_events_i', 'cv_calendar_events_u', 'cv_venue_activity_rules_i', 'cv_venue_activity_rules_u'];
+    const lifecycleTriggers = lifecycleSql.split('DELIMITER $$')[1].split('DELIMITER ;')[0].split('$$')
+      .map(sql => sql.trim()).filter(sql => triggerNames.some(name => sql.startsWith('CREATE TRIGGER IF NOT EXISTS ' + name + ' ')));
+    assert.equal(lifecycleTriggers.length, 4);
+    for (const sql of lifecycleTriggers) await db.query(sql);
+    async function calendarVersions() {
+      const [versions] = await db.query("SELECT org_id,version FROM cache_domain_versions WHERE domain='calendar'");
+      return Object.fromEntries(versions.map(item => [item.org_id, Number(item.version)]));
+    }
     await db.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261031160000_unified_authorization.sql'), 'utf8'));
     await db.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261110190000_assignment_nature_description.sql'), 'utf8'));
     await db.query(fs.readFileSync(path.join(__dirname, '../db/deploy/20261111100000_identity_nature_links.sql'), 'utf8'));
@@ -58,6 +69,7 @@ async function run() {
     const model = require('../src/modules/venue/models/venueConfigurationAuthorization');
     const reference = { accountId: 'account', personId: 'person', sessionId: 'session', contextId: 'context', organizationId: 'org' };
     let activeReference = reference;
+    let useLegacyAdminMiddleware = false;
     const express = require('express');
     const app = express();
     app.use(express.json());
@@ -66,13 +78,18 @@ async function run() {
       req.authAccount = { id: activeReference.accountId, personId: activeReference.personId };
       req.authSession = { id: activeReference.sessionId };
       req.authContext = { ...activeReference, role: activeReference === reference ? 'user' : 'admin',
-        ...(activeReference === reference ? { legacyHrId: 'hr', assignmentId: 'assignment', membershipId: 'membership' } : {}) };
-      req.unifiedAuthorization = { reference: activeReference };
+        ...(activeReference === reference ? { legacyHrId: 'hr', assignmentId: 'assignment', membershipId: 'membership' }
+          : { adminGrantId: 'grant', adminLevel: 'admin' }) };
+      if (!useLegacyAdminMiddleware) req.unifiedAuthorization = { reference: activeReference };
+      req.logger = { error: (...args) => console.error(...args) };
       require('../src/utils/orgContext').orgStorage.run(activeReference.organizationId, next);
     });
+    app.use((req, res, next) => useLegacyAdminMiddleware
+      ? require('../src/middleware/adminPermission').adminPermissionMiddleware(req, res, next) : next());
     app.use('/api', require('../src/modules/venue/routes/venueAdmin'));
     app.use('/api', require('../src/modules/venue/routes/venueApprovalAdmin'));
     app.use('/api', require('../src/modules/venue/routes/venueUser'));
+    app.use('/api', require('../src/core/routes/calendar'));
     listener = await new Promise(resolve => { const server = app.listen(0, '127.0.0.1', () => resolve(server)); });
     async function call(name, body) {
       const response = await fetch('http://127.0.0.1:' + listener.address().port + '/api/' + name, {
@@ -227,6 +244,149 @@ async function run() {
       assert.equal(reloaded.rules[0][titleColumn], '接口更新');
       assert.equal((await call('deleteVenue' + routeKind + 'Rule', { id: kind + '-http' })).status, 'success');
       assert.equal((await call('listVenue' + routeKind + 'Rules', { venueId: 'venue' })).rules.length, 0);
+      if (kind === 'activityRules') {
+        const endpoint = 'getVenueActivityParticipantConfiguration';
+        const unavailable = await call(endpoint, { venueId: 'venue' });
+        assert.equal(unavailable.status, 'success');
+        assert.equal(unavailable.canEdit, false);
+        assert.equal(unavailable.people, undefined, '无名单修改权不能读取候选');
+        const participantPolicy = { ...rulePolicy, id: 'activity-roster', capabilities: ['venue.activityParticipants.read', 'venue.activityParticipants.update'] };
+        await db.query("INSERT INTO authorization_rules(id,org_id,name,policy_json) VALUES ('activity-roster','org','名单权限',?)", [JSON.stringify(participantPolicy)]);
+        await db.query(`INSERT INTO persons(id,name,student_id,normalized_student_id) VALUES ('foreign-person','外组织人员','foreign','foreign');
+          INSERT INTO hr_info(id,name,student_id,org_id) VALUES ('foreign-hr','外组织人员','foreign','other');
+          INSERT INTO organization_memberships(id,person_id,legacy_hr_id,org_id) VALUES ('foreign-membership','foreign-person','foreign-hr','other')`);
+        const metadata = await call(endpoint, { venueId: 'venue' });
+        assert.equal(metadata.canEdit, true, JSON.stringify(metadata));
+        assert.equal(metadata.version, 0);
+        assert.deepEqual(metadata.targets, []);
+        assert.deepEqual(metadata.people.map(person => person.personId), ['person']);
+        assert(metadata.natures.some(nature => nature.id === 'staff'));
+        assert.equal(metadata.people[0].assignments[0].nature, 'staff');
+        const activityInput = { ...ruleInput, id: 'activity-roster-http', activityName: '活动与指定人员同时保存',
+          participantTargets: [{ type: 'people', personIds: ['person'] }], participantVersion: metadata.version };
+        const versionsBeforeCreate = await calendarVersions();
+        const activitySaved = await call('saveVenueActivityRule', activityInput);
+        assert.equal(activitySaved.status, 'success', JSON.stringify(activitySaved));
+        assert.equal(activitySaved.participantVersion, 1);
+        const versionsAfterCreate = await calendarVersions();
+        assert.equal(versionsAfterCreate.org, (versionsBeforeCreate.org || 0) + 1);
+        assert.equal(versionsAfterCreate['*'], versionsBeforeCreate['*'] + 1);
+        const reread = await call(endpoint, { venueId: 'venue', id: activitySaved.id });
+        assert.deepEqual(reread.targets, activityInput.participantTargets);
+        assert.equal(reread.version, 1);
+        assert.equal((await call('listVenueActivityRules', { venueId: 'venue' })).rules[0].activity_name, activityInput.activityName);
+        for (const stopped of ['activity', 'venue']) {
+          const table = stopped === 'activity' ? 'venue_activity_rules' : 'venues';
+          const stoppedId = stopped === 'activity' ? activitySaved.id : 'venue';
+          await db.query('UPDATE ' + table + ' SET is_active=0 WHERE id=?', [stoppedId]);
+          assert.deepEqual(await call(endpoint, { venueId: 'venue', id: activitySaved.id }), { status: 'success', canEdit: false });
+          assert.equal((await call(endpoint, { venueId: 'venue', id: 'missing-activity' })).status, 'calendar_unavailable');
+          await db.query("UPDATE authorization_rules SET policy_json=? WHERE id='activityRules'", [JSON.stringify({ ...rulePolicy, capabilities: ['venue.activityRules.read'] })]);
+          assert.equal((await call(endpoint, { venueId: 'venue', id: activitySaved.id })).status, 'forbidden', '停用目标不能绕过原规则修改权');
+          await db.query("UPDATE authorization_rules SET policy_json=? WHERE id='activityRules'", [JSON.stringify(rulePolicy)]);
+          const stoppedInput = { ...ruleInput, id: activitySaved.id, activityName: '停用期间修改时间', timeStart: '10:00', timeEnd: '11:00' };
+          assert.equal((await call('saveVenueActivityRule', stoppedInput)).status, 'success');
+          const stoppedRule = (await call('listVenueActivityRules', { venueId: 'venue' })).rules.find(rule => rule.id === activitySaved.id);
+          assert.equal(stoppedRule.activity_name, stoppedInput.activityName);
+          assert.equal(stoppedRule.time_start, '10:00');
+          assert.equal((await call('saveVenueActivityRule', { ...activityInput, participantVersion: 1 })).status, 'calendar_forbidden');
+          const stoppedAfterReject = (await call('listVenueActivityRules', { venueId: 'venue' })).rules.find(rule => rule.id === activitySaved.id);
+          assert.equal(stoppedAfterReject.activity_name, stoppedInput.activityName);
+          assert.equal(stoppedAfterReject.time_start, '10:00');
+          assert.equal((await db.query('SELECT is_active FROM ' + table + ' WHERE id=?', [stoppedId]))[0][0].is_active, 0);
+          assert.equal((await db.query('SELECT version FROM calendar_events WHERE source_id=?', [activitySaved.id]))[0][0].version, 1);
+          await db.query('UPDATE ' + table + ' SET is_active=1 WHERE id=?', [stoppedId]);
+          assert.equal((await call('saveVenueActivityRule', { ...ruleInput, id: activitySaved.id, activityName: activityInput.activityName })).status, 'success');
+          assert.deepEqual((await call(endpoint, { venueId: 'venue', id: activitySaved.id })).targets, activityInput.participantTargets);
+        }
+        await db.query("UPDATE authorization_rules SET policy_json=? WHERE id='activity-roster'", [JSON.stringify({ ...participantPolicy, scopes: [{ kind: 'records', ids: [activitySaved.id] }] })]);
+        assert.equal((await call(endpoint, { venueId: 'venue' })).canEdit, false, '仅已有记录名单权不能读取新活动候选');
+        assert.equal((await call(endpoint, { venueId: 'venue', id: activitySaved.id })).canEdit, true);
+        const scopeDenied = await call('saveVenueActivityRule', { ...activityInput, id: 'out-of-roster-scope' });
+        assert.equal(scopeDenied.status, 'calendar_forbidden');
+        assert.equal((await db.query("SELECT id FROM venue_activity_rules WHERE id='out-of-roster-scope'"))[0].length, 0);
+        await db.query("UPDATE authorization_rules SET policy_json=? WHERE id='activity-roster'", [JSON.stringify(participantPolicy)]);
+        await db.query("UPDATE accounts SET status='frozen' WHERE id='account'");
+        assert.equal((await call(endpoint, { venueId: 'venue', id: activitySaved.id })).status, 'forbidden', '冻结账号不能读取名单候选');
+        assert.equal((await call('saveVenueActivityRule', { ...activityInput, participantVersion: 1 })).status, 'forbidden');
+        await db.query("UPDATE accounts SET status='verified' WHERE id='account'");
+        await db.query("UPDATE admin_grants SET status='inactive' WHERE id='grant'");
+        assert.equal((await call(endpoint, { venueId: 'venue', id: activitySaved.id })).status, 'forbidden', '失效管理角色不能读取名单候选');
+        await db.query("UPDATE admin_grants SET status='active' WHERE id='grant'");
+        const sourceMetadata = await call('getCalendarParticipants', { sourceKind: 'venue_activity', sourceId: activitySaved.id, edit: true });
+        assert.equal(sourceMetadata.status, 'success', JSON.stringify(sourceMetadata));
+        assert.deepEqual(sourceMetadata.natures, metadata.natures);
+        assert.equal(sourceMetadata.people[0].assignments[0].nature, 'staff');
+        const scopeTargets = [{ type: 'scope', natureIds: ['staff'], departmentIds: ['department'], identityCategoryIds: [], workGroupIds: [] }];
+        assert.equal((await call('saveVenueActivityRule', { ...activityInput, participantTargets: scopeTargets, participantVersion: 1 })).status, 'success');
+        const scopeRead = await call(endpoint, { venueId: 'venue', id: activitySaved.id });
+        assert.deepEqual(scopeRead.targets[0].natureIds, ['staff']);
+        assert.equal(scopeRead.version, 2);
+        const before = (await db.query("SELECT activity_name FROM venue_activity_rules WHERE id='activity-roster-http'"))[0][0].activity_name;
+        const versionsBeforeFailure = await calendarVersions();
+        const stale = await call('saveVenueActivityRule', { ...activityInput, activityName: '冲突不写入', participantVersion: 1 });
+        assert.equal(stale.status, 'calendar_conflict');
+        assert.equal((await db.query("SELECT activity_name FROM venue_activity_rules WHERE id='activity-roster-http'"))[0][0].activity_name, before);
+        const malformed = await call('saveVenueActivityRule', { ...activityInput, id: 'malformed-roster', participantTargets: [{ type: 'people', personIds: ['person'] }, { type: 'people', personIds: [] }] });
+        assert.equal(malformed.status, 'calendar_invalidRule');
+        assert.equal((await db.query("SELECT id FROM venue_activity_rules WHERE id='malformed-roster'"))[0].length, 0);
+        const foreign = await call('saveVenueActivityRule', { ...activityInput, id: 'foreign-roster', participantTargets: [{ type: 'people', personIds: ['foreign-person'] }] });
+        assert.equal(foreign.status, 'calendar_staleReferences');
+        assert.equal((await db.query("SELECT id FROM venue_activity_rules WHERE id='foreign-roster'"))[0].length, 0, '名单验证失败回滚已创建的活动');
+        assert.equal((await db.query("SELECT id FROM calendar_events WHERE source_id='foreign-roster'"))[0].length, 0);
+        assert.deepEqual(await calendarVersions(), versionsBeforeFailure, '失败时活动、名单及其缓存版本一并回滚');
+        await db.query("INSERT INTO venues(id,name) VALUES ('roster-other-venue','其他名单场地')");
+        assert.equal((await call(endpoint, { venueId: 'roster-other-venue', id: activitySaved.id })).status, 'calendar_unavailable');
+        await assert.rejects(model.activityParticipantConfiguration(adminReference,
+          { ...adminReference, organizationId: 'other', role: 'admin' }, 'venue', activitySaved.id), error => error.code === 'authorization_forbidden');
+        await db.query("DELETE FROM venues WHERE id='roster-other-venue'");
+        const versionsBeforeLegacySave = await calendarVersions();
+        assert.equal((await call('saveVenueActivityRule', { ...ruleInput, id: activitySaved.id, activityName: '旧客户端只修改活动' })).status, 'success');
+        const versionsAfterLegacySave = await calendarVersions();
+        assert.equal(versionsAfterLegacySave['*'], versionsBeforeLegacySave['*'] + 1);
+        assert.equal(versionsAfterLegacySave.org, versionsBeforeLegacySave.org, '省略名单不更新组织日程版本');
+        assert.equal((await call(endpoint, { venueId: 'venue', id: activitySaved.id })).version, 2, '省略名单保留版本与原名单');
+        await db.query("DELETE FROM authorization_rules WHERE id='activity-roster'");
+        const denied = await call('saveVenueActivityRule', { ...activityInput, activityName: '撤权不写入', participantVersion: 2 });
+        assert.equal(denied.status, 'calendar_forbidden');
+        assert.equal((await db.query("SELECT activity_name FROM venue_activity_rules WHERE id='activity-roster-http'"))[0][0].activity_name, '旧客户端只修改活动');
+        await db.query("INSERT INTO authorization_rules(id,org_id,name,policy_json) VALUES ('activity-roster','org','名单权限',?)", [JSON.stringify(participantPolicy)]);
+        assert.equal((await call('saveVenueActivityRule', { ...activityInput, participantTargets: [], participantVersion: 2 })).status, 'success');
+        assert.deepEqual((await call(endpoint, { venueId: 'venue', id: activitySaved.id })).targets, []);
+        const noTimeWrite = { ...rulePolicy, capabilities: ['venue.activityRules.read'] };
+        await db.query("UPDATE authorization_rules SET policy_json=? WHERE id='activityRules'", [JSON.stringify(noTimeWrite)]);
+        assert.equal((await call('saveVenueActivityRule', { ...activityInput, participantVersion: 3 })).status, 'forbidden', '名单权限不附带活动修改权');
+        await db.query("UPDATE authorization_rules SET policy_json=? WHERE id='activityRules'", [JSON.stringify(rulePolicy)]);
+        await db.query("INSERT INTO admin_info(id,name,org_id) VALUES ('grant','测试管理资料','org')");
+        await db.query("INSERT INTO admin_permission_overrides(id,org_id,admin_id,permission_key,granted,configured_by) VALUES ('legacy-roster','org','grant','venue.resources',1,'grant')");
+        await db.query("UPDATE authorization_organizations SET mode='shadow' WHERE org_id='org'");
+        useLegacyAdminMiddleware = true;
+        assert.deepEqual(await call(endpoint, { venueId: 'venue', id: activitySaved.id }), { status: 'success', canEdit: false });
+        assert.deepEqual(await call(endpoint, { venueId: 'venue' }), { status: 'success', canEdit: false });
+        assert.equal((await call('saveVenueActivityRule', { ...activityInput, participantVersion: 3 })).status, 'forbidden', '旧授权模式不开放名单写入');
+        assert.equal((await call('saveVenueActivityRule', { ...ruleInput, id: activitySaved.id, activityName: '旧授权只修改活动' })).status, 'success');
+        assert.equal((await call('listVenueActivityRules', { venueId: 'venue' })).rules[0].activity_name, '旧授权只修改活动');
+        assert.equal((await db.query('SELECT version FROM calendar_events WHERE source_id=?', [activitySaved.id]))[0][0].version, 3);
+        await db.query("UPDATE admin_permission_overrides SET granted=0 WHERE id='legacy-roster'");
+        assert.equal((await call(endpoint, { venueId: 'venue', id: activitySaved.id })).status, 'permission_denied');
+        await db.query("UPDATE admin_permission_overrides SET granted=1 WHERE id='legacy-roster'");
+        await db.query("UPDATE accounts SET status='frozen' WHERE id='account'");
+        assert.equal((await call(endpoint, { venueId: 'venue', id: activitySaved.id })).status, 'forbidden');
+        await db.query("UPDATE accounts SET status='verified' WHERE id='account'");
+        await db.query("UPDATE admin_grants SET status='inactive' WHERE id='grant'");
+        assert.equal((await call(endpoint, { venueId: 'venue', id: activitySaved.id })).status, 'forbidden');
+        await db.query("UPDATE admin_grants SET status='active' WHERE id='grant'");
+        activeReference = reference;
+        assert.equal((await call(endpoint, { venueId: 'venue', id: activitySaved.id })).status, 'admin_role_required');
+        activeReference = adminReference;
+        useLegacyAdminMiddleware = false;
+        await db.query("UPDATE authorization_organizations SET mode='enforced' WHERE org_id='org'");
+        await db.query("DELETE FROM admin_info WHERE id='grant'");
+        assert.equal((await db.query("SELECT COUNT(*) AS total FROM calendar_events WHERE org_id='other'"))[0][0].total, 0);
+        await db.query("DELETE FROM authorization_rules WHERE id='activity-roster'");
+        await db.query("DELETE FROM calendar_events WHERE source_id='activity-roster-http'");
+        await db.query("DELETE FROM venue_activity_rules WHERE id='activity-roster-http'");
+      }
       await db.query('DELETE FROM authorization_rules WHERE id IN (?,?)', [kind, kind + '-global']);
     }
     activeReference = reference;

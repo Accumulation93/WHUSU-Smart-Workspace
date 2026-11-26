@@ -5,12 +5,19 @@ import copy from '../../src/locales/zh-CN/index.js';
 import flowCopy from '../../src/locales/zh-CN/shared/venueFlowManagement.js';
 import controls from '../../src/locales/zh-CN/shared/controlLayout.js';
 import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
+import calendarCopy from '../../src/locales/zh-CN/shared/calendar.js';
+import personnelCopy from '../../src/locales/zh-CN/shared/personnelPicker.js';
 
 async function setup(page, canApprove = true) {
   await mockApi(page, { activeContextId: 'ctx-admin' });
   await page.route('**/api/getMyAdminPermissions', route => route.fulfill({ json: { status: 'success', organizationId: 'org-1', adminLevel: 'admin', permissions: { 'venue.resources': true, 'venue.resources.delete': true, 'venue.approvals': canApprove, 'venue.approvals.delete': canApprove } } }));
   await page.route('**/api/listVenues', route => route.fulfill({ json: { status: 'success', venues: [{ id: 'v1', name: 'Room' }] } }));
   const state = { open: [], activity: [], rules: [], flows: [], window: null, failRead: false };
+  state.participants = { canEdit: true, targets: [], version: 0 };
+  await page.route('**/api/getVenueActivityParticipantConfiguration', route => route.fulfill({ json: state.participantFailure ? { status: 'error' } : {
+    status: 'success', ...state.participants, people: [{ personId: 'participant-a', name: 'Participant Alice', assignments: [] }],
+    natures: [{ id: 'staff', name: 'Staff' }], departments: [], identities: [], workGroups: []
+  } }));
   for (const [name, key] of [['listVenueOpenRules', 'open'], ['listVenueActivityRules', 'activity'], ['listVenueBookingRules', 'rules']]) {
     await page.route('**/api/' + name, route => route.fulfill({ json: state.failRead ? { status: 'error', message: 'Read failed' } : { status: 'success', rules: state[key], bookingWindow: state.window } }));
   }
@@ -28,6 +35,122 @@ async function setup(page, canApprove = true) {
 }
 const ruleTab = (page, label) => page.getByRole('dialog').getByRole('navigation').getByRole('button', { name: label, exact: true });
 const save = page => page.getByRole('dialog').last().getByRole('button', { name: ui.copy_f7597cecf5, exact: true }).last();
+
+test('activity creation saves participants with the rule, rereads them, preserves unchanged lists and explicitly clears the last group', async ({ page }, testInfo) => {
+  const state = await setup(page); const writes = [];
+  await page.route('**/api/saveVenueActivityRule', route => {
+    const body = route.request().postDataJSON(); writes.push(body);
+    state.activity = [{ id: 'activity-with-people', activity_name: body.activityName, cycle_type: body.cycleType, cycle_values: body.cycleValues, time_start: body.timeStart, time_end: body.timeEnd }];
+    if (Object.hasOwn(body, 'participantTargets')) {
+      expect(body.participantVersion).toBe(state.participants.version);
+      state.participants.targets = body.participantTargets; state.participants.version++;
+    }
+    return route.fulfill({ json: { status: 'success', id: 'activity-with-people', participantVersion: state.participants.version } });
+  });
+  await ruleTab(page, ui.rulesTabActivity).click();
+  await page.getByRole('button', { name: ui.copy_c38d25de0f, exact: true }).click();
+  await page.getByLabel(ui.copy_70ae057f15, { exact: true }).fill('Activity with participants');
+  await page.getByRole('dialog').last().locator('select').first().selectOption('daily');
+  await page.getByRole('button', { name: calendarCopy.addParticipantPeople, exact: true }).click();
+  await page.getByRole('button', { name: calendarCopy.choosePeople, exact: true }).click();
+  await page.locator('.personnel-option').filter({ hasText: 'Participant Alice' }).click();
+  await page.getByRole('dialog').last().getByRole('button', { name: personnelCopy.confirm, exact: true }).click();
+  await expect(page.locator('.activity-participants')).toContainText('Participant Alice');
+  await page.getByRole('dialog').last().screenshot({ path: testInfo.outputPath('activity-participants-selected.png') });
+  await save(page).click();
+  await expect.poll(() => writes.length).toBe(1);
+  expect(writes[0].participantTargets).toEqual([{ type: 'people', personIds: ['participant-a'] }]);
+  await page.locator('.rule-row').getByRole('button', { name: ui.copy_e040ae3016, exact: true }).click();
+  await expect(page.locator('.activity-participants')).toContainText('Participant Alice');
+  await page.getByLabel(ui.copy_70ae057f15, { exact: true }).fill('Renamed activity');
+  await save(page).click(); await expect.poll(() => writes.length).toBe(2);
+  expect(writes[1]).not.toHaveProperty('participantTargets');
+  await page.locator('.rule-row').getByRole('button', { name: ui.copy_e040ae3016, exact: true }).click();
+  await page.getByRole('button', { name: calendarCopy.removeParticipantSource, exact: true }).click();
+  await save(page).click(); await expect.poll(() => writes.length).toBe(3);
+  expect(writes[2].participantTargets).toEqual([]);
+  await page.locator('.rule-row').getByRole('button', { name: ui.copy_e040ae3016, exact: true }).click();
+  await expect(page.locator('.activity-participants .calendar-condition-card')).toHaveCount(0);
+});
+
+test('participant candidate retry keeps the activity draft and missing permission never sends a replacement list', async ({ page }, testInfo) => {
+  const state = await setup(page); let writes = 0;
+  state.participantFailure = true;
+  await page.route('**/api/saveVenueActivityRule', route => {
+    expect(route.request().postDataJSON()).not.toHaveProperty('participantTargets'); writes++;
+    return route.fulfill({ json: { status: 'success' } });
+  });
+  await ruleTab(page, ui.rulesTabActivity).click();
+  await page.getByRole('button', { name: ui.copy_c38d25de0f, exact: true }).click();
+  await expect(page.getByText(calendarCopy.participantSettingsFailed, { exact: true })).toBeVisible();
+  await page.locator('.activity-participants').scrollIntoViewIfNeeded();
+  await page.getByRole('dialog').last().screenshot({ path: testInfo.outputPath('activity-participants-failed.png') });
+  await page.getByLabel(ui.copy_70ae057f15, { exact: true }).fill('Keep this draft');
+  state.participantFailure = false; state.participants.canEdit = false;
+  await page.locator('.activity-participants').getByRole('button', { name: calendarCopy.retry, exact: true }).click();
+  await expect(page.getByText(calendarCopy.participantSettingsReadOnly, { exact: true })).toBeVisible();
+  await page.locator('.activity-participants').scrollIntoViewIfNeeded();
+  await page.getByRole('dialog').last().screenshot({ path: testInfo.outputPath('activity-participants-readonly.png') });
+  await expect(page.getByLabel(ui.copy_70ae057f15, { exact: true })).toHaveValue('Keep this draft');
+  await expect(page.getByRole('button', { name: calendarCopy.addParticipantPeople, exact: true })).toHaveCount(0);
+  await page.getByRole('dialog').last().getByRole('button', { name: copy.common.close, exact: true }).click();
+  expect(writes).toBe(0);
+  await page.getByRole('button', { name: ui.copy_c38d25de0f, exact: true }).click();
+  await expect(page.getByText(calendarCopy.participantSettingsReadOnly, { exact: true })).toBeVisible();
+  await save(page).click(); await expect.poll(() => writes).toBe(1);
+});
+
+test('activity participant scope saves after a rejected write without losing the draft or accepting duplicate writes', async ({ page }) => {
+  const state = await setup(page); let release, attempts = 0;
+  await page.route('**/api/saveVenueActivityRule', async route => {
+    const body = route.request().postDataJSON(); attempts++;
+    expect(body.participantTargets).toEqual([{ type: 'scope', natureIds: ['staff'], departmentIds: [], identityCategoryIds: [], workGroupIds: [] }]);
+    if (attempts === 1) {
+      await new Promise(resolve => { release = resolve; });
+      return route.fulfill({ json: { status: 'calendar_invalidRule' } });
+    }
+    state.activity = [{ id: 'scope-activity', activity_name: body.activityName, cycle_type: body.cycleType, cycle_values: body.cycleValues, time_start: body.timeStart, time_end: body.timeEnd }];
+    state.participants.targets = body.participantTargets; state.participants.version = 1;
+    return route.fulfill({ json: { status: 'success' } });
+  });
+  await ruleTab(page, ui.rulesTabActivity).click();
+  await page.getByRole('button', { name: ui.copy_c38d25de0f, exact: true }).click();
+  await page.getByLabel(ui.copy_70ae057f15, { exact: true }).fill('Scope activity');
+  await page.getByRole('dialog').last().locator('select').first().selectOption('daily');
+  await page.getByRole('button', { name: calendarCopy.addParticipantScope, exact: true }).click();
+  await page.getByLabel('Staff', { exact: true }).check();
+  await save(page).click();
+  await expect.poll(() => attempts).toBe(1);
+  await expect(page.getByLabel(ui.copy_70ae057f15, { exact: true })).toBeDisabled();
+  await expect(page.getByLabel('Staff', { exact: true })).toBeDisabled();
+  await expect(save(page)).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(page.getByLabel(ui.copy_70ae057f15, { exact: true })).toBeVisible();
+  release();
+  await expect(page.getByRole('dialog').last().getByRole('alert')).toHaveText(flowCopy.incomplete);
+  await expect(page.getByLabel(ui.copy_70ae057f15, { exact: true })).toHaveValue('Scope activity');
+  await expect(page.getByLabel('Staff', { exact: true })).toBeChecked();
+  await save(page).click(); await expect.poll(() => attempts).toBe(2);
+  await page.locator('.rule-row').getByRole('button', { name: ui.copy_e040ae3016, exact: true }).click();
+  await expect(page.locator('.activity-participants')).toContainText('Staff');
+});
+
+test('incomplete participant candidates fail closed and retry preserves the activity draft', async ({ page }) => {
+  await setup(page); let complete = false;
+  await page.route('**/api/getVenueActivityParticipantConfiguration', route => route.fulfill({ json: {
+    status: 'success', canEdit: true, targets: [], version: 0,
+    ...(complete ? { people: [], natures: [], departments: [], identities: [], workGroups: [] } : {})
+  } }));
+  await ruleTab(page, ui.rulesTabActivity).click();
+  await page.getByRole('button', { name: ui.copy_c38d25de0f, exact: true }).click();
+  await expect(page.getByText(calendarCopy.participantSettingsFailed, { exact: true })).toBeVisible();
+  await page.getByLabel(ui.copy_70ae057f15, { exact: true }).fill('Keep draft on retry');
+  await expect(page.getByRole('button', { name: calendarCopy.addParticipantPeople, exact: true })).toHaveCount(0);
+  complete = true;
+  await page.locator('.activity-participants').getByRole('button', { name: calendarCopy.retry, exact: true }).click();
+  await expect(page.getByRole('button', { name: calendarCopy.addParticipantPeople, exact: true })).toBeVisible();
+  await expect(page.getByLabel(ui.copy_70ae057f15, { exact: true })).toHaveValue('Keep draft on retry');
+});
 
 test('a field-limited approval-flow response renders the name without inventing missing settings', async ({ page }) => {
   await mockApi(page, { activeContextId: 'ctx-assignment' });

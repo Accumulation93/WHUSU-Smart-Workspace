@@ -208,7 +208,7 @@
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
         <view class="ui-dialog-scroll-content">
-        <block wx:for="{{ruleTabs}}" wx:key="key"><view wx:if="{{rulesTab === item.key}}" class="section-title">{{item.title}}</view></block>
+        <block wx:for="{{ruleTabs}}" wx:key="key"><view wx:if="{{rulesTab === item.key}}" class="section-title venue-rule-section-title">{{item.title}}</view></block>
         <block wx:if="{{rulesTab === 'open'}}">
           <button class="primary-btn rule-add-btn ui-motion-button" wx:if="{{authorizationEnforced ? actionCapabilities['venue.openRules.create'] : canEditVenueResources}}" data-type="open" catchtap="openRuleEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_61960b0ff3}}</button>
           <view wx:if="{{!openRules.length}}" class="empty-inline">{{localeCopy.copy_5e2a277742}}</view>
@@ -345,9 +345,9 @@
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-with-animation="{{true}}" scroll-into-view="{{ruleEditorScrollIntoView}}" class="popup-scroll rule-editor-scroll ui-dialog-body ui-dialog-content ui-dialog-content--stack ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
         <view class="form-body rule-editor-stack ui-dialog-stack ui-dialog-scroll-content">
           <block wx:if="{{ruleEditorType === 'open' || ruleEditorType === 'activity'}}">
-            <view class="field"><view class="field-label">{{localeCopy.copy_70ae057f15}}</view><input class="field-input" value="{{ruleForm.name}}" data-field="name" bindinput="onRuleFormField" placeholder="{{ruleEditorType === 'open' ? localeCopy.copy_50b84a6406 : localeCopy.copy_57ce9ac750}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
+            <view class="field"><view class="field-label">{{localeCopy.copy_70ae057f15}}</view><input class="field-input" value="{{ruleForm.name}}" data-field="name" disabled="{{ruleSaving}}" bindinput="onRuleFormField" placeholder="{{ruleEditorType === 'open' ? localeCopy.copy_50b84a6406 : localeCopy.copy_57ce9ac750}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
             <view wx:if="{{!ruleForm._legacyInterval}}" class="field"><view class="field-label">{{localeCopy.copy_5c507fbab7}}</view>
-              <picker range="{{ruleEditorType === 'activity' ? activityCycleTypeOptions : openCycleTypeOptions}}" value="{{ruleForm._cycleTypeIndex}}" bindchange="onCycleTypeChange">
+              <picker range="{{ruleEditorType === 'activity' ? activityCycleTypeOptions : openCycleTypeOptions}}" value="{{ruleForm._cycleTypeIndex}}" disabled="{{ruleSaving}}" bindchange="onCycleTypeChange">
                 <view class="picker-display">{{ruleForm.cycleType === 'daily' ? localeCopy.copy_13293d504a : (ruleForm.cycleType === 'weekly' ? localeCopy.copy_1a6678cddf : (ruleForm.cycleType === 'monthly' ? localeCopy.copy_06a9527bac : (ruleForm.cycleType === 'yearly' ? localeCopy.copy_9084e6bc76 : localeCopy.copy_652116de6d)))}}</view></picker></view>
 
             <view wx:if="{{ruleForm.cycleType === 'weekly'}}" class="chip-section">
@@ -367,12 +367,12 @@
             <view wx:if="{{ruleForm.cycleType === 'yearly'}}" class="chip-section">
               <view class="field-label">{{localeCopy.copy_28ed0d6bf2}}</view>
               <view class="range-row ui-inline-control-row"><text class="range-label">{{localeCopy.copy_1ede7526e5}}</text>
-                <picker range="{{[1,2,3,4,5,6,7,8,9,10,11,12]}}" value="{{yearlyRangeStartMonth - 1}}" bindchange="onYearlyRangeStartMonthChange"><view class="picker-sm">{{yearlyRangeStartMonth}}{{localeCopy.copy_c1392f7fda}}</view></picker>
-                <picker range="{{yearlyDays}}" value="{{yearlyRangeStartDay - 1}}" bindchange="onYearlyRangeStartDayChange"><view class="picker-sm">{{yearlyRangeStartDay}}{{localeCopy.copy_a957bd837e}}</view></picker>
+                <picker range="{{[1,2,3,4,5,6,7,8,9,10,11,12]}}" value="{{yearlyRangeStartMonth - 1}}" disabled="{{ruleSaving}}" bindchange="onYearlyRangeStartMonthChange"><view class="picker-sm">{{yearlyRangeStartMonth}}{{localeCopy.copy_c1392f7fda}}</view></picker>
+                <picker range="{{yearlyDays}}" value="{{yearlyRangeStartDay - 1}}" disabled="{{ruleSaving}}" bindchange="onYearlyRangeStartDayChange"><view class="picker-sm">{{yearlyRangeStartDay}}{{localeCopy.copy_a957bd837e}}</view></picker>
               </view>
               <view class="range-row ui-inline-control-row"><text class="range-label">{{localeCopy.copy_d862a02c58}}</text>
-                <picker range="{{[1,2,3,4,5,6,7,8,9,10,11,12]}}" value="{{yearlyRangeEndMonth - 1}}" bindchange="onYearlyRangeEndMonthChange"><view class="picker-sm">{{yearlyRangeEndMonth}}{{localeCopy.copy_c1392f7fda}}</view></picker>
-                <picker range="{{yearlyDays}}" value="{{yearlyRangeEndDay - 1}}" bindchange="onYearlyRangeEndDayChange"><view class="picker-sm">{{yearlyRangeEndDay}}{{localeCopy.copy_a957bd837e}}</view></picker>
+                <picker range="{{[1,2,3,4,5,6,7,8,9,10,11,12]}}" value="{{yearlyRangeEndMonth - 1}}" disabled="{{ruleSaving}}" bindchange="onYearlyRangeEndMonthChange"><view class="picker-sm">{{yearlyRangeEndMonth}}{{localeCopy.copy_c1392f7fda}}</view></picker>
+                <picker range="{{yearlyDays}}" value="{{yearlyRangeEndDay - 1}}" disabled="{{ruleSaving}}" bindchange="onYearlyRangeEndDayChange"><view class="picker-sm">{{yearlyRangeEndDay}}{{localeCopy.copy_a957bd837e}}</view></picker>
                 <text class="add-range-btn ui-motion-chip" catchtap="onAddYearlyRange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_9aa3c3673c}}</text>
               </view>
               <view wx:if="{{ruleEditorType === 'activity' ? ruleForm.cycleValues.values.length : ruleForm.cycleValues.length}}" class="chip-row">
@@ -386,13 +386,13 @@
               <view class="field-label">{{localeCopy.copy_4d7c82caea}}</view>
               <view class="range-row ui-inline-control-row">
                 <text class="range-label">{{localeCopy.copy_1ede7526e5}}</text>
-                <picker mode="date" value="{{ruleForm.cycleValues.startDate}}" bindchange="onRangeStartDateChange">
+                <picker mode="date" value="{{ruleForm.cycleValues.startDate}}" disabled="{{ruleSaving}}" bindchange="onRangeStartDateChange">
                   <view class="picker-display {{ruleForm.cycleValues.startDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.startDate || localeCopy.copy_31b34bfc08}}</view>
                 </picker>
               </view>
               <view class="range-row ui-inline-control-row">
                 <text class="range-label">{{localeCopy.copy_d862a02c58}}</text>
-                <picker mode="date" value="{{ruleForm.cycleValues.endDate}}" bindchange="onRangeEndDateChange">
+                <picker mode="date" value="{{ruleForm.cycleValues.endDate}}" disabled="{{ruleSaving}}" bindchange="onRangeEndDateChange">
                   <view class="picker-display {{ruleForm.cycleValues.endDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.endDate || localeCopy.copy_9bec99c980}}</view>
                 </picker>
               </view>
@@ -402,20 +402,20 @@
               <view class="field"><view class="field-label">{{localeCopy.copy_5c507fbab7}}</view><view>{{ruleForm.cycleType === 'repeat' ? flowManagementCopy.intervalOccupancy : flowManagementCopy.continuousOccupancy}}</view></view>
               <view class="field activity-datetime-field"><view class="field-label">{{flowManagementCopy.occurrenceStart}}</view>
                 <view class="range-row ui-inline-control-row">
-                  <picker mode="date" value="{{ruleForm.cycleValues.startDate}}" data-field="startDate" bindchange="onActivityCycleDateChange"><view class="picker-display">{{ruleForm.cycleValues.startDate || localeCopy.copy_31b34bfc08}}</view></picker>
-                  <picker mode="time" value="{{ruleForm.cycleValues.startTime}}" data-field="startTime" bindchange="onActivityCycleTimeChange"><view class="picker-sm">{{ruleForm.cycleValues.startTime || localeCopy.copy_2b4cce7bb9}}</view></picker>
+                  <picker mode="date" value="{{ruleForm.cycleValues.startDate}}" data-field="startDate" disabled="{{ruleSaving}}" bindchange="onActivityCycleDateChange"><view class="picker-display">{{ruleForm.cycleValues.startDate || localeCopy.copy_31b34bfc08}}</view></picker>
+                  <picker mode="time" value="{{ruleForm.cycleValues.startTime}}" data-field="startTime" disabled="{{ruleSaving}}" bindchange="onActivityCycleTimeChange"><view class="picker-sm">{{ruleForm.cycleValues.startTime || localeCopy.copy_2b4cce7bb9}}</view></picker>
                 </view>
               </view>
               <view class="field activity-datetime-field"><view class="field-label">{{flowManagementCopy.occurrenceEnd}}</view>
                 <view class="range-row ui-inline-control-row">
-                  <picker mode="date" value="{{ruleForm.cycleValues.endDate}}" data-field="endDate" bindchange="onActivityCycleDateChange"><view class="picker-display">{{ruleForm.cycleValues.endDate || localeCopy.copy_9bec99c980}}</view></picker>
-                  <picker mode="time" value="{{ruleForm.cycleValues.endTime}}" data-field="endTime" bindchange="onActivityCycleTimeChange"><view class="picker-sm">{{ruleForm.cycleValues.endTime || localeCopy.copy_4aaadf87a1}}</view></picker>
+                  <picker mode="date" value="{{ruleForm.cycleValues.endDate}}" data-field="endDate" disabled="{{ruleSaving}}" bindchange="onActivityCycleDateChange"><view class="picker-display">{{ruleForm.cycleValues.endDate || localeCopy.copy_9bec99c980}}</view></picker>
+                  <picker mode="time" value="{{ruleForm.cycleValues.endTime}}" data-field="endTime" disabled="{{ruleSaving}}" bindchange="onActivityCycleTimeChange"><view class="picker-sm">{{ruleForm.cycleValues.endTime || localeCopy.copy_4aaadf87a1}}</view></picker>
                 </view>
               </view>
               <block wx:if="{{ruleForm.cycleType === 'repeat'}}">
-                <view class="field"><view class="field-label">{{flowManagementCopy.intervalValue}}</view><input class="field-input" type="number" value="{{ruleForm.cycleValues.intervalValue}}" data-field="intervalValue" bindinput="onActivityRepeatField" adjust-position="{{false}}" cursor-spacing="24" /></view>
-                <view class="field"><view class="field-label">{{flowManagementCopy.intervalUnit}}</view><picker range="{{[flowManagementCopy.intervalDay, flowManagementCopy.intervalWeek]}}" value="{{ruleForm.cycleValues.intervalUnit === 'week' ? 1 : 0}}" bindchange="onActivityIntervalUnitChange"><view class="picker-display">{{ruleForm.cycleValues.intervalUnit === 'week' ? flowManagementCopy.intervalWeek : flowManagementCopy.intervalDay}}</view></picker></view>
-                <view class="field"><view class="field-label">{{localeCopy.copy_eb5f7de0a2}}</view><input class="field-input" type="number" value="{{ruleForm.cycleValues.repeatCount}}" data-field="repeatCount" bindinput="onActivityRepeatField" adjust-position="{{false}}" cursor-spacing="24" /></view>
+                <view class="field"><view class="field-label">{{flowManagementCopy.intervalValue}}</view><input class="field-input" type="number" value="{{ruleForm.cycleValues.intervalValue}}" data-field="intervalValue" disabled="{{ruleSaving}}" bindinput="onActivityRepeatField" adjust-position="{{false}}" cursor-spacing="24" /></view>
+                <view class="field"><view class="field-label">{{flowManagementCopy.intervalUnit}}</view><picker range="{{[flowManagementCopy.intervalDay, flowManagementCopy.intervalWeek]}}" value="{{ruleForm.cycleValues.intervalUnit === 'week' ? 1 : 0}}" disabled="{{ruleSaving}}" bindchange="onActivityIntervalUnitChange"><view class="picker-display">{{ruleForm.cycleValues.intervalUnit === 'week' ? flowManagementCopy.intervalWeek : flowManagementCopy.intervalDay}}</view></picker></view>
+                <view class="field"><view class="field-label">{{localeCopy.copy_eb5f7de0a2}}</view><input class="field-input" type="number" value="{{ruleForm.cycleValues.repeatCount}}" data-field="repeatCount" disabled="{{ruleSaving}}" bindinput="onActivityRepeatField" adjust-position="{{false}}" cursor-spacing="24" /></view>
               </block>
             </block>
             <block wx:if="{{ruleEditorType === 'activity' && !ruleForm._legacyInterval}}">
@@ -437,8 +437,8 @@
                 <view class="field activity-datetime-field">
                   <view class="field-label">{{localeCopy.copy_2c3fe5c873}}</view>
                   <view class="range-row ui-inline-control-row">
-                    <picker mode="date" value="{{ruleForm.cycleValues.periodStartDate}}" data-field="periodStartDate" bindchange="onActivityCycleDateChange"><view class="picker-display {{ruleForm.cycleValues.periodStartDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.periodStartDate || localeCopy.copy_31b34bfc08}}</view></picker>
-                    <picker mode="time" value="{{ruleForm.cycleValues.periodStartTime}}" data-field="periodStartTime" bindchange="onActivityCycleTimeChange"><view class="picker-sm">{{ruleForm.cycleValues.periodStartTime || localeCopy.copy_2b4cce7bb9}}</view></picker>
+                    <picker mode="date" value="{{ruleForm.cycleValues.periodStartDate}}" data-field="periodStartDate" disabled="{{ruleSaving}}" bindchange="onActivityCycleDateChange"><view class="picker-display {{ruleForm.cycleValues.periodStartDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.periodStartDate || localeCopy.copy_31b34bfc08}}</view></picker>
+                    <picker mode="time" value="{{ruleForm.cycleValues.periodStartTime}}" data-field="periodStartTime" disabled="{{ruleSaving}}" bindchange="onActivityCycleTimeChange"><view class="picker-sm">{{ruleForm.cycleValues.periodStartTime || localeCopy.copy_2b4cce7bb9}}</view></picker>
                   </view>
                 </view>
               </block>
@@ -446,24 +446,34 @@
                 <view class="field activity-datetime-field">
                   <view class="field-label">{{localeCopy.copy_cd44fc09e3}}</view>
                   <view class="range-row ui-inline-control-row">
-                    <picker mode="date" value="{{ruleForm.cycleValues.periodEndDate}}" data-field="periodEndDate" bindchange="onActivityCycleDateChange"><view class="picker-display {{ruleForm.cycleValues.periodEndDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.periodEndDate || localeCopy.copy_9bec99c980}}</view></picker>
-                    <picker mode="time" value="{{ruleForm.cycleValues.periodEndTime}}" data-field="periodEndTime" bindchange="onActivityCycleTimeChange"><view class="picker-sm">{{ruleForm.cycleValues.periodEndTime || localeCopy.copy_4aaadf87a1}}</view></picker>
+                    <picker mode="date" value="{{ruleForm.cycleValues.periodEndDate}}" data-field="periodEndDate" disabled="{{ruleSaving}}" bindchange="onActivityCycleDateChange"><view class="picker-display {{ruleForm.cycleValues.periodEndDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.periodEndDate || localeCopy.copy_9bec99c980}}</view></picker>
+                    <picker mode="time" value="{{ruleForm.cycleValues.periodEndTime}}" data-field="periodEndTime" disabled="{{ruleSaving}}" bindchange="onActivityCycleTimeChange"><view class="picker-sm">{{ruleForm.cycleValues.periodEndTime || localeCopy.copy_4aaadf87a1}}</view></picker>
                   </view>
                 </view>
               </block>
               <block wx:if="{{ruleForm.cycleValues.periodMode === 'count'}}">
                 <view class="field"><view class="field-label">{{localeCopy.copy_eb5f7de0a2}}</view>
-                  <input class="field-input" type="number" value="{{ruleForm.cycleValues.repeatCount || ''}}" data-field="repeatCount" bindinput="onActivityRepeatField" placeholder="{{localeCopy.copy_bc3fac7db2}}" adjust-position="{{false}}" cursor-spacing="24" />
+                  <input class="field-input" type="number" value="{{ruleForm.cycleValues.repeatCount || ''}}" data-field="repeatCount" disabled="{{ruleSaving}}" bindinput="onActivityRepeatField" placeholder="{{localeCopy.copy_bc3fac7db2}}" adjust-position="{{false}}" cursor-spacing="24" />
                   <view class="field-hint">{{localeCopy.copy_915ca9ad86}}</view>
                 </view>
               </block>
             </block>
 
             <block wx:if="{{(ruleEditorType === 'open' || ruleEditorType === 'activity') && !ruleForm._legacyInterval}}">
-              <view class="field"><view class="field-label">{{ruleEditorType === 'activity' ? localeCopy.copy_ab2fdb5e0e : localeCopy.copy_2b4cce7bb9}}</view><input class="field-input" value="{{ruleForm.timeStart}}" data-field="timeStart" bindinput="onRuleFormField" placeholder="{{localeCopy.venueStartTimePlaceholder}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
-              <view class="field"><view class="field-label">{{ruleEditorType === 'activity' ? localeCopy.copy_0b739125af : localeCopy.copy_4aaadf87a1}}</view><input class="field-input" value="{{ruleForm.timeEnd}}" data-field="timeEnd" bindinput="onRuleFormField" placeholder="{{localeCopy.venueEndTimePlaceholder}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
+              <view class="field"><view class="field-label">{{ruleEditorType === 'activity' ? localeCopy.copy_ab2fdb5e0e : localeCopy.copy_2b4cce7bb9}}</view><input class="field-input" value="{{ruleForm.timeStart}}" data-field="timeStart" disabled="{{ruleSaving}}" bindinput="onRuleFormField" placeholder="{{localeCopy.venueStartTimePlaceholder}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
+              <view class="field"><view class="field-label">{{ruleEditorType === 'activity' ? localeCopy.copy_0b739125af : localeCopy.copy_4aaadf87a1}}</view><input class="field-input" value="{{ruleForm.timeEnd}}" data-field="timeEnd" disabled="{{ruleSaving}}" bindinput="onRuleFormField" placeholder="{{localeCopy.venueEndTimePlaceholder}}" adjust-position="{{false}}" cursor-spacing="24" /></view>
             </block>
           </block>
+          <view wx:if="{{ruleEditorType === 'activity'}}" class="field" id="activity-participant-settings">
+            <view class="field-label">{{calendarCopy.participantSources}}</view>
+            <app-loading wx:if="{{activityParticipantState === 'loading'}}" text="{{calendarCopy.participantSettingsLoading}}" />
+            <view wx:elif="{{activityParticipantState === 'failed'}}" class="field">
+              <view class="field-hint">{{calendarCopy.participantSettingsFailed}}</view>
+              <button class="secondary-btn ui-motion-button" disabled="{{ruleSaving}}" catchtap="loadActivityParticipantConfiguration" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{calendarCopy.retry}}</button>
+            </view>
+            <calendar-conditions id="activity-participant-conditions" wx:elif="{{activityParticipantCanEdit}}" participants allow-empty embedded value="{{activityParticipantTargets}}" metadata="{{activityParticipantMetadata}}" disabled="{{ruleSaving}}" bindchange="changeActivityParticipants" bindpickerchange="activityParticipantPickerChange" bindreveal="revealActivityParticipants" />
+            <view wx:else class="field-hint">{{calendarCopy.participantSettingsReadOnly}}</view>
+          </view>
           <block wx:if="{{ruleEditorType === 'booking'}}">
             <view class="field" wx:if="{{ruleForm.ruleType !== 'flow'}}"><view class="field-label">{{localeCopy.copy_c5ec30e07d}}</view>
               <picker range="{{ruleForm._ruleTypeLabels}}" value="{{ruleForm._ruleTypeIndex}}" bindchange="onBookingRuleTypeChange">
@@ -603,7 +613,7 @@
           </block>
         </view>
       </scroll-view>
-      <view class="rule-save-bar rule-editor-popup-footer ui-dialog-footer"><button class="primary-btn ui-motion-button" disabled="{{ruleEditorType === 'booking' && ruleForm.ruleType !== 'flow' && (bookingReferencesLoading || bookingReferencesError)}}" catchtap="saveRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_f7597cecf5}}</button></view>
+      <view class="rule-save-bar rule-editor-popup-footer ui-dialog-footer"><button class="primary-btn ui-motion-button" disabled="{{ruleSaving || (ruleEditorType === 'activity' && activityParticipantState === 'loading') || (ruleEditorType === 'booking' && ruleForm.ruleType !== 'flow' && (bookingReferencesLoading || bookingReferencesError))}}" catchtap="saveRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_f7597cecf5}}</button></view>
     </view>
   </view>
   </viewport-portal>

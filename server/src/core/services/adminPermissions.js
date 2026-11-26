@@ -229,7 +229,7 @@ mapRoutes('audit.verification', ['/getAuditVerificationAccess', '/verifySignatur
 mapAny(['/listVenues'], ['venue.resources', 'venue.bookings', 'venue.approvals', 'venue.bookings_delete']);
 mapRoutes('venue.resources', [
   '/saveVenue', '/deleteVenue', '/listVenueOpenRules', '/saveVenueOpenRule', '/deleteVenueOpenRule',
-  '/listVenueActivityRules', '/saveVenueActivityRule', '/deleteVenueActivityRule'
+  '/listVenueActivityRules', '/getVenueActivityParticipantConfiguration', '/saveVenueActivityRule', '/deleteVenueActivityRule'
 ]);
 mapAny(['/getVenueSchedule'], ['venue.resources', 'venue.bookings'], { allowUserRole: true });
 mapAny(['/listAllVenueBookings'], ['venue.bookings', 'venue.approvals', 'venue.bookings_delete']);

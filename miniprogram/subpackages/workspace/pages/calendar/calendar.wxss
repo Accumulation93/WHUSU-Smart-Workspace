@@ -1,5 +1,5 @@
 @import "../../../main/styles/home.wxss";
-.calendar-page { display:flex;flex-direction:column;gap:var(--ui-card-padding-y); }
+.calendar-page { --ui-hero-gap:0px;display:flex;flex-direction:column;gap:var(--ui-card-gap); }
 .calendar-page > .card,.calendar-page > .section-control-card { margin:0; }
 .calendar-stack,.calendar-event { display:flex;flex-direction:column;gap:var(--ui-inline-gap); }
 .calendar-stack > button { flex:none;box-sizing:border-box;width:100%;min-width:100%;max-width:100%;margin:0; }

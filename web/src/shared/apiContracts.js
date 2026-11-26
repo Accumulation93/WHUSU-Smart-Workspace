@@ -100,6 +100,7 @@ const READ_ONLY_APIS = Object.freeze({
   getCalendarRules: true,
   getCalendar: true,
   getCalendarParticipants: true,
+  getVenueActivityParticipantConfiguration: true,
   getCurrentAuthorizationAccess: true,
   listAuthorizedDictionary: true,
   getAuthorizationManagement: true,

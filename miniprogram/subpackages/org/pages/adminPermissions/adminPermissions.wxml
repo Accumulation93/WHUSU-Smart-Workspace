@@ -4,7 +4,7 @@
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_267c7ab9d4}}" tone="admin"></workspace-hero>
   <view wx:if="{{readOnly}}" class="permission-card">{{authorizationCopy.legacyReadOnly}}</view>
 
-  <view class="permission-card">
+  <view class="permission-card permission-directory-card">
     <view class="permission-section-head">
       <view>
         <view class="permission-section-title">{{localeCopy.copy_2948683a6d}}</view>

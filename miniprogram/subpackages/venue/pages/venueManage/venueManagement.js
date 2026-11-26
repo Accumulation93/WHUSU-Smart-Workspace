@@ -14,7 +14,7 @@ Component({
     resize() { this.applyNavigationBarMetrics(); }
   },
   observers: {
-    'editing,rulesVisible,ruleEditorVisible,bookingApproverPickerVisible,scheduleVisible,occupiedPopupVisible,activityDetailVisible,bookingDetailVisible,adminBookingVisible,purposeVisible,condMultiPickerVisible,approvalPopupVisible,pendingDialogVisible,contextSwitchGuardVisible,dialogKeyboardHeight': function () {
+    'editing,rulesVisible,ruleEditorVisible,activityParticipantPickerVisible,bookingApproverPickerVisible,scheduleVisible,occupiedPopupVisible,activityDetailVisible,bookingDetailVisible,adminBookingVisible,purposeVisible,condMultiPickerVisible,approvalPopupVisible,pendingDialogVisible,contextSwitchGuardVisible,dialogKeyboardHeight': function () {
       const visible = (this.data.dialogLockKeys || []).some(key => this.data[key] === true);
       this.triggerEvent('dialogchange', { visible, keyboardHeight: Number(this.data.dialogKeyboardHeight) || 0 });
     }

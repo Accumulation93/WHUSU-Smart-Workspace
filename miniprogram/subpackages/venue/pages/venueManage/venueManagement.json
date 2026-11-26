@@ -1,6 +1,7 @@
 {
   "component": true,
   "usingComponents": {
+    "calendar-conditions": "/subpackages/venue/package-resources/components/calendar-conditions/calendar-conditions",
     "personnel-picker": "/subpackages/venue/package-resources/components/personnel-picker/personnel-picker",
     "pending-approvals": "/subpackages/venue/components/pendingApprovals/pendingApprovals",
     "venue-activity-detail": "/subpackages/venue/components/venueActivityDetail/venueActivityDetail",

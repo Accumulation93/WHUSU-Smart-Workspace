@@ -2,6 +2,53 @@ import {test,expect} from '@playwright/test';
 import {mockApi} from './fixtures.js';
 import copy from '../../src/locales/zh-CN/shared/calendar.js';
 
+test('日程共享 Hero 随工作角色切换配色且只保留一份卡片间距', async ({ page }, testInfo) => {
+  await setup(page);
+  await page.goto('/web/calendar');
+  const hero = page.locator('.workspace-hero');
+  const measurements = [];
+  const inspect = async role => {
+    await expect(page.getByRole('button', { name: copy.ruleManage, exact: true })).toBeVisible();
+    if (role === 'admin') await expect(hero).toHaveClass(/workspace-hero-admin/);
+    else await expect(hero).not.toHaveClass(/workspace-hero-admin/);
+    await page.locator('main.page').evaluate(async element => {
+      await Promise.all(element.getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => {})));
+    });
+    const bounds = await hero.evaluate(element => {
+      const heroBox = element.getBoundingClientRect();
+      const controlsBox = element.nextElementSibling.getBoundingClientRect();
+      return { gap: controlsBox.top - heroBox.bottom, expectedGap: parseFloat(getComputedStyle(element.parentElement).gap), background: getComputedStyle(element).backgroundImage };
+    });
+    expect(Math.abs(bounds.gap - bounds.expectedGap)).toBeLessThan(1);
+    expect(bounds.gap).toBeGreaterThanOrEqual(9);
+    measurements.push({ role, width: page.viewportSize().width, ...bounds });
+    await page.screenshot({ path: testInfo.outputPath(`calendar-hero-${measurements.length}-${role}.png`) });
+  };
+  await inspect('user');
+  await hero.locator('.workspace-context-card').click();
+  await expect(page).toHaveURL(/\/work-role$/);
+  await page.locator('.role-row').filter({ hasText: '管理权限' }).click();
+  await expect(page).toHaveURL(/\/portal$/);
+  await expect(hero).toHaveClass(/workspace-hero-admin/);
+  await page.locator('.app-grid-item').filter({ hasText: copy.title }).click();
+  await expect(page).toHaveURL(/\/calendar$/);
+  await inspect('admin');
+  await page.getByRole('button', { name: copy.create, exact: true }).click();
+  await expect(page).toHaveURL(/\/calendar\/edit/);
+  await expect(hero).toHaveClass(/workspace-hero-admin/);
+  await hero.locator('.workspace-context-card').click();
+  await page.locator('.role-row').filter({ hasText: '综合事务 · 办公室' }).click();
+  await expect(page).toHaveURL(/\/portal$/);
+  await expect(hero).not.toHaveClass(/workspace-hero-admin/);
+  await page.locator('.app-grid-item').filter({ hasText: copy.title }).click();
+  await inspect('user');
+  await page.goto('/web/workbench?subApp=scoring');
+  await expect(hero).toBeVisible();
+  await expect(hero).not.toHaveClass(/workspace-hero-admin/);
+  await testInfo.attach('calendar-hero-spacing', { body: JSON.stringify(measurements), contentType: 'application/json' });
+  console.log(JSON.stringify({ project: testInfo.project.name, measurements }));
+});
+
 async function setup(page){
   await mockApi(page);
   const calls=[];
