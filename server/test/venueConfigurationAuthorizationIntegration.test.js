@@ -262,6 +262,8 @@ async function run() {
         assert.deepEqual(metadata.people.map(person => person.personId), ['person']);
         assert(metadata.natures.some(nature => nature.id === 'staff'));
         assert.equal(metadata.people[0].assignments[0].nature, 'staff');
+        assert.equal(metadata.people[0].assignments[0].assignmentNatureName, '本会岗位');
+        assert.equal(require('../../shared/contactDirectoryView').peopleOptions(metadata.people)[0].assignments[0].assignmentNatureLabel, '本会岗位');
         const activityInput = { ...ruleInput, id: 'activity-roster-http', activityName: '活动与指定人员同时保存',
           participantTargets: [{ type: 'people', personIds: ['person'] }], participantVersion: metadata.version };
         const versionsBeforeCreate = await calendarVersions();
@@ -317,6 +319,7 @@ async function run() {
         assert.equal(sourceMetadata.status, 'success', JSON.stringify(sourceMetadata));
         assert.deepEqual(sourceMetadata.natures, metadata.natures);
         assert.equal(sourceMetadata.people[0].assignments[0].nature, 'staff');
+        assert.equal(sourceMetadata.people[0].assignments[0].assignmentNatureName, '本会岗位');
         const scopeTargets = [{ type: 'scope', natureIds: ['staff'], departmentIds: ['department'], identityCategoryIds: [], workGroupIds: [] }];
         assert.equal((await call('saveVenueActivityRule', { ...activityInput, participantTargets: scopeTargets, participantVersion: 1 })).status, 'success');
         const scopeRead = await call(endpoint, { venueId: 'venue', id: activitySaved.id });

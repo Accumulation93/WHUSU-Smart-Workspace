@@ -69,7 +69,7 @@ async function configuration(actor,authorize,editingRules=false) {
     if (editingRules && !ruleCandidates) allowed=new Set(visibleRules.flatMap(directoryPolicy.referenceIds));
     if (!editingRules && !canArrange) allowed=policy.allowedPeople(stored,'assign',actor,data);
     const people=data.people.filter(person=>!allowed || allowed.has(person.personId)).map(person=>({personId:person.personId,name:person.name,
-      assignments:editingRules && !ruleCandidates ? [] : person.assignments.map(a=>({id:a.id,nature:a.nature,departmentId:a.departmentId,identityCategoryId:a.identityCategoryId,workGroupId:a.workGroupId,
+      assignments:editingRules && !ruleCandidates ? [] : person.assignments.map(a=>({id:a.id,nature:a.nature,assignmentNatureName:a.assignmentNatureName,departmentId:a.departmentId,identityCategoryId:a.identityCategoryId,workGroupId:a.workGroupId,
         departmentName:a.departmentName,identityCategoryName:a.identityCategoryName,workGroupName:a.workGroupName}))}));
     return {people,natures:data.natures,departments:data.departments,identities:data.identities,workGroups:data.workGroups,
       rules:visibleRules,canCreate,
@@ -346,7 +346,7 @@ async function saveParticipants(input,actor,authorize) {
 }
 function participantMetadata(catalog) {
   return {people:catalog.people.map(person=>({personId:person.personId,name:person.name,
-    assignments:person.assignments.map(a=>({id:a.id,nature:a.nature,departmentId:a.departmentId,identityCategoryId:a.identityCategoryId,
+    assignments:person.assignments.map(a=>({id:a.id,nature:a.nature,assignmentNatureName:a.assignmentNatureName,departmentId:a.departmentId,identityCategoryId:a.identityCategoryId,
       workGroupId:a.workGroupId,departmentName:a.departmentName,identityCategoryName:a.identityCategoryName,workGroupName:a.workGroupName}))})),
     natures:catalog.natures,departments:catalog.departments,identities:catalog.identities,workGroups:catalog.workGroups};
 }

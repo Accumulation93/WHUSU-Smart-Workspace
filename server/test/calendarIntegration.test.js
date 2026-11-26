@@ -80,7 +80,9 @@ async function main() {
     await model.save({...input,id:personal.id,version:changed.version+1,title:'整体改名',scope:'series'},actor('a'),authorize);
     assert.equal((await model.list(window,actor('a'),authorize)).items.filter(item=>item.id===personal.id).length,1);
     await assert.rejects(model.batchRules({action:'delete',rules:[rule,{id:'missing',version:1}]},actor('a'),admin),e=>e.code==='conflict');
-    assert.equal((await model.configuration(actor('a'),admin,true)).rules.length,1);
+    const ruleConfiguration=await model.configuration(actor('a'),admin,true);
+    assert.equal(ruleConfiguration.rules.length,1);
+    assert.equal(ruleConfiguration.people.find(person=>person.personId==='a').assignments[0].assignmentNatureName,'本会岗位');
     await model.batchRules({action:'disable',rules:[rule]},actor('a'),admin);
     await assert.rejects(model.save({...input,id:event.id,version:3,visibility:'organization',targets:[{type:'scope',sameDepartment:true}]},actor('a'),authorize),e=>e.code==='forbidden');
     assert.equal((await model.list(window,{...actor('a'),organizationId:'other'},authorize)).items.length,0);
@@ -106,6 +108,8 @@ async function main() {
     const booking=await model.saveParticipants({sourceKind:'venue_booking',sourceId:'booking',targets:[{type:'people',personIds:['a','b']}]},actor('a'),authorize);
     const sourceCreator=(await root.query('SELECT creator_context_json FROM calendar_events WHERE id=?',[booking.id]))[0][0].creator_context_json;
     assert.equal(sourceCreator.departmentName,'部门甲');assert.equal(sourceCreator.identityCategoryName,'成员');
+    const sourceConfiguration=await model.getParticipants({sourceKind:'venue_booking',sourceId:'booking',edit:true},actor('a'),authorize);
+    assert.equal(sourceConfiguration.people.find(person=>person.personId==='a').assignments[0].assignmentNatureName,'本会岗位');
     await root.query("UPDATE departments SET name='部门改名' WHERE id='d'");
     const unchangedCreator=(await root.query('SELECT creator_context_json FROM calendar_events WHERE id=?',[personal.id]))[0][0].creator_context_json;
     assert.equal(unchangedCreator.departmentName,'部门甲');
