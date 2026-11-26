@@ -2608,13 +2608,28 @@ page .result-group-mode-chip {
   box-sizing: border-box;
 }
 
-/* 文本型操作仍保留可点击面积，但不再使用椭圆外壳。 */
+/* 文本型操作保留普通端尺寸。view 动作显式声明 ui-text-action，避免把同名卡片头当按钮。
+   RootPortal 不在 page 下，弹窗中的独立文本动作也必须命中同一尺寸。 */
+page .ui-text-action,
+.ui-overlay .ui-text-action,
+.ui-sheet-overlay .ui-text-action,
+.ui-overlay text.action-btn,
+.ui-overlay text.link,
+.ui-overlay text.audit-link-btn,
+.ui-overlay text.flow-action-btn,
+.ui-overlay text.step-action-link,
+.ui-overlay text.pending-action-link,
+.ui-overlay text.pill-link,
+.ui-overlay text.header-nav-btn,
+.ui-overlay text.mark-all-read,
+.ui-sheet-overlay text.link,
 page text.action-btn,
 page text.link,
 page text.audit-link-btn,
 page text.flow-action-btn,
 page text.step-action-link,
 page text.pending-action-link,
+page text.pill-link,
 page text.header-nav-btn,
 page text.mark-all-read,
 page text.placement-page-btn,
@@ -2625,6 +2640,26 @@ page text.cancel-btn {
   border-radius: 18rpx !important;
   line-height: 1.35 !important;
   box-sizing: border-box;
+}
+
+/* 新声明的动作和脱离 page 的弹窗动作允许长标签自然增高，不缩小字或裁切内容。 */
+page .ui-text-action,
+.ui-overlay .ui-text-action,
+.ui-sheet-overlay .ui-text-action,
+.ui-overlay text.action-btn,
+.ui-overlay text.link,
+.ui-overlay text.audit-link-btn,
+.ui-overlay text.flow-action-btn,
+.ui-overlay text.step-action-link,
+.ui-overlay text.pending-action-link,
+.ui-overlay text.pill-link,
+.ui-overlay text.header-nav-btn,
+.ui-overlay text.mark-all-read,
+.ui-sheet-overlay text.link {
+  max-width: 100%;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: anywhere;
 }
 
 /* 全局说明文字改为紧凑但可读的行高，避免卡片内容被行距撑高。 */
@@ -2701,12 +2736,26 @@ page .role-pill {
     line-height: 18px !important;
   }
 
+  page .ui-text-action,
+  .ui-overlay .ui-text-action,
+  .ui-sheet-overlay .ui-text-action,
+  .ui-overlay text.action-btn,
+  .ui-overlay text.link,
+  .ui-overlay text.audit-link-btn,
+  .ui-overlay text.flow-action-btn,
+  .ui-overlay text.step-action-link,
+  .ui-overlay text.pending-action-link,
+  .ui-overlay text.pill-link,
+  .ui-overlay text.header-nav-btn,
+  .ui-overlay text.mark-all-read,
+  .ui-sheet-overlay text.link,
   page text.action-btn,
   page text.link,
   page text.audit-link-btn,
   page text.flow-action-btn,
   page text.step-action-link,
   page text.pending-action-link,
+  page text.pill-link,
   page text.header-nav-btn,
   page text.mark-all-read,
   page text.placement-page-btn,
@@ -2835,12 +2884,26 @@ page .role-pill {
     line-height: 18px !important;
   }
 
+  page .ui-text-action,
+  .ui-overlay .ui-text-action,
+  .ui-sheet-overlay .ui-text-action,
+  .ui-overlay text.action-btn,
+  .ui-overlay text.link,
+  .ui-overlay text.audit-link-btn,
+  .ui-overlay text.flow-action-btn,
+  .ui-overlay text.step-action-link,
+  .ui-overlay text.pending-action-link,
+  .ui-overlay text.pill-link,
+  .ui-overlay text.header-nav-btn,
+  .ui-overlay text.mark-all-read,
+  .ui-sheet-overlay text.link,
   page text.action-btn,
   page text.link,
   page text.audit-link-btn,
   page text.flow-action-btn,
   page text.step-action-link,
   page text.pending-action-link,
+  page text.pill-link,
   page text.header-nav-btn,
   page text.mark-all-read,
   page text.placement-page-btn,

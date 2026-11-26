@@ -1,3 +1,5 @@
+@import '../../../main/styles/pending-toolbar.wxss';
+
 /* ── Pending approval list items ── */
 .pending-item {
   display: flex; align-items: center; gap: 12rpx;
@@ -80,12 +82,6 @@
   box-shadow: 0 6rpx 14rpx rgba(239,68,68,0.06);
 }
 
-/* ── Update header ── */
-.pending-header {
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
-  gap: var(--ui-inline-gap);
-  padding: 0 0 14rpx 0;
-}
 .pending-action-link.switch-context {
   max-width: 132rpx;
   color: #2563eb;
@@ -93,38 +89,6 @@
   border: 1rpx solid rgba(147,197,253,0.58);
   text-align: center;
 }
-.pending-header-actions { display: flex; align-items: center; gap: var(--ui-inline-gap); flex-shrink: 0; }
-.pending-header-actions > .pending-header-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  width: auto;
-  height: auto;
-  min-height: var(--ui-compact-height) !important;
-  margin: 0;
-  padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x) !important;
-  text-align: center;
-  font-size: var(--ui-type-caption) !important;
-  line-height: var(--ui-leading-control) !important;
-}
-.pending-update-time { font-size: var(--ui-type-caption); color: #94a3b8; }
-.pending-history-entry {
-  border-radius: var(--ui-compact-radius, 18rpx);
-  color: #2563eb; font-size: var(--ui-type-caption); font-weight: 700;
-  line-height: var(--ui-leading-control);
-  background: linear-gradient(135deg, rgba(255,255,255,0.92), rgba(219,234,254,0.72));
-  border: 1rpx solid rgba(147,197,253,0.58);
-  box-shadow: 0 6rpx 14rpx rgba(37,99,235,0.06), inset 0 1rpx 0 rgba(255,255,255,0.72);
-}
-.pending-refresh-btn {
-  gap: var(--ui-inline-gap);
-  font-size: var(--ui-type-caption); font-weight: 600; color: #2563eb;
-  border-radius: var(--ui-compact-radius, 18rpx);
-  background: rgba(219,234,254,0.65); border: 1rpx solid rgba(147,197,253,0.4);
-}
-.pending-refresh-btn:active { transform: scale(0.95); opacity: 0.85; }
-
 /* ── Approval action area ── */
 .approval-action-area {
   margin-top: var(--ui-inline-gap, 10rpx);
@@ -227,8 +191,7 @@
 .approval-footer-button::after { border: none; }
 
 /* Final pending approval polish */
-.pending-item-step,
-.pending-refresh-btn {
+.pending-item-step {
   color: #2563eb;
   background: linear-gradient(135deg, rgba(219,234,254,0.92), rgba(191,219,254,0.76));
   border: 1rpx solid rgba(147,197,253,0.58);
@@ -265,8 +228,7 @@
   transition: transform 0.14s ease, box-shadow 0.2s ease, opacity 0.14s ease;
 }
 
-.approval-footer-button:active,
-.pending-refresh-btn:active {
+.approval-footer-button:active {
   transform: translateY(1rpx) scale(0.985);
   opacity: 0.92;
 }
@@ -288,8 +250,7 @@
     opacity 0.18s ease !important;
 }
 
-.pending-action-link:active,
-.pending-refresh-btn:active {
+.pending-action-link:active {
   transform: translate3d(0, 1rpx, 0) scale(0.984) !important;
   opacity: 0.94 !important;
   transition:

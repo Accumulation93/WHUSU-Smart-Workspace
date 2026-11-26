@@ -1,5 +1,4 @@
 const localeCopy = require('../../package-resources/locales/zh-CN/generated/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals');
-const factsCopy = require('../../../../locales/zh-CN/venueFacts');
 const { callFunction, createResultError, getErrorText, showShortToast } = require('../../../../utils/api');
 const { buildFlowTimeline } = require('../../utils/flowTimeline');
 const eventBus = require('../../../../utils/eventBus');
@@ -71,7 +70,6 @@ Component({
     loadFailed: false,
     loaded: false,
     lastUpdateTime: '',
-    pendingHeaderText: localeCopy.copy_1fc8f9baba,
     lastPendingCount: 0,
     lastPendingSignature: '',
 
@@ -104,7 +102,6 @@ Component({
       orgSession.invalidateRequests(this);
       this.setData({
         pending: [], loadFailed: false, loaded: false, lastPendingCount: 0, lastPendingSignature: '', lastUpdateTime: '',
-        pendingHeaderText: localeCopy.copy_1fc8f9baba,
         approvalVisible: false, approvalTarget: null, expandedNodeKey: '', loading: false
       });
     }
@@ -247,8 +244,7 @@ Component({
           pending: pending,
           lastPendingCount: pending.length,
           lastPendingSignature: this._buildPendingSignature(pending),
-          lastUpdateTime: this._formatTime(),
-          pendingHeaderText: pending.length ? factsCopy.updatedAt(this._formatTime()) : localeCopy.copy_1fc8f9baba
+          lastUpdateTime: this._formatTime()
         });
       } else if (res.status === 'forbidden') {
         this.setData({ loadFailed: true });

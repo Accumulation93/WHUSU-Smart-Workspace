@@ -11,8 +11,8 @@
     <ui-icon name="shield" tone="primary" sizeRole="context-leading" ariaLabel="{{copy.authUnavailable}}" />
     <text class="portal-auth-text">{{portalAuthFrozen ? copy.authFrozen : copy.authUnavailable}}</text>
     <view class="portal-auth-actions">
-      <view class="link ui-motion-chip" bindtap="onRetryPortalAuth" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.authRetryAction}}</view>
-      <view class="link ui-motion-chip" bindtap="logout" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.authLoginAction}}</view>
+      <view class="link ui-text-action ui-motion-chip" bindtap="onRetryPortalAuth" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.authRetryAction}}</view>
+      <view class="link ui-text-action ui-motion-chip" bindtap="logout" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.authLoginAction}}</view>
     </view>
   </view>
 

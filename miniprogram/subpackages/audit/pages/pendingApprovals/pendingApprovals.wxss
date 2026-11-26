@@ -1,5 +1,6 @@
 @import '../../../main/styles/home.wxss';
 @import '../../styles/blue-polish.wxss';
+@import '../../../main/styles/pending-toolbar.wxss';
 
 /* ── Pending approval list items ── */
 .pending-context-card {
@@ -69,21 +70,6 @@
   display: flex; align-items: center; justify-content: center;
   background: rgba(241,245,249,0.7); color: #94a3b8; font-size: var(--ui-type-dialog); font-weight: 600;
 }
-
-/* ── Update header ── */
-.pending-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 0 var(--ui-list-gap, 14rpx) 0;
-}
-.pending-update-time { font-size: var(--ui-type-caption); color: #94a3b8; }
-.pending-refresh-btn {
-  display: inline-flex; align-items: center; gap: var(--ui-label-gap, 6rpx);
-  font-size: var(--ui-type-caption); font-weight: 600; color: #2563eb;
-  padding: var(--ui-compact-padding-y, 6rpx) var(--ui-compact-padding-x, 14rpx); border-radius: var(--ui-compact-radius, 18rpx);
-  background: rgba(219,234,254,0.65); border: 1rpx solid rgba(147,197,253,0.4);
-  line-height: 1;
-}
-.pending-refresh-btn:active { transform: scale(0.95); opacity: 0.85; }
 
 .audit-empty-tip {
   font-size: var(--ui-type-meta); color: #94a3b8; margin-top: 8rpx;

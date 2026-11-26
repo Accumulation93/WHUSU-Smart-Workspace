@@ -383,6 +383,13 @@
     --ui-type-section: 20px;
     --ui-type-page: 30px;
 
+    --ui-control-height: 44px;
+    --ui-field-control-height: 44px;
+    --ui-control-padding-y: 10px;
+    --ui-control-padding-x: 16px;
+    --ui-compact-height: 32px;
+    --ui-inline-control-height: 32px;
+
     --ui-tab-min-height: 50px;
     --ui-signing-tool-height: 40px;
     --ui-tab-padding-y: 8px;
