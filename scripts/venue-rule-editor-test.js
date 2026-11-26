@@ -10,6 +10,7 @@ const source = fs.readFileSync(path.join(base, 'venueManage.js'), 'utf8');
 const template = fs.readFileSync(path.join(base, 'venueManagementContent.wxml'), 'utf8');
 let definition;
 let queryCount = 0;
+const participantRequests = [];
 const timers = new Map();
 let timerId = 0;
 definition = require('./lib/loadVenueManagementPage')({
@@ -18,7 +19,18 @@ definition = require('./lib/loadVenueManagementPage')({
   clearTimeout(id) { timers.delete(id); },
   require(name) {
     if (name.includes('locales/')) return require(path.resolve(base, name));
-    if (name.endsWith('/api')) return { showShortToast() {}, getErrorText: () => '' };
+    if (name.endsWith('/api')) return {
+      showShortToast() {}, getErrorText: () => '',
+      async callFunction(options) {
+        assert.strictEqual(options.name, 'getVenueActivityParticipantConfiguration');
+        participantRequests.push(options);
+        return { status: 'success', canEdit: false };
+      }
+    };
+    if (name.endsWith('/orgSession')) return {
+      beginRequest(owner) { return { owner }; },
+      isRequestCurrent(owner, request) { return request.owner === owner; }
+    };
     return {};
   },
   wx: {
@@ -127,4 +139,5 @@ assert.ok(template.includes('rule-editor-scroll ui-dialog-body'), '正文保留�
 assert.ok(template.includes('scroll-into-view="{{ruleEditorScrollIntoView}}"'), '展开步骤与条件仍定位到编辑区');
 assert.ok(!template.includes('ruleEditorScrollStyle'), '模板不得绑定已删除的人工高度');
 assert.ok(!source.includes('rule-editor-viewport-limit'), '不得查询不存在的测量节点');
+assert.strictEqual(participantRequests.length, 2, '新增和编辑活动均读取参会设置');
 console.log('场地规则编辑器：6种规则新增编辑、2种流程新增编辑与展开定位通过；不代表微信渲染或数据库保存验证。');

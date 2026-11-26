@@ -16,11 +16,17 @@ module.exports = async function submissionVenueMatrix({ call, venueId }) {
       if (name.endsWith('/api')) return { showShortToast() {}, getErrorText: error => error.message,
         async callFunction(options) { endpoint = options.name; response = await call(endpoint, JSON.parse(JSON.stringify(options.data))); return response; } };
       if (name.includes('/locales/')) return require(path.resolve(path.dirname(filename), name));
+      if (name.endsWith('/orgSession')) return {
+        beginRequest(owner) { return { owner }; },
+        isRequestCurrent(owner, request) { return request.owner === owner; }
+      };
       return {};
     }
   });
   const page = {
-    data: { rulesVenueId: venueId, ruleEditId: '', bookingRules: [], approvalFlows: [] },
+    // 此矩阵继续验证旧授权的时间规则提交，不赋予参会名单写入资格。
+    data: { rulesVenueId: venueId, ruleEditId: '', bookingRules: [], approvalFlows: [],
+      authorizationEnforced: false, activityParticipantState: 'unused', activityParticipantCanEdit: false },
     setData(patch) { Object.assign(this.data, patch); },
     async loadOpenRules() {}, async loadActivityRules() {}, async loadApprovalFlow() {}, async loadBookingRules() {}
   };

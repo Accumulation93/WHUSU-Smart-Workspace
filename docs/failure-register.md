@@ -1997,3 +1997,5 @@ hrImportPage.test.js 12组通过，包括2人3行标题不含首人姓名。新�
 `venueConfigurationAuthorizationIntegration.test.js` 与 `calendarIntegration.test.js` 在隔离 MySQL 3362 通过实际 HTTP 保存回读、非法后续项整单不写、跨组织、撤权、冻结、停用来源、旧客户端保留、清空及版本冲突检查。隔离库加载 4 个现行版本触发器，核对双写成功分别更新、失败版本整单回滚及旧请求只更新活动对应版本。没有新增生产迁移。`venueActivityParticipantsMini.test.js` 执行真实 Page/Behavior 保存参数与回读；Chrome 场地及日程专项 93 项通过，包含新增参会人场景在三档宽度的 12 项。浏览器固定响应、小程序方法测试、真实数据库和原生呈现分别记录，实体手机及 Pad 两方向未完成现场验证。
 
 最终主项目官方微信预览成功，主包 512,823 字节，主包与 6 个分包合计 3,607,311 字节；原项目配置和登录会话保留。语言复核在三档 Chrome 逐张检查失败与只读共 6 张截图，长提示完整且操作按钮分开。最终提交的完整 CI 与生产发布结果另行记录，预览成功不代表微信正式版已发布。
+
+首次完整 CI 的 1,248 项浏览器检查通过，但旧 `venue-rule-editor-test.js` 夹具将组织会话工具替换为空对象，新增参会设置读取触发缺失的 `beginRequest`。补齐该测试及 `submissionVenueMatrix.js` 的会话依赖，`venueRuleEditorIntegration.test.js` 显式使用旧授权的只读参会配置并等待加载完成；保留原编辑、真实时间规则保存回读和权限断言，不修改生产授权或加载逻辑。参会配置授权与名单写入继续由独立真实 HTTP 集成测试验证。修复后编辑器及参会保存回读专项通过，最终提交重新运行完整 CI。

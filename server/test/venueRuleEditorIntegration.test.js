@@ -46,6 +46,13 @@ async function main() {
     listener = await new Promise(resolve => { const server = app.listen(0, '127.0.0.1', () => resolve(server)); });
     const calls = [];
     async function callFunction(options) {
+      // 旧时间规则矩阵使用明确的只读配置；候选授权由独立真实 HTTP 集成检查。
+      if (options.name === 'getVenueActivityParticipantConfiguration') {
+        const result = { status: 'success', canEdit: false };
+        calls.push({ name: options.name, data: options.data, result });
+        return result;
+      }
+      if (options.name === 'saveVenueActivityRule') assert.equal(Object.hasOwn(options.data, 'participantTargets'), false);
       const response = await fetch('http://127.0.0.1:' + listener.address().port + '/api/' + options.name, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(options.data || {})
       });
@@ -60,7 +67,10 @@ async function main() {
       require(name) {
         if (name.includes('locales/')) return require(path.resolve(base, name));
         if (name.endsWith('/api')) return { callFunction, showShortToast() {}, getErrorText: error => error.message };
-        if (name.endsWith('/orgSession')) return { beginRequest: () => ({}), isRequestCurrent: () => true };
+        if (name.endsWith('/orgSession')) return {
+          beginRequest(owner) { return { owner }; },
+          isRequestCurrent(owner, request) { return request.owner === owner; }
+        };
         if (name.endsWith('/venueRuleDisplay') || name.endsWith('/venueBookingDetail')) return require(path.resolve(base, name));
         return {};
       },
@@ -83,8 +93,22 @@ async function main() {
     page.data.allDepartments = [{ id: 'd', name: '部门' }];
     page.data.allWorkGroups = [{ id: 'g', name: '职能组' }];
     const event = (type, id) => ({ currentTarget: { dataset: { type, id } } });
+    let participantRead;
+    page.loadActivityParticipantConfiguration = function() {
+      participantRead = definition.loadActivityParticipantConfiguration.call(this);
+      return participantRead;
+    };
+    async function openRuleEditor(type, id) {
+      page.openRuleEditor(event(type, id));
+      if (type === 'activity') {
+        assert.equal(page.data.activityParticipantState, 'loading');
+        await participantRead;
+        assert.equal(page.data.activityParticipantState, 'loaded');
+        assert.equal(page.data.activityParticipantCanEdit, false);
+      }
+    }
     for (const type of ['open', 'activity']) {
-      page.openRuleEditor(event(type, ''));
+      await openRuleEditor(type, '');
       page.onRuleFormField({ currentTarget: { dataset: { field: 'name' } }, detail: { value: type + '新增' } });
       page.onCycleTypeChange({ detail: { value: '0' } });
       await page.saveRule();
@@ -93,12 +117,12 @@ async function main() {
       assert.equal(first.result.status, 'success', JSON.stringify(first.result));
       const records = type === 'open' ? page.data.openRules : page.data.activityRules;
       assert.equal(records.length, 1);
-      page.openRuleEditor(event(type, first.result.id));
+      await openRuleEditor(type, first.result.id);
       assert.equal(page.data.ruleForm.name, type + '新增');
       page.onRuleFormField({ currentTarget: { dataset: { field: 'name' } }, detail: { value: type + '编辑' } });
       page.onRuleFormField({ currentTarget: { dataset: { field: 'timeStart' } }, detail: { value: '10:15' } });
       await page.saveRule();
-      page.openRuleEditor(event(type, first.result.id));
+      await openRuleEditor(type, first.result.id);
       assert.equal(page.data.ruleForm.name, type + '编辑');
       assert.equal(page.data.ruleForm.timeStart, '10:15');
       const table = type === 'open' ? 'venue_open_rules' : 'venue_activity_rules';
@@ -228,7 +252,7 @@ async function main() {
         VALUES (?,'venue','连续跨日活动',?,?,'09:00','18:00')`, [id, cycle.type, JSON.stringify(cycle.values)]);
       const before = (await root.query('SELECT * FROM venue_activity_rules WHERE id=?', [id]))[0][0];
       await page.loadActivityRules();
-      page.openRuleEditor(event('activity', id));
+      await openRuleEditor('activity', id);
       assert.equal(page.data.ruleForm.cycleType, cycle.type);
       assert.equal(page.data.ruleForm._legacyInterval, true);
       page.onRuleFormField({ currentTarget: { dataset: { field: 'name' } }, detail: { value: '修改活动名称' } });
@@ -241,7 +265,7 @@ async function main() {
         const slots = row => schedule.getActivitySlots(day, [row], 480).map(slot => [slot.timeStart, slot.timeEnd, slot.fullTimeStart, slot.fullTimeEnd]);
         assert.deepEqual(slots(after), slots(before), cycle.type + ':' + day);
       }
-      page.openRuleEditor(event('activity', id));
+      await openRuleEditor('activity', id);
       assert.equal(page.data.ruleForm.cycleType, cycle.type);
       assert.deepEqual(JSON.parse(JSON.stringify(page.data.ruleForm.cycleValues)), cycle.values);
       const invalid = await callFunction({ name: 'saveVenueActivityRule', data: { id, venueId: 'venue', cycleType: cycle.type,
