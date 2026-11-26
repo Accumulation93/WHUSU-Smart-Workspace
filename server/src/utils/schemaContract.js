@@ -202,14 +202,13 @@ async function verifySchemaContract(pool) {
   }
   const [invalidAdmins] = await pool.query(
     `SELECT id FROM admin_info
-      WHERE admin_level NOT IN ('super_admin', 'admin')
-         OR (admin_level = 'super_admin' AND org_id != '')
+      WHERE admin_level <> 'super_admin' OR org_id != ''
       LIMIT 1`
   );
   if (invalidAdmins.length) {
     const error = new Error(localeCopy.copy_31b25fc434);
     error.code = 'schema_contract_failed';
-    error.missing = ['data:admin_info.two_level_admins'];
+    error.missing = ['data:admin_info.super_admin_only'];
     throw error;
   }
   const [invalidHrProfiles] = await pool.query(

@@ -36,7 +36,7 @@ const CROSS_ORG_ALLOWLIST = [
   { file: 'server/src/core/services/adminRecordFileCleanup.js', sql: /^SELECT COUNT\(\*\) AS total FROM admin_record_file_cleanup WHERE deletion_id = \?$/i, reason: '只汇总刚完成授权删除的服务端生成批次，不返回附件内容或路径' },
   { file: 'server/src/core/models/hrImportV2.js', sql: /^DELETE FROM hr_import_previews WHERE expires_at < UTC_TIMESTAMP\(3\) LIMIT 200$/i, reason: '后台按保留期分批清理过期导入计划，仅返回删除数量；隔离数据库覆盖过期与未过期记录' },
   { file: 'server/src/modules/audit/models/signingEvidence.js', sql: /SELECT input_file_path, output_file_path FROM audit_signing_evidence\s+WHERE input_file_path IN/i, reason: '后台全组织附件清理只按绝对候选路径交集检查历史凭证引用，不返回业务或身份信息' },
-  { file: 'server/src/core/models/adminInfo.js', sql: /FROM admin_info WHERE id = \? AND admin_level IN/i, reason: '权限管理精确主键锁定' },
+  { file: 'server/src/core/models/adminInfo.js', sql: /FROM admin_info WHERE id = \? AND admin_level = 'super_admin' LIMIT 1/i, reason: '已授权的全局超级管理员管理按精确主键锁定目标，仅允许超级管理员身份' },
   { file: 'server/src/core/models/hrInfo.js', sql: /FROM hr_info WHERE student_id = \?/i, reason: '登录时跨组织身份匹配' },
   { file: 'server/src/core/models/userInfo.js', sql: /DELETE FROM user_info WHERE openid IN/i, reason: '管理员按已锁定 OpenID 从所有组织解绑普通用户微信' },
   { file: 'server/src/modules/venue/routes/venueUser.js', sql: /SELECT id, name FROM admin_info WHERE id IN/i, reason: '全局场地记录展示创建管理员名称' },

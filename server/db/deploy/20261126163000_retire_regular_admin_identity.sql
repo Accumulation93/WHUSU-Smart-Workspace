@@ -171,7 +171,7 @@ DROP PROCEDURE retire_regular_admin_identity;
 -- 删除旧身份后由数据库拒绝再次写入，防止回退版本重新创建普通管理员。
 ALTER TABLE admin_grants DROP CHECK chk_admin_grant_level,
   ADD CONSTRAINT chk_admin_grant_level CHECK (admin_level='super_admin'),
-  ALTER COLUMN admin_level SET DEFAULT 'super_admin';
+  ALTER COLUMN admin_level DROP DEFAULT;
 ALTER TABLE admin_info DROP CHECK chk_admin_level_two_tier,
   ADD CONSTRAINT chk_admin_level_two_tier CHECK (admin_level='super_admin'),
-  ALTER COLUMN admin_level SET DEFAULT 'super_admin';
+  ALTER COLUMN admin_level DROP DEFAULT;

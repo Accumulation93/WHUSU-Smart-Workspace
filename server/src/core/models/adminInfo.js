@@ -53,7 +53,7 @@ async function create(id, data, connection) {
     `INSERT INTO admin_info
       (id, name, student_id, openid, admin_level, bind_status, org_id)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [id, name || '', studentId || '', openid || '', adminLevel || 'super_admin',
+    [id, name || '', studentId || '', openid || '', adminLevel || null,
      bindStatus || 'invited', orgId]
   );
 }

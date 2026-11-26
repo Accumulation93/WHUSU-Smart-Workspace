@@ -50,6 +50,10 @@ module.exports = async function adminAccountAuthorizationCases(db) {
     assert.deepEqual(parsed.data.sheets[0].rows, [['表格测试']]);
     const rejected = await call('saveAdmin', { hrId: 'admin-target-hr', adminLevel: 'admin' });
     assert.notEqual(rejected.data.status, 'success');
+    const missingLevel = await call('saveAdmin', { hrId: 'admin-target-hr' });
+    assert.notEqual(missingLevel.data.status, 'success');
+    assert.equal((await db.query("SELECT id FROM admin_info WHERE student_id='ADMIN-B'"))[0].length, 0);
+    assert.equal((await db.query("SELECT id FROM admin_grants WHERE person_id='admin-target'"))[0].length, 0);
     const created = await call('saveAdmin', { hrId: 'admin-target-hr', adminLevel: 'super_admin' });
     assert.equal(created.data.status, 'success');
     const id = created.data.id;

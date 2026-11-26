@@ -69,7 +69,7 @@ async function createAdminRecord(connection, operator, orgId, body) {
     : null;
   const name = selectedPerson ? safeString(selectedPerson.name) : safeString(body.name);
   const studentId = selectedPerson ? safeString(selectedPerson.student_id) : safeString(body.studentId);
-  const adminLevel = safeString(body.adminLevel || 'super_admin');
+  const adminLevel = safeString(body.adminLevel);
   if (!name || !studentId) return { error: { status: 'invalid_params', message: localeCopy.copy_e6f89839f1 } };
   if (!ADMIN_LEVELS.includes(adminLevel)) return { error: { status: 'invalid_params', message: localeCopy.copy_4c77111c70 } };
   if (!canCreateLevel(operator, adminLevel)) {
@@ -182,7 +182,7 @@ router.post('/saveAdmin', async (req, res) => {
     const id = safeString(req.body.id);
     const name = safeString(req.body.name);
     const studentId = safeString(req.body.studentId);
-    const requestedLevel = safeString(req.body.adminLevel || 'super_admin');
+    const requestedLevel = safeString(req.body.adminLevel);
     const currentOrgId = await getRequestOrganizationId(req);
     const requestedOrgId = safeString(req.body.organizationId) || currentOrgId;
     connection = await pool.getConnection();

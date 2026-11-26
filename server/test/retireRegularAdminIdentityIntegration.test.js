@@ -137,6 +137,10 @@ test('普通管理员改为岗位上的正式权限角色，学号字段、历�
       error => error.code === 'ER_CHECK_CONSTRAINT_VIOLATED');
     await assert.rejects(connection.query("INSERT INTO admin_info(id,name,org_id,admin_level) VALUES ('forbidden','旧身份','org','admin')"),
       error => error.code === 'ER_CHECK_CONSTRAINT_VIOLATED');
+    await assert.rejects(connection.query("INSERT INTO admin_info(id,name,org_id) VALUES ('implicit','未指定身份','org')"),
+      error => error.code === 'ER_NO_DEFAULT_FOR_FIELD');
+    await assert.rejects(connection.query("INSERT INTO admin_grants(id,person_id,org_id) VALUES ('implicit','p1','org')"),
+      error => error.code === 'ER_NO_DEFAULT_FOR_FIELD');
     await applyRetirement(connection);
     const [[again]] = await connection.query("SELECT COUNT(*) n FROM authorization_rules WHERE org_id='org'");
     assert.equal(Number(again.n), 18);

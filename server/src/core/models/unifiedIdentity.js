@@ -271,8 +271,7 @@ function mapMembershipContext(row) {
 }
 
 function mapAdminContext(row, unified) {
-  const isSuper = row.admin_level === 'super_admin';
-  const isGlobal = isSuper && (unified || safeString(row.grant_org_id) === '');
+  const isGlobal = unified || safeString(row.grant_org_id) === '';
   return {
     contextId: contextId('admin', row.admin_grant_id, row.organization_id),
     authIdentityId: authIdentityId('admin', row.admin_grant_id),
@@ -280,13 +279,13 @@ function mapAdminContext(row, unified) {
     organizationId: safeString(row.organization_id),
     organizationName: safeString(row.organization_name),
     identityType: 'admin',
-    identityName: row.admin_level === 'super_admin' ? '超级管理员' : '管理员',
+    identityName: '超级管理员',
     role: 'admin',
-    accountType: isSuper ? 'super_admin' : 'user',
+    accountType: 'super_admin',
     personId: safeString(row.person_id),
     membershipId: '',
     assignmentId: '',
-    effectiveAssignmentId: isSuper ? superAssignmentId(row.admin_grant_id, row.organization_id) : '',
+    effectiveAssignmentId: superAssignmentId(row.admin_grant_id, row.organization_id),
     adminGrantId: safeString(row.admin_grant_id),
     legacyHrId: '',
     legacyAdminId: safeString(row.legacy_admin_id),
@@ -295,7 +294,7 @@ function mapAdminContext(row, unified) {
     departmentId: '',
     department: '',
     identityId: '',
-    identity: row.admin_level === 'super_admin' ? '超级管理员' : '管理员',
+    identity: '超级管理员',
     workGroupId: '',
     workGroup: '',
     adminLevel: safeString(row.admin_level),
@@ -944,63 +943,6 @@ async function revokeMembershipAssignment(data, actor, authorize) {
   });
 }
 
-async function revokeOrganizationAdminAccessForDeparture(connection, personId, organizationId) {
-  const orgId = safeString(organizationId);
-  const [grantRows] = await connection.query(
-    `SELECT id, legacy_admin_id
-       FROM admin_grants
-      WHERE person_id = ? AND org_id = ? AND admin_level = 'admin' AND status = 'active'
-      ORDER BY id FOR UPDATE`,
-    [safeString(personId), orgId]
-  );
-  const grantIds = [...new Set(grantRows.map((row) => safeString(row.id)).filter(Boolean))];
-  const legacyAdminIds = [...new Set(grantRows
-    .map((row) => safeString(row.legacy_admin_id)).filter(Boolean))];
-  if (!grantIds.length) {
-    return { grantsRevoked: 0, overridesRemoved: 0, adminRecordsRemoved: 0, sessionsRevoked: 0 };
-  }
-
-  const grantPlaceholders = grantIds.map(() => '?').join(', ');
-  const [sessionResult] = await connection.query(
-    `UPDATE auth_sessions
-        SET status = 'revoked', revoked_at = NOW()
-      WHERE organization_id = ? AND context_type = 'admin' AND status = 'active'
-        AND context_subject_id IN (${grantPlaceholders})`,
-    [orgId, ...grantIds]
-  );
-  const [grantResult] = await connection.query(
-    `UPDATE admin_grants
-        SET status = 'revoked', updated_at = NOW()
-      WHERE id IN (${grantPlaceholders}) AND person_id = ? AND org_id = ?
-        AND admin_level = 'admin' AND status = 'active'`,
-    [...grantIds, safeString(personId), orgId]
-  );
-
-  let overridesRemoved = 0;
-  let adminRecordsRemoved = 0;
-  if (legacyAdminIds.length) {
-    const adminPlaceholders = legacyAdminIds.map(() => '?').join(', ');
-    const [overrideResult] = await connection.query(
-      `DELETE FROM admin_permission_overrides
-        WHERE org_id = ? AND admin_id IN (${adminPlaceholders})`,
-      [orgId, ...legacyAdminIds]
-    );
-    overridesRemoved = Number(overrideResult.affectedRows || 0);
-    const [adminResult] = await connection.query(
-      `DELETE FROM admin_info
-        WHERE org_id = ? AND admin_level = 'admin' AND id IN (${adminPlaceholders})`,
-      [orgId, ...legacyAdminIds]
-    );
-    adminRecordsRemoved = Number(adminResult.affectedRows || 0);
-  }
-  return {
-    grantsRevoked: Number(grantResult.affectedRows || 0),
-    overridesRemoved,
-    adminRecordsRemoved,
-    sessionsRevoked: Number(sessionResult.affectedRows || 0)
-  };
-}
-
 async function removeLegacyHrRecord(connection, legacyHrId, organizationId, actor) {
   const [rows] = await connection.query(
     `SELECT om.id, om.person_id, om.legacy_hr_id, om.org_id
@@ -1038,11 +980,6 @@ async function removeLegacyHrRecord(connection, legacyHrId, organizationId, acto
           )))`,
     [safeString(organizationId), membership.id, membership.id]
   );
-  const adminAccessCleanup = await revokeOrganizationAdminAccessForDeparture(
-    connection,
-    membership.person_id,
-    organizationId
-  );
   await appendAuditEvent({
     connection,
     eventType: 'hr_membership_left',
@@ -1054,8 +991,7 @@ async function removeLegacyHrRecord(connection, legacyHrId, organizationId, acto
     ip: safeString(actor && actor.ip),
     detail: {
       membershipId: safeString(membership.id),
-      departureBatchId,
-      adminAccessCleanup
+      departureBatchId
     }
   });
   return { removed: true, left: true, personId: membership.person_id, membershipId: membership.id };
@@ -3254,7 +3190,6 @@ module.exports = {
   saveMembershipAssignment,
   revokeMembershipAssignment,
   removeLegacyHrRecord,
-  revokeOrganizationAdminAccessForDeparture,
   listFormerMemberships,
   reactivateMembership,
   syncLegacyAdminGrant,
