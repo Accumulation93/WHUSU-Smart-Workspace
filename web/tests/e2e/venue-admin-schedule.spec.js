@@ -6,10 +6,12 @@ import controls from '../../src/locales/zh-CN/shared/controlLayout.js';
 import copy from '../../src/locales/zh-CN/index.js';
 import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
 import messages from '../../src/locales/zh-CN/shared/responseMessages.js';
+import authorizationCopy from '../../src/locales/zh-CN/shared/authorization.js';
 
-async function setup(page, canBook = true, approvedOnly = false) {
-  await mockApi(page, { activeContextId: approvedOnly ? 'ctx-assignment' : 'ctx-admin' });
-  await page.route('**/api/getMyAdminPermissions', route => route.fulfill({ json: { status: 'success', organizationId: 'org-1', adminLevel: 'admin', permissions: { 'venue.resources': true, 'venue.bookings': canBook } } }));
+async function setup(page, canBook = true, approvedOnly = false, openSchedule = true, superAdmin = false) {
+  await mockApi(page, { activeContextId: approvedOnly ? 'ctx-assignment' : 'ctx-admin',
+    contextPatch: superAdmin ? { adminLevel: 'super_admin' } : undefined });
+  await page.route('**/api/getMyAdminPermissions', route => route.fulfill({ json: { status: 'success', organizationId: 'org-1', adminLevel: superAdmin ? 'super_admin' : 'admin', permissions: { 'venue.resources': true, 'venue.bookings': canBook } } }));
   await page.route('**/api/listVenues', route => route.fulfill({ json: { status: 'success', venues: approvedOnly ? [] : [{ id: 'v1', name: 'Admin room' }] } }));
   if (approvedOnly) {
     const capability = 'venue.bookings.createApproved';
@@ -36,12 +38,21 @@ async function setup(page, canBook = true, approvedOnly = false) {
   await page.goto(approvedOnly ? '/web/venue/manage' : '/web/portal');
   if (!approvedOnly) await page.getByRole('button', { name: copy.portal.venueManage, exact: true }).click();
   await expect(page).toHaveURL(/\/web\/venue\/manage(?:\?|$)/);
-  await page.getByRole('button', { name: ui.copy_391b522838, exact: true }).click();
-  await expect(page.locator('.schedule-grid')).toBeVisible();
+  if (openSchedule) {
+    await page.getByRole('button', { name: ui.copy_391b522838, exact: true }).click();
+    await expect(page.locator('.schedule-grid')).toBeVisible();
+  }
   return state;
 }
 const editor = page => page.getByRole('dialog', { name: 'Admin room · ' + ui.copy_05c1604f42, exact: true });
 async function openBooking(page, state) { await page.getByRole('button', { name: state.date + ' 09:00', exact: true }).click(); await expect(editor(page)).toBeVisible(); }
+
+test('super administrator reaches approved booking through the venue card shortcut', async ({ page }) => {
+  const state = await setup(page, true, false, false, true);
+  await page.getByRole('button', { name: authorizationCopy.actions.createApproved, exact: true }).click();
+  await expect(page.locator('.schedule-grid')).toBeVisible();
+  await openBooking(page, state);
+});
 
 test('admin schedule without booking permission has no create targets but shows protected occupancy', async ({ page }) => {
   await setup(page, false);
@@ -56,7 +67,7 @@ test('approved-booking-only role can open scheduling without venue management de
   await expect(page.locator('.venue-admin-tabs button')).toHaveText([ui.copy_ceffdfcdd7]);
   await expect(page.getByText('Public catalog description', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: ui.copy_f10a13b6e1, exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: ui.copy_4fd7b5de41, exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: ui.copy_a78ce83cab, exact: true })).toHaveCount(0);
   await openBooking(page, state);
 });
 

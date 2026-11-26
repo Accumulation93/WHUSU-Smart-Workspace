@@ -1,6 +1,6 @@
 <template>
   <GlassDialog :title="native.copy_2b262b7940 + ' · ' + venue.name" :busy="submitting" @close="$emit('close')">
-    <p v-if="!session.context?.assignmentId" class="notice-line">{{ native.noActiveAssignmentNotice }}</p>
+    <p v-if="!canSubmitBooking" class="notice-line">{{ native.noActiveAssignmentNotice }}</p>
     <label class="field"><span class="field-label">{{ native.copy_bbb0cc00c9 }}</span>
       <input v-model="title" class="field-input" :disabled="submitting" :placeholder="native.copy_cb696a9796" />
     </label>
@@ -64,7 +64,7 @@
     </div>
     <template #footer>
       <VenueTimeKeyboard v-if="keyboard" :key="keyboard.handle + keyboard.field" :value="keyboard.handle === 'start' ? start : end" :initial-field="keyboard.field" :label="keyboard.handle === 'start' ? native.copy_deb776d2af : native.copy_2bd6adcbb9" :validate="keyboardValid" @confirm="confirmTime" />
-      <button v-else type="button" class="btn btn-primary" :disabled="submitting || loading || referencesLoading || !!dayError || !day?.openSlots?.length || !ready || !session.context?.assignmentId" @click="submit">{{ native.copy_02ef2f799d }}</button>
+      <button v-else type="button" class="btn btn-primary" :disabled="submitting || loading || referencesLoading || !!dayError || !day?.openSlots?.length || !ready || !canSubmitBooking" @click="submit">{{ native.copy_02ef2f799d }}</button>
     </template>
   </GlassDialog>
   <PersonnelPicker v-if="pickerVisible" :title="native.copy_0522689efc" :options="candidates" :value="selected" @cancel="pickerVisible = false" @confirm="confirmSelection" />
@@ -79,6 +79,7 @@ import native from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/ven
 import copy from '@/locales/zh-CN/index.js';
 import { callApi, requireSuccess, errorText, createRequestId } from '@/runtime/api.js';
 import { session } from '@/runtime/session.js';
+import { canSubmitVenueBooking } from '@/runtime/venueBookingAccess.js';
 import { formatListTime } from '@/runtime/dateTime.js';
 import { toMinute, toTime, startAllowed, rangeError } from '@/runtime/venueTime.js';
 import { showToast } from '@/runtime/notify.js';
@@ -93,6 +94,7 @@ const purposes = ref([]); const flows = ref([]); const flowId = ref(''); const a
 const selected = ref([]); const candidates = ref([]); const pickerVisible = ref(false); const candidatesLoading = ref(false);
 const track = ref(null); const requestId = createRequestId();
 const keyboard = ref(null);
+const canSubmitBooking = computed(() => canSubmitVenueBooking(session.context));
 let disposed = false; let sequence = 0; let drag = null; let animationFrame = 0;
 let timeFocus;
 const context = session.context?.contextId;
@@ -162,7 +164,7 @@ async function chooseApprovers() {
 function confirmSelection(items) { selected.value = items; pickerVisible.value = false; }
 async function submit() {
   if (submitting.value || loading.value || referencesLoading.value || dayError.value || !ready.value || !current()) return;
-  if (!session.context?.assignmentId) { notice.value = native.noActiveAssignment; return; }
+  if (!canSubmitBooking.value) { notice.value = native.noActiveAssignment; return; }
   if (!title.value.trim()) { notice.value = native.copy_7db68605c6; return; }
   if (allowSelect.value && !flowId.value) { notice.value = native.copy_29ea17e75c; return; }
   const invalid = rangeError(day.value, date.value, start.value, end.value, props.venue.bookingWindow);

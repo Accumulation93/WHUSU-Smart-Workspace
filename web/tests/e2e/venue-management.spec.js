@@ -21,7 +21,7 @@ test('venue editor uses native fields, preserves rejected input and reads back c
     return route.fulfill({ json: { status: 'success' } });
   });
   await page.goto('/web/venue/manage');
-  await expect(page.getByRole('button', { name: ui.copy_4fd7b5de41, exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: ui.copy_a78ce83cab, exact: true })).toBeEnabled();
   const header = await page.locator('.panel-head').evaluate(element => {
     const title = element.querySelector('.section-title').getBoundingClientRect();
     const button = element.querySelector('button').getBoundingClientRect();
@@ -31,7 +31,7 @@ test('venue editor uses native fields, preserves rejected input and reads back c
   expect(header.titleWidth).toBeGreaterThan(header.shellWidth / 2);
   expect(header.buttonWidth).toBeLessThan(header.shellWidth / 2);
   expect(header.buttonRight).toBeLessThanOrEqual(header.shellRight + 1);
-  await page.getByRole('button', { name: ui.copy_4fd7b5de41, exact: true }).click();
+  await page.getByRole('button', { name: ui.copy_a78ce83cab, exact: true }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel(ui.copy_70ae057f15).fill('Conference room');
   await dialog.getByLabel(ui.copy_b9966da09b).fill('Floor 2');
@@ -119,7 +119,7 @@ test('venue management does not request or expose resources without its specific
   await page.route('**/api/listVenues', route => { reads++; return route.fulfill({ json: { status: 'success', venues: [] } }); });
   await page.goto('/web/venue/manage');
   await expect(page.getByText(ui.copy_0de5656de5)).toBeVisible();
-  await expect(page.getByRole('button', { name: ui.copy_4fd7b5de41, exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: ui.copy_a78ce83cab, exact: true })).toHaveCount(0);
   expect(reads).toBe(0);
 });
 
@@ -132,7 +132,7 @@ test('pending venue save freezes the editor and prevents closing until reread', 
     await route.fulfill({ json: { status: 'success' } });
   });
   await page.goto('/web/venue/manage');
-  await page.getByRole('button', { name: ui.copy_4fd7b5de41, exact: true }).click();
+  await page.getByRole('button', { name: ui.copy_a78ce83cab, exact: true }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel(ui.copy_70ae057f15).fill('Pending room');
   await dialog.getByRole('button', { name: ui.copy_c701dd2fcc }).click();

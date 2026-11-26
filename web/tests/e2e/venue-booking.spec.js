@@ -6,8 +6,8 @@ import picker from '../../src/locales/zh-CN/shared/personnelPicker.js';
 import copy from '../../src/locales/zh-CN/index.js';
 import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
 
-async function setup(page) {
-  await mockApi(page);
+async function setup(page, options) {
+  await mockApi(page, options);
   const saved = [];
   let request;
   let reads = 0;
@@ -23,6 +23,27 @@ async function setup(page) {
   await page.route('**/api/listMyVenueBookings', route => { reads++; return route.fulfill({ json: { status: 'success', bookings: saved } }); });
   return { saved, request: () => request, reads: () => reads };
 }
+
+test('super administrator can submit an ordinary venue booking without an assignment', async ({ page }) => {
+  const state = await setup(page, { activeContextId: 'ctx-admin', contextPatch: { adminLevel: 'super_admin', assignmentId: '' } });
+  await page.goto('/web/venue/bookings');
+  const create = page.getByRole('button', { name: ui.copy_183fdf9907, exact: true });
+  await expect(create).toBeEnabled();
+  await create.click();
+  const dialog = page.getByRole('dialog', { name: ui.copy_2b262b7940 + ' · Room A' });
+  await dialog.getByLabel(ui.copy_39fcaa02ad).fill('2035-10-10');
+  await dialog.getByRole('button', { name: 'Meeting', exact: true }).click();
+  await dialog.getByLabel(ui.copy_3bc010171a).selectOption('flow-1');
+  await dialog.getByRole('button', { name: ui.copy_02ef2f799d }).click();
+  await expect.poll(state.reads).toBe(1);
+  expect(state.request()).toMatchObject({ venueId: 'venue-1', title: 'Meeting', flowId: 'flow-1' });
+});
+
+test('member without a work assignment cannot submit an ordinary venue booking', async ({ page }) => {
+  await setup(page, { contextPatch: { assignmentId: '' } });
+  await page.goto('/web/venue/bookings');
+  await expect(page.getByRole('button', { name: ui.copy_183fdf9907, exact: true })).toBeDisabled();
+});
 
 test('booking opens in place with schedule, purpose, flow and first approver', async ({ page }) => {
   const state = await setup(page);

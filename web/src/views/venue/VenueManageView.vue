@@ -12,7 +12,7 @@
     <section v-if="allowed && activeTab === 'venue'" class="card stack">
       <div class="panel-head">
         <div class="stack-tight"><span class="section-title">{{ ui.copy_efffdc0050 }}</span><p class="muted">{{ ui.copy_257b230e01 }}</p></div>
-        <button type="button" v-if="can('venue.resources', 'venue.resources.create')" class="btn btn-primary venue-add" :disabled="blocked" @click="edit()">{{ ui.copy_4fd7b5de41 }}</button>
+        <button type="button" v-if="can('venue.resources', 'venue.resources.create')" class="btn btn-primary venue-add" :disabled="blocked" @click="edit()">{{ ui.copy_a78ce83cab }}</button>
       </div>
       <p v-if="loadNotice" role="alert" class="notice-line">{{ loadNotice }}</p>
       <button v-if="loadNotice" type="button" class="btn-quiet" :disabled="loading || busy" @click="load">{{ copy.common.retry }}</button>
@@ -25,6 +25,7 @@
           <div class="row row-wrap">
             <button v-if="venue.configuration && canConfigureRules" class="btn-quiet" :disabled="blocked" @click="rulesVenue = venue">{{ ui.copy_f10a13b6e1 }}</button>
             <button v-if="venue.schedule" class="btn-quiet" :disabled="blocked" @click="scheduleVenue = venue">{{ ui.copy_391b522838 }}</button>
+            <button v-if="venue.schedule && can('venue.bookings', 'venue.bookings.createApproved')" class="btn-quiet btn-quiet-primary" :disabled="blocked" @click="scheduleVenue = venue">{{ authorizationCopy.actions.createApproved }}</button>
           </div>
         </article>
       </div>
@@ -38,6 +39,7 @@
           <div class="row row-wrap">
             <button v-if="canConfigureRules" type="button" class="btn-quiet" :disabled="blocked" @click="rulesVenue = venue">{{ ui.copy_f10a13b6e1 }}</button>
             <button type="button" class="btn-quiet" :disabled="blocked" @click="scheduleVenue = venue">{{ ui.copy_391b522838 }}</button>
+            <button v-if="can('venue.bookings', 'venue.bookings.createApproved')" type="button" class="btn-quiet btn-quiet-primary" :disabled="blocked" @click="scheduleVenue = venue">{{ authorizationCopy.actions.createApproved }}</button>
             <button type="button" class="btn-quiet" :disabled="blocked" v-if="can('venue.resources', 'venue.resources.update')" @click="edit(venue)">{{ ui.copy_e040ae3016 }}</button>
             <button type="button" class="btn-quiet btn-quiet-danger" :disabled="blocked" v-if="can('venue.resources.delete', 'venue.resources.delete')" @click="remove(venue)">{{ ui.copy_acc985cabc }}</button>
           </div>
@@ -78,6 +80,7 @@ import { readCurrentAuthorizationAccess } from '@/runtime/authorizationAccess.js
 import { managementTabAllowed } from '@/shared/authorizationAccessView.js';
 import copy from '@/locales/zh-CN/index.js';
 import ui from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
+import authorizationCopy from '@/locales/zh-CN/shared/authorization.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { confirmAction, showToast } from '@/runtime/notify.js';
 import { roleLabelOf, session } from '@/runtime/session.js';

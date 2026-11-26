@@ -35,7 +35,7 @@ module.exports = { hour: hour, min: min };
     <view class="card">
       <view class="card-loading-overlay" wx:if="{{loading}}"><app-loading compact="{{true}}" /></view>
       <view class="section-title">{{localeCopy.copy_b210c95498}}</view>
-      <view class="work-context-notice" wx:if="{{!hasActiveAssignment}}">
+      <view class="work-context-notice" wx:if="{{!canSubmitVenueBooking}}">
         <view class="work-context-notice-text">{{localeCopy.noActiveAssignmentNotice}}</view>
         <text class="work-context-notice-action ui-motion-chip" bindtap="goWorkContextSwitch" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.switchWorkContext}}</text>
       </view>
@@ -55,7 +55,7 @@ module.exports = { hour: hour, min: min };
           </view>
           <view class="venue-actions">
             <text class="action-btn ui-motion-chip" data-id="{{item.id}}" bindtap="openSchedule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_391b522838}}</text>
-            <text class="action-btn primary {{!hasActiveAssignment ? 'action-btn-disabled' : ''}} ui-motion-chip" data-id="{{item.id}}" bindtap="openBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_183fdf9907}}</text>
+            <text class="action-btn primary {{!canSubmitVenueBooking ? 'action-btn-disabled' : ''}} ui-motion-chip" data-id="{{item.id}}" bindtap="openBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_183fdf9907}}</text>
           </view>
         </view>
       </scroll-view>

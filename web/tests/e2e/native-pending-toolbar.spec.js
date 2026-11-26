@@ -98,9 +98,39 @@ for (const size of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { 
     const title = await page.locator('.panel-title-group').boundingBox();
     expect(button.height).toBeGreaterThanOrEqual((size.width < 520 ? 82 * size.width / 750 : 44) - 1);
     expect(button.height).toBeLessThan(49);
-    expect(button.width).toBeLessThan(80);
-    expect(title.width).toBeGreaterThan(button.width * 2);
+    expect(button.width).toBeLessThan(150);
+    expect(title.width).toBeGreaterThan(button.width);
     expect(title.x + title.width).toBeLessThan(button.x);
     console.log(JSON.stringify({ viewport: size.width, button, title }));
+  });
+}
+
+const listPages = [
+  `${venue}pages/venueApprovalHistory/venueApprovalHistory`,
+  `${venue}pages/myVenueBookings/myVenueBookings`,
+  `${venue}pages/pendingVenueApprovals/pendingVenueApprovals`,
+  `${audit}pages/myApprovalHistory/myApprovalHistory`,
+  `${audit}pages/mySubmissions/mySubmissions`,
+  `${audit}pages/pendingApprovals/pendingApprovals`
+];
+
+for (const size of [{ width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 1280, height: 800 }]) {
+  test(`native history and work lists share the full page width at ${size.width}px`, async ({ page }) => {
+    await page.setViewportSize(size);
+    for (const file of listPages) {
+      const token = scanner.tokenizeWxml(read(`${file}.wxml`))
+        .find(item => item.raw.startsWith('<view class="page '));
+      expect(token).toBeTruthy();
+      const className = token.raw.match(/class="([^"]+)"/)[1];
+      await page.setContent(`<meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0}page,view{display:block}${css('miniprogram/app.wxss', size.width)}</style><page><view class="${className}"><view class="card"></view></view></page>`);
+      const layout = await page.locator('.page').evaluate(element => {
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, width: rect.width, right: rect.right };
+      });
+      const expectedWidth = size.width < 520 ? size.width : size.width < 900 ? 760 : 1180;
+      expect(layout.width).toBeGreaterThanOrEqual(expectedWidth - 1);
+      expect(Math.abs(layout.left - (size.width - layout.width) / 2)).toBeLessThan(1);
+      expect(layout.right).toBeLessThanOrEqual(size.width + 1);
+    }
   });
 }

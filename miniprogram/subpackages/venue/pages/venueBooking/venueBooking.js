@@ -28,7 +28,7 @@ const {
 const {
   decoratePendingBooking,
   decorateApproverCandidates,
-  activeUserHasAssignment,
+  canSubmitVenueBooking,
   showWorkContextModal
 } = require('../../utils/workContextPresentation');
 
@@ -314,7 +314,7 @@ Page({
       'nextApproverPickerVisible'
     ],
     localeCopy,
-    hasActiveAssignment: false,
+    canSubmitVenueBooking: false,
     activeTab: 'browse', loading: false,
     venues: [],
     scheduleVisible: false, scheduleVenueId: '', scheduleVenueName: '', scheduleWeekStart: '', scheduleWeekLabel: '',
@@ -578,15 +578,15 @@ Page({
   },
 
   _loadWorkContextState() {
-    this.setData({ hasActiveAssignment: activeUserHasAssignment() });
+    this.setData({ canSubmitVenueBooking: canSubmitVenueBooking() });
   },
 
   goWorkContextSwitch() {
     navigateToTrustedRoute('/subpackages/org/pages/identitySwitch/identitySwitch');
   },
 
-  _guardActiveAssignment() {
-    if (this.data.hasActiveAssignment) return true;
+  _guardBookingEligibility() {
+    if (this.data.canSubmitVenueBooking) return true;
     showWorkContextModal({
       content: localeCopy.noActiveAssignment,
       onConfirm: this.goWorkContextSwitch.bind(this)
@@ -742,7 +742,7 @@ Page({
   },
 
   _openBookingForm(date, presetTime) {
-    if (!this._guardActiveAssignment()) return;
+    if (!this._guardBookingEligibility()) return;
     this.setData({
       bookingVisible: true, bookingVenueId: this.data.scheduleVenueId, bookingVenueName: this.data.scheduleVenueName,
       bookingStartDate: date, bookingStartDateDisplay: date, bookingEndDate: date, bookingEndDateDisplay: date,
@@ -759,7 +759,7 @@ Page({
   },
 
   openBooking(e) {
-    if (!this._guardActiveAssignment()) return;
+    if (!this._guardBookingEligibility()) return;
     let id = e.currentTarget.dataset.id;
     let v = this.data.venues.find(function(x){return sameRecordId(x.id, id);});
     let today = this.data.bookingStartDate;
@@ -1774,7 +1774,7 @@ Page({
   onFieldInput(e) { this.setData({[e.currentTarget.dataset.field]:e.detail.value}); },
 
   async submitBooking() {
-    if (!this._guardActiveAssignment()) return;
+    if (!this._guardBookingEligibility()) return;
     let _a = this.data, vid = _a.bookingVenueId, sd = _a.bookingStartDate,
         st = _a.bookingTimeStart, et = _a.bookingTimeEnd, title = _a.bookingTitle, desc = _a.bookingDesc, dd = _a._dayData;
     if(!vid||!sd||!st||!et){showShortToast(localeCopy.copy_9dc5c7d79f);return;}

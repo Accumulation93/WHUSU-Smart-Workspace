@@ -16,7 +16,7 @@
       </div>
       <p v-if="loadNotice" class="notice-line">{{ loadNotice }}</p>
       <button v-if="loadNotice" type="button" class="btn btn-secondary" @click="load">{{ copy.common.retry }}</button>
-      <div v-if="!session.context?.assignmentId" class="notice-line"><p>{{ venueCopy.noActiveAssignmentNotice }}</p><button type="button" class="btn-quiet" @click="goWorkRole">{{ venueCopy.switchWorkContext }}</button></div>
+      <div v-if="!canSubmitBooking" class="notice-line"><p>{{ venueCopy.noActiveAssignmentNotice }}</p><button type="button" class="btn-quiet" @click="goWorkRole">{{ venueCopy.switchWorkContext }}</button></div>
       <div v-if="loading" class="empty-state"><AppLoading :text="copy.common.loading" /></div>
       <div v-else-if="!venues.length && !loadNotice" class="empty-state">{{ venueCopy.copy_a60fcec226 }}</div>
       <div v-else class="list">
@@ -28,7 +28,7 @@
           </div>
           <div class="list-row-actions">
             <button type="button" class="btn-quiet" @click="scheduleVenue = venue">{{ venueCopy.copy_391b522838 }}</button>
-            <button type="button" class="btn-quiet btn-quiet-primary" :disabled="loading || !!loadNotice || !session.context?.assignmentId" @click="goCreate(venue)">
+            <button type="button" class="btn-quiet btn-quiet-primary" :disabled="loading || !!loadNotice || !canSubmitBooking" @click="goCreate(venue)">
               {{ venueCopy.copy_183fdf9907 }}
             </button>
           </div>
@@ -55,6 +55,7 @@ import copy from '@/locales/zh-CN/index.js';
 import venueCopy from '@/locales/zh-CN/shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
 import { callApi, errorText, requireSuccess } from '@/runtime/api.js';
 import { roleLabelOf, session } from '@/runtime/session.js';
+import { canSubmitVenueBooking } from '@/runtime/venueBookingAccess.js';
 import { bookingWindowLabels } from '@/runtime/venueTime.js';
 
 const router = useRouter();
@@ -66,6 +67,7 @@ let generation = 0;
 const venues = ref([]);
 const loading = ref(true);
 const loadNotice = ref('');
+const canSubmitBooking = computed(() => canSubmitVenueBooking(session.context));
 
 const displayName = computed(() => {
   const context = session.context || {};
@@ -83,11 +85,16 @@ function goWorkRole() {
 }
 
 function goCreate(venue) {
-  if (!session.context?.assignmentId || loading.value || loadNotice.value) return;
+  if (!canSubmitBooking.value || loading.value || loadNotice.value) return;
   bookingSelection.value = {};
   bookingVenue.value = venue;
 }
-function bookFromSchedule(selection) { bookingSelection.value = selection; bookingVenue.value = scheduleVenue.value; scheduleVenue.value = null; }
+function bookFromSchedule(selection) {
+  if (!canSubmitBooking.value || loading.value || loadNotice.value) return;
+  bookingSelection.value = selection;
+  bookingVenue.value = scheduleVenue.value;
+  scheduleVenue.value = null;
+}
 function closeBooking() {
   bookingVenue.value = null;
   if (route.name === 'venueBookingCreate') router.replace({ name: 'venueBookings' });

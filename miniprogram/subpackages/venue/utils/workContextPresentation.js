@@ -123,10 +123,11 @@ function decorateApproverCandidates(candidates) {
   return rows;
 }
 
-function activeUserHasAssignment() {
+function canSubmitVenueBooking() {
   const activeRole = orgSession.getSnapshot().role || 'user';
   const profile = authContext.getRuntimeProfile(activeRole) || {};
-  return activeRole === 'user' && Boolean(safeText(profile.assignmentId));
+  return (activeRole === 'user' && Boolean(safeText(profile.assignmentId)))
+    || (activeRole === 'admin' && profile.adminLevel === 'super_admin');
 }
 
 function showWorkContextModal(options) {
@@ -148,6 +149,6 @@ module.exports = {
   decorateRequiredWorkContexts,
   decoratePendingBooking,
   decorateApproverCandidates,
-  activeUserHasAssignment,
+  canSubmitVenueBooking,
   showWorkContextModal
 };

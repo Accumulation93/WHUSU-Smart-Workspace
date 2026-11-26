@@ -43,9 +43,9 @@ test('venue full, compact and inline controls retain their semantic heights acro
   const compactPadding = width < 520 ? [3, 7] : width < 900 ? [5, 11] : [4, 10];
   const observed = { width };
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await mockApi(page, { activeContextId: 'ctx-admin' });
+  await mockApi(page, { activeContextId: 'ctx-admin', contextPatch: { adminLevel: 'super_admin' } });
   await page.route('**/api/getMyAdminPermissions', route => route.fulfill({ json: {
-    status: 'success', organizationId: 'org-1', adminLevel: 'admin',
+    status: 'success', organizationId: 'org-1', adminLevel: 'super_admin',
     permissions: { 'venue.resources': true, 'venue.resources.delete': true, 'venue.bookings': true, 'venue.approvals': true }
   } }));
   const venues = [{ id: 'v1', name: 'Conference room', location: 'Floor 2', description: 'Shared meeting space' }];
@@ -53,7 +53,7 @@ test('venue full, compact and inline controls retain their semantic heights acro
   await page.route('**/api/listAllVenueBookings', route => route.fulfill({ json: { status: 'success', bookings: [] } }));
   await page.goto('/web/venue/manage');
   await expect(page.locator('.venue-add')).toBeEnabled();
-  await expect(page.locator('.venue-resource .btn-quiet')).toHaveCount(4);
+  await expect(page.locator('.venue-resource .btn-quiet')).toHaveCount(5);
   observed.add = await metrics(page.locator('.venue-add'));
   observed.cardActions = await metrics(page.locator('.venue-resource .btn-quiet'));
   observed.back = await metrics(page.locator('.shell-back'));

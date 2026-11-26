@@ -26,6 +26,7 @@ global.wx = {
   },
   showModal() {}
 };
+global.getApp = () => ({ globalData: { __authSessionSnapshot: storage.authSession } });
 
 const presentation = require('../utils/workContextPresentation');
 
@@ -76,8 +77,16 @@ assert.strictEqual(approverCandidates[0].assignmentId, 'assignment-leader');
 assert.strictEqual(approverCandidates[0]._selectionText, '测试成员 · 部门负责人 · 组织部');
 assert.ok(approverCandidates[1]._searchText.indexOf('委员 · 组织部') >= 0);
 
-assert.strictEqual(presentation.activeUserHasAssignment(), false);
+assert.strictEqual(presentation.canSubmitVenueBooking(), false);
 storage.authSession.authState.profile.assignmentId = 'assignment-3';
-assert.strictEqual(presentation.activeUserHasAssignment(), true);
+assert.strictEqual(presentation.canSubmitVenueBooking(), true);
+storage.authSession.role = 'admin';
+storage.authSession.authState.context.role = 'admin';
+storage.authSession.authState.profile = { adminLevel: 'super_admin' };
+assert.strictEqual(presentation.canSubmitVenueBooking(), true);
+storage.authSession.role = 'user';
+storage.authSession.authState.context.role = 'user';
+storage.authSession.authState.profile = { assignmentId: '' };
+assert.strictEqual(presentation.canSubmitVenueBooking(), false);
 
 console.log('venue work context presentation tests passed');

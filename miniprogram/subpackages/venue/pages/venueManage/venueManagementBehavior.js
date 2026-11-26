@@ -19,6 +19,7 @@ const { readCurrentAuthorizationAccess } = require('../../../../utils/authorizat
 const authContext = require('../../../../utils/authContext');
 const governanceCopy = require('../../package-resources/locales/zh-CN/adminGovernance');
 const directApprovalCopy = require('../../package-resources/locales/zh-CN/approvalDirect');
+const authorizationCopy = require('../../../../locales/zh-CN/authorization');
 const { buildBookingRuleDisplayList } = require('../../utils/venueRuleDisplay');
 const { dialogKeyboardBehavior } = require('../../package-resources/utils/dialogKeyboard');
 const flowManagementCopy = require('../../package-resources/locales/zh-CN/venueFlowManagement');
@@ -287,6 +288,7 @@ module.exports = Behavior({
     navTopPx: 0,
     controlLayoutCopy,
     localeCopy,
+    authorizationCopy,
     flowManagementCopy,
     calendarCopy,
     activityParticipantState: 'unused',
@@ -623,6 +625,7 @@ module.exports = Behavior({
       canApproveVenue: allowed('venue.approvals', 'venue.bookings.approve'),
       canEditVenueResources: allowed('venue.resources', 'venue.resources.update'),
       canCreateVenueResources: allowed('venue.resources', 'venue.resources.create'),
+      canCreateApprovedBooking: allowed('venue.bookings', 'venue.bookings.createApproved'),
       canEditVenuePurposes: allowed('venue.purposes', 'venue.purposes.update'),
       canCreateVenuePurposes: allowed('venue.purposes', 'venue.purposes.create'),
       canDeleteVenueBookings: allowed('venue.bookings_delete', 'venue.bookings.delete'),

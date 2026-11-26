@@ -20,7 +20,7 @@
           <view class="section-title">{{localeCopy.copy_efffdc0050}}</view>
           <view class="panel-note">{{localeCopy.copy_257b230e01}}</view>
         </view>
-        <button class="primary-btn panel-add-btn ui-motion-button" wx:if="{{canCreateVenueResources}}" bindtap="startAdd" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_4fd7b5de41}}</button>
+        <button class="primary-btn panel-add-btn ui-motion-button" wx:if="{{canCreateVenueResources}}" bindtap="startAdd" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_a78ce83cab}}</button>
       </view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
         <view class="card-loading-overlay" wx:if="{{loading}}"><app-loading compact="{{true}}" /></view>
@@ -31,6 +31,7 @@
             <view class="card-actions">
               <button wx:if="{{item.configuration}}" class="secondary-btn ui-motion-button" data-id="{{item.id}}" bindtap="openRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_f10a13b6e1}}</button>
               <button wx:if="{{item.schedule}}" class="secondary-btn ui-motion-button" data-id="{{item.id}}" bindtap="openVenueSchedule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_391b522838}}</button>
+              <button wx:if="{{item.schedule && canCreateApprovedBooking}}" class="primary-btn ui-motion-button" data-id="{{item.id}}" bindtap="openVenueSchedule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{authorizationCopy.actions.createApproved}}</button>
             </view>
           </view>
         </view>
@@ -43,6 +44,7 @@
               <view class="inline-actions list-actions-below card-actions">
                 <text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="openRules" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_f10a13b6e1}}</text>
                 <text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="openVenueSchedule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_391b522838}}</text>
+                <text class="link ui-motion-chip" data-id="{{item.id}}" wx:if="{{canCreateApprovedBooking}}" bindtap="openVenueSchedule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{authorizationCopy.actions.createApproved}}</text>
                 <text class="link ui-motion-chip" data-id="{{item.id}}" wx:if="{{canEditVenueResources}}" bindtap="startEdit" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
                 <text class="link danger ui-motion-chip" data-id="{{item.id}}" wx:if="{{canDeleteVenueResources}}" bindtap="deleteVenue" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
               </view>

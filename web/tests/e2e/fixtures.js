@@ -67,7 +67,7 @@ export function workContexts(activeContextId) {
 export function sessionPayload(options) {
   const settings = options || {};
   const activeContextId = settings.contextId || ASSIGNMENT_CONTEXT.contextId;
-  const context = activeContextId === ADMIN_CONTEXT.contextId ? ADMIN_CONTEXT : ASSIGNMENT_CONTEXT;
+  const context = { ...(activeContextId === ADMIN_CONTEXT.contextId ? ADMIN_CONTEXT : ASSIGNMENT_CONTEXT), ...(settings.contextPatch || {}) };
   return {
     status: settings.status || 'success',
     currentContextId: activeContextId,
@@ -289,7 +289,7 @@ export async function mockApi(page, options) {
 
     if (name === 'auth/contexts') {
       if (!state.sessionAlive) return reply({ status: 'auth_failed', message: '' }, 401);
-      return reply(sessionPayload({ contextId: settings.activeContextId }));
+      return reply(sessionPayload({ contextId: settings.activeContextId, contextPatch: settings.contextPatch }));
     }
     if (name === 'getCurrentScoreActivity') return reply({ status: 'success', activity: { name: 'Activity' } });
     if (name === 'auth/password/session') {
@@ -297,10 +297,10 @@ export async function mockApi(page, options) {
       if (!valid) return reply({ status: 'login_failed', message: '' }, 401);
       // 登录成功后服务端会话即可用，后续业务请求按正常应答。
       state.sessionAlive = true;
-      return reply(sessionPayload({ status: 'login_success', contextId: settings.loginContextId }));
+      return reply(sessionPayload({ status: 'login_success', contextId: settings.loginContextId, contextPatch: settings.contextPatch }));
     }
     if (name === 'auth/contexts/activate') {
-      return reply(sessionPayload({ contextId: body.contextId || settings.activeContextId }));
+      return reply(sessionPayload({ contextId: body.contextId || settings.activeContextId, contextPatch: settings.contextPatch }));
     }
     if (name === 'auth/web/logout') {
       return reply({ status: 'success' });
@@ -308,7 +308,7 @@ export async function mockApi(page, options) {
     // 会话失效后，业务接口统一按登录失效返回，网页据此回到登录页。
     if (!state.sessionAlive) return reply({ status: 'auth_failed', message: '' }, 401);
     if (name === 'getCurrentAuthorizationAccess') {
-      const context = sessionPayload({ contextId: settings.activeContextId }).context;
+      const context = sessionPayload({ contextId: settings.activeContextId, contextPatch: settings.contextPatch }).context;
       return reply({ status: 'success', mode: 'shadow', revision: 0,
         organizationId: context.organizationId, contextId: context.contextId, role: context.role,
         capabilities: [], grantedCapabilities: [] });

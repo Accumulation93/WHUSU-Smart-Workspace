@@ -263,7 +263,7 @@ test('ordinary assignment manages venues in the same page with separate create a
   await expect(page.locator('.venue-resource')).toContainText('Existing room');
   await expect(page.locator('.venue-resource').getByRole('button', { name: venueUi.copy_e040ae3016, exact: true })).toHaveCount(0);
   await expect(page.locator('.workspace-hero')).toHaveCount(1);
-  await page.getByRole('button', { name: venueUi.copy_4fd7b5de41, exact: true }).click();
+  await page.getByRole('button', { name: venueUi.copy_a78ce83cab, exact: true }).click();
   await page.getByRole('dialog').getByLabel(venueUi.copy_70ae057f15).fill('New room');
   await page.getByRole('dialog').getByRole('button', { name: venueUi.copy_c701dd2fcc, exact: true }).click();
   await expect(page.locator('.venue-resource').filter({ hasText: 'New room' })).toBeVisible();
