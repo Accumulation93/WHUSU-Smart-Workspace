@@ -54,7 +54,7 @@ app.use(require('../src/core/routes/adminPermissions'));
     return { status: response.status, body: await response.json() };
   }
   try {
-    for (const role of ['super', 'delegated']) {
+    for (const role of ['super']) {
       for (const route of ['/listPermissionManagedAdmins', '/getAdminPermissionDetail']) {
         const response = await request(route, role);
         assert.strictEqual(response.status, 200);
@@ -67,6 +67,9 @@ app.use(require('../src/core/routes/adminPermissions'));
       }
     }
     assert.strictEqual((await request('/getAdminPermissionDetail', 'super', 'org-b')).status, 403);
+    for (const route of ['/listPermissionManagedAdmins', '/getAdminPermissionDetail']) {
+      assert.strictEqual((await request(route, 'delegated')).status, 403);
+    }
     assert.strictEqual((await request('/listPermissionManagedAdmins', 'unprivileged')).status, 403);
     assert.strictEqual((await request('/getAdminPermissionDetail')).status, 403);
   } finally {

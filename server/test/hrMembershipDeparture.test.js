@@ -32,9 +32,6 @@ async function testDepartureUsesOneExplicitBatch() {
       if (normalized.includes('FROM organization_memberships om') && normalized.includes('FOR UPDATE')) {
         return [[{ id: 'membership-1', person_id: 'person-1' }]];
       }
-      if (normalized.startsWith('SELECT id, legacy_admin_id FROM admin_grants')) {
-        return [[{ id: 'grant-ordinary', legacy_admin_id: 'admin-ordinary' }]];
-      }
       return [{ affectedRows: 1 }];
     }
   };
@@ -64,22 +61,14 @@ async function testDepartureUsesOneExplicitBatch() {
   assert(snapshotClear, '离任必须清空当前岗位兼容快照，历史岗位只能从离任批次读取');
   assert(executed[0].sql.includes("om.status = 'active'"), '重复离任不得重写离任边界');
   const sessionUpdate = executed.find((item) => item.sql.startsWith('UPDATE auth_sessions'));
-  const adminSessionUpdate = executed.find((item) => (
-    item.sql.startsWith('UPDATE auth_sessions') && item.sql.includes("context_type = 'admin'")
-  ));
-  const grantUpdate = executed.find((item) => item.sql.startsWith('UPDATE admin_grants'));
-  const overrideDelete = executed.find((item) => item.sql.startsWith('DELETE FROM admin_permission_overrides'));
-  const adminDelete = executed.find((item) => item.sql.startsWith('DELETE FROM admin_info'));
   const auditInsert = executed.find((item) => item.sql.startsWith('INSERT INTO auth_audit_events'));
   assert(sessionUpdate.sql.includes("AND status = 'active'"), '离任不得覆盖历史会话的既有撤销事实');
-  assert(adminSessionUpdate, '离任必须撤销当前组织普通管理员上下文会话');
-  assert(grantUpdate && grantUpdate.sql.includes("admin_level = 'admin'"), '离任只能撤销组织级普通管理员授权');
-  assert(grantUpdate.sql.includes('org_id = ?'), '离任管理员授权清理必须限制当前组织');
-  assert(overrideDelete, '离任必须移除普通管理员权限覆盖');
-  assert(adminDelete && adminDelete.sql.includes("admin_level = 'admin'"), '离任必须删除普通管理员兼容记录');
-  const grantSelect = executed.find((item) => item.sql.startsWith('SELECT id, legacy_admin_id FROM admin_grants'));
-  assert(grantSelect.sql.includes("admin_level = 'admin'"));
-  assert(!grantSelect.sql.includes("admin_level = 'super_admin'"), '全局超级管理员授权不得进入离任清理集合');
+  assert(sessionUpdate.sql.includes("context_type = 'membership'"), '离任必须撤销成员会话');
+  assert(sessionUpdate.sql.includes("context_type = 'assignment'"), '离任必须撤销承接正式权限的岗位会话');
+  assert(sessionUpdate.sql.includes('organization_id = ?'), '离任只影响当前组织');
+  assert.deepStrictEqual(sessionUpdate.params, ['org-1', 'membership-1', 'membership-1']);
+  assert(!executed.some(item => /\badmin_grants\b|\badmin_info\b|\badmin_permission_overrides\b/.test(item.sql)),
+    '普通管理员已由迁移退役，离任不得再操作身份表或影响超级管理员授权');
   assert(auditInsert, '离任必须写入审计事件');
   assert.strictEqual(auditInsert.params[1], 'hr_membership_left');
   assert.strictEqual(auditInsert.params[2], 'actor-1');

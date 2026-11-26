@@ -45,14 +45,14 @@ async function resolveVenueViewerScope(req) {
     `SELECT g.id, g.legacy_admin_id, g.org_id, g.admin_level
        FROM admin_grants g
        JOIN persons p ON p.id = g.person_id AND p.status = 'active'
-      WHERE g.person_id = ? AND g.status = 'active'`,
+      WHERE g.person_id = ? AND g.status = 'active' AND g.admin_level = 'super_admin' AND g.org_id = ''`,
     [personId]
   );
   for (const row of grantRows) {
     const org = safeString(row.org_id);
     const level = safeString(row.admin_level);
     const globalGrant = level === 'super_admin' && !org;
-    if (!globalGrant && !(level === 'admin' && org)) continue;
+    if (!globalGrant) continue;
     const id = safeString(row.id);
     const legacyId = safeString(row.legacy_admin_id);
     if (id) adminIds.add(id);

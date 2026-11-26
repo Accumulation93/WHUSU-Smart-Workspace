@@ -84,7 +84,7 @@ async function run() {
     // 注入隔离认证结果；验证真实业务路由和数据库，不冒充完整登录或管理员授权链。
     app.use((req, _res, next) => {
       req.authAccount = { id: 'account', personId: 'person' };
-      req.authContext = { role: 'admin', personId: 'person', contextId: 'context', organizationId: req.get('x-test-org'), adminGrantId: 'grant', adminLevel: 'admin' };
+      req.authContext = { role: 'admin', personId: 'person', contextId: 'context', organizationId: req.get('x-test-org'), adminGrantId: 'grant', adminLevel: 'super_admin' };
       next();
     });
     app.use(require('../src/modules/venue/routes/venueAdmin'));

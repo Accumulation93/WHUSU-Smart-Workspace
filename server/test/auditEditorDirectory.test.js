@@ -36,7 +36,7 @@ async function main() {
       for (const role of ['super','allowed','blocked','user','']) {
         const response = await fetch(base + '/api/' + endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(role ? { 'X-Test-Role': role } : {}) }, body: '{}' });
         const result = await response.json();
-        if (role === 'super' || role === 'allowed') {
+        if (role === 'super') {
           assert.equal(result.status, 'success'); assert(!JSON.stringify(result).includes('PRIVATE-STUDENT'));
           const members = result.data ? result.data.people : result.candidates;
           assert.equal(members.length, 2); assert.equal(members[1].assignments.length, 0, '在职无岗位人员保留在自然人授权目录');
@@ -49,10 +49,10 @@ async function main() {
         } else assert.notEqual(result.status, 'success', '未认证、普通用户及细权限明确拒绝均不能读取');
       }
     }
-    assert.equal(calls.filter(sql => sql.includes('FROM hr_info h') || sql.includes('FROM membership_assignments ma')).length, 8,
+    assert.equal(calls.filter(sql => sql.includes('FROM hr_info h') || sql.includes('FROM membership_assignments ma')).length, 4,
       '每次成功目录查询只有两次人员查询，拒绝请求不读取目录');
-    assert.equal(calls.length, 20, '模板目录另读性质及关联版本，拒绝请求不读取目录');
-    console.log('审核专用目录 HTTP 验证通过：两类管理员、细权限拒绝、未认证、组织参数、无岗位与身份隐私');
+    assert.equal(calls.length, 10, '模板目录另读性质及关联版本，拒绝请求不读取目录');
+    console.log('审核旧协议目录 HTTP 验证通过：超级管理员、退役身份拒绝、未认证、组织参数、无岗位与身份隐私');
   } finally { await new Promise(resolve => server.close(resolve)); }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

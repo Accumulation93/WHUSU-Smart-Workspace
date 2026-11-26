@@ -245,7 +245,7 @@ async function run() {
       { id: 'admin-target', openid: 'openid-target', bind_status: 'active' }
     ]);
     assert.deepStrictEqual(await identityModel.listContexts('account-source'), []);
-    assert.strictEqual((await identityModel.listContexts('account-target')).filter((item) => item.role === 'admin').length, 2);
+    assert.strictEqual((await identityModel.listContexts('account-target')).filter((item) => item.role === 'admin').length, 0);
 
     const [orgAccess] = await fixture.query(`
       SELECT 1
@@ -282,7 +282,7 @@ async function run() {
     }, { personId: 'person-target', contextId: 'context-target' });
     assert.strictEqual(retryResult.idempotent, true);
     assert.deepStrictEqual(await identityModel.listContexts('account-source'), []);
-    assert.strictEqual((await identityModel.listContexts('account-target')).filter((item) => item.role === 'admin').length, 2);
+    assert.strictEqual((await identityModel.listContexts('account-target')).filter((item) => item.role === 'admin').length, 0);
     console.log('双账号自然人合并、兼容绑定重建与旧管理员登录阻断集成测试通过');
   } finally {
     if (appPool) await appPool.end();

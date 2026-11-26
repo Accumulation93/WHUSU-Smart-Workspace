@@ -182,7 +182,7 @@ const {
   assert(Array.from(PERMISSION_DEFINITIONS.keys()).every((key) => superEffective.permissions[key] === true));
 
   const regularCatalog = serializeCatalog('admin', {}, delegatedEditable);
-  assert.strictEqual(regularCatalog.some((group) => group.key === 'permissions'), true);
+  assert.strictEqual(regularCatalog.some((group) => group.key === 'permissions'), false);
   assert.strictEqual(
     regularCatalog.find((group) => group.key === 'scoring').label,
     '考核评分'
@@ -192,7 +192,7 @@ const {
     .permissions.find((item) => item.key === 'hr.people');
   assert.strictEqual(hrPeople.editable, true);
 
-  console.log('两级管理员细粒度权限矩阵测试通过');
+  console.log('历史权限迁移解析与退役管理入口隐藏测试通过');
 })().catch((error) => {
   console.error(error);
   process.exit(1);

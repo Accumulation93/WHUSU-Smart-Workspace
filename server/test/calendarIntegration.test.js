@@ -242,14 +242,17 @@ async function main() {
     assert.equal((await root.query("SELECT COUNT(*) AS total FROM auth_audit_events WHERE event_type='venue_booking_ended'"))[0][0].total,1);
     assert.equal((await root.query("SELECT DATE_FORMAT(time_end,'%H:%i:%s') AS ended FROM venue_bookings WHERE id='action-test'"))[0][0].ended,'01:30:00');
     await assert.rejects(bookings.updateStatus('action-test','cancelled','ha','',null,{...bookingActor,organizationId:'other'}),error=>error.message===require('../src/locales/zh-CN/generated/modules/venue/routes/venueUser').copy_d76adefd6d);
-    const managerResult=await require('../src/core/services/currentActor').resolveCurrentActor({authAccount:{id:'account-a',personId:'a'},
+    const retiredResult=await require('../src/core/services/currentActor').resolveCurrentActor({authAccount:{id:'account-a',personId:'a'},
       authContext:{...currentActor,role:'admin',adminGrantId:'test-admin-grant',adminLevel:'admin'}});
+    assert.equal(retiredResult.ok,false);
+    const managerResult=await require('../src/core/services/currentActor').resolveCurrentActor({authAccount:{id:'account-a',personId:'a'},
+      authContext:{...currentActor,role:'admin',adminGrantId:'test-admin-grant',adminLevel:'super_admin'}});
     assert.equal(managerResult.ok,true);assert.equal(managerResult.actor.organizationId,'org');
-    assert.equal(managerResult.actor.adminGrantId,'test-admin-grant');assert.equal(managerResult.actor.adminLevel,'admin');
+    assert.equal(managerResult.actor.adminGrantId,'test-admin-grant');assert.equal(managerResult.actor.adminLevel,'super_admin');
     await bookings.updateStatus('action-test','cancelled','', '管理取消',null,managerResult.actor);
     const managerAudit=(await root.query("SELECT detail_json FROM auth_audit_events WHERE event_type='venue_booking_cancelled' ORDER BY created_at,id"))[0]
       .map(row=>typeof row.detail_json==='string'?JSON.parse(row.detail_json):row.detail_json).find(detail=>detail.actorSnapshot.role==='admin');
-    assert.equal(managerAudit.actorSnapshot.adminGrantId,'test-admin-grant');assert.equal(managerAudit.actorSnapshot.adminLevel,'admin');
+    assert.equal(managerAudit.actorSnapshot.adminGrantId,'test-admin-grant');assert.equal(managerAudit.actorSnapshot.adminLevel,'super_admin');
     assert.equal(managerAudit.actorSnapshot.assignmentSnapshot,null);
     await root.query(fs.readFileSync(path.join(__dirname,'../db/deploy/20261102193000_authorization_runtime_transition.sql'),'utf8'));
     await root.query(fs.readFileSync(path.join(__dirname,'../db/deploy/20261122153000_unified_identity_assignment_links.sql'),'utf8'));

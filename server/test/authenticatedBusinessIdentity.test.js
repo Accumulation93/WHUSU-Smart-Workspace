@@ -42,6 +42,10 @@ async function run() {
       role: 'admin', contextId: 'context-admin', adminGrantId: 'grant-a', legacyAdminId: '',
       adminLevel: 'admin', assignmentId: '', legacyHrId: ''
     }),
+    Object.assign({}, ownContext, {
+      role: 'admin', contextId: 'context-super', adminGrantId: 'grant-super', legacyAdminId: '',
+      adminLevel: 'super_admin', assignmentId: '', legacyHrId: ''
+    }),
     Object.assign({}, ownContext, { contextId: 'another-person', personId: 'person-other' })
   ];
   let contextQueries = 0;
@@ -56,8 +60,9 @@ async function run() {
   });
   const expected = await accessible.listAccessibleActorContexts(request('bound-wechat'));
   assert.strictEqual(expected.length, 3, '多岗位和无旧管理员记录的管理授权必须保留');
-  assert.strictEqual(expected[2].actor.id, 'grant-a');
-  assert.strictEqual(expected[2].actor.profile.org_id, 'org-a');
+  assert.strictEqual(expected[2].actor.id, 'grant-super');
+  assert.strictEqual(expected[2].actor.profile.org_id, '');
+  assert(!expected.some(item => item.actor.id === 'grant-a'), '退役普通管理员不得进入可用工作角色');
   assert.strictEqual(expected[0].actor.personId, 'person-a');
   assert.strictEqual(expected[0].actor.profile.identity_id, 'identity-a');
   assert(!JSON.stringify(expected).includes('openid'));
@@ -95,8 +100,8 @@ async function run() {
     assert.deepStrictEqual(scope, expectedScope);
     assert.strictEqual(scope.isSuperAdmin, false, '当前微信属于超级管理员也不能提升口令账号');
     assert.strictEqual(viewer.canViewBookingDetails({ creator_org_id: 'org-other' }, scope), false);
-    assert.strictEqual(viewer.canViewBookingDetails({ creator_org_id: 'org-b' }, scope), true);
-    assert(scope.adminIds.has('grant-a') && scope.adminIds.has('legacy-admin-a'));
+    assert.strictEqual(viewer.canViewBookingDetails({ creator_org_id: 'org-b' }, scope), false);
+    assert.equal(scope.adminIds.size, 0, '旧普通管理员记录不得再赋予场地查看范围');
   }
   const beforeDenied = venueQueries;
   const denied = await viewer.resolveVenueViewerScope({ openid: 'super-admin-wechat' });
@@ -111,10 +116,11 @@ async function run() {
   });
   const transaction = {
     async query(sql, params) {
-      assert.deepStrictEqual(params, ['account-a', 'person-a', 'org-b']);
+      assert.deepStrictEqual(params, ['account-a', 'person-a']);
       assert(sql.includes("a.status = 'verified'"));
       assert(sql.includes("g.status = 'active'"));
-      assert(sql.includes('g.org_id = ?'));
+      assert(sql.includes("g.admin_level = 'super_admin'"));
+      assert(sql.includes("g.org_id = ''"));
       assert(sql.endsWith(' FOR UPDATE'));
       assert(!/openid|account_wechat_bindings/.test(sql));
       return [[{ id: 'grant-a', person_id: 'person-a', org_id: 'org-b' }]];
