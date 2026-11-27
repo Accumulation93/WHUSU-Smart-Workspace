@@ -23,6 +23,7 @@ test('weekly schedule preserves privacy, opens details and carries selected free
   await page.goto('/web/venue/bookings');
   await expect(page.getByText(ui.submissionOpenUnlimited, { exact: true })).toBeVisible();
   await expect(page.getByText(ui.submissionDeadlineAtStart, { exact: true })).toBeVisible();
+  await page.screenshot({ path: info.outputPath('venue-application-hints.png'), fullPage: true, animations: 'disabled' });
   await page.getByRole('button', { name: ui.copy_391b522838, exact: true }).click();
   const schedule = page.getByRole('dialog', { name: 'Room A', exact: true });
   await expect(schedule).toBeVisible();

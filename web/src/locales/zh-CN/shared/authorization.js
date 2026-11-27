@@ -677,7 +677,7 @@ const sharedModule = Object.freeze({
   duplicateNature: '已有同名的工作角色性质，请直接选择。',
   natureInUse: '仍有记录使用这个工作角色性质，暂时无法删除。',
   actions: Object.freeze({ read: '查看', create: '新增', update: '修改', delete: '删除', export: '导出',
-    createApproved: '免审新增借用',
+    createApproved: '安排',
     parse: '读取表格', build: '生成表格',
     request: '提出申请', execute: '执行迁移',
     revoke: '撤销', approve: '审批', verify: '核验', configure: '配置', cancel: '取消活动', publish: '发布', restore: '恢复版本',

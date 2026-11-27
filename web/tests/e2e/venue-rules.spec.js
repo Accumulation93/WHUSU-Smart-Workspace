@@ -340,7 +340,7 @@ test('saved rule reread failure keeps the draft and blocks a duplicate write and
   state.failRead = false; await page.getByRole('dialog').last().getByRole('button', { name: copy.common.retry, exact: true }).click(); await expect(page.locator('.rule-row')).toContainText('Saved once'); expect(saves).toBe(1);
 });
 
-test('booking window retains independent modes, validates order and rereads the saved policy', async ({ page }) => {
+test('booking window retains independent modes, validates order and rereads the saved policy', async ({ page }, info) => {
   const state = await setup(page); let writes = 0;
   state.window = { openAdvanceMode: 'days', openAdvanceDays: 7, openAdvanceMinutes: 10080, deadlineAdvanceMode: 'duration', deadlineAdvanceMinutes: 90 };
   await page.route('**/api/saveVenueBookingWindow', route => {
@@ -349,6 +349,7 @@ test('booking window retains independent modes, validates order and rereads the 
     state.window.openAdvanceDays = 2; state.window.openAdvanceMinutes = 2880; return route.fulfill({ json: { status: 'success' } });
   });
   await ruleTab(page, ui.rulesTabWindow).click(); await expect(page.getByLabel(ui.copy_4c3db5642e)).toHaveValue('days');
+  await page.screenshot({ path: info.outputPath('venue-window-hints.png'), fullPage: true, animations: 'disabled' });
   const day = page.getByLabel(ui.durationDaysUnit, { exact: true }); await day.fill('0');
   await page.getByRole('button', { name: ui.copy_ac9827b75d, exact: true }).click(); await expect(page.getByRole('alert')).toHaveText(ui.copy_b1545efd70); expect(writes).toBe(0);
   await day.fill('2'); await page.getByRole('button', { name: ui.copy_ac9827b75d, exact: true }).click(); await expect(day).toHaveValue('2'); expect(writes).toBe(1);

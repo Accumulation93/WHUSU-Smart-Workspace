@@ -17,6 +17,20 @@ const lifecycleExempt = new Set([
   'subpackages/venue/pages/venueBookings/venueBookings',
   'subpackages/scoring/pages/admin/admin'
 ]);
+const calendarRedirects = new Set(['calendarEdit', 'calendarDetail', 'calendarRules', 'calendarSystem']
+  .map(name => 'subpackages/workspace/pages/' + name + '/' + name));
+
+function isCalendarRedirect(source) {
+  const allowedImports = new Set(['../../../../locales/zh-CN/calendar', '../../../../locales/zh-CN/common', '../../../../utils/navigationBarMetrics']);
+  const imports = Array.from(source.matchAll(/require\(['"]([^'"]+)['"]\)/g), match => match[1]);
+  const wxCalls = source.match(/\bwx\s*\.\s*\w+/g) || [];
+  return imports.length === 3 && imports.every(name => allowedImports.has(name))
+    && (source.match(/\brequire\s*\(/g) || []).length === imports.length
+    && wxCalls.length === 1 && wxCalls[0] === 'wx.redirectTo'
+    && source.includes("this._target = '/subpackages/workspace/pages/calendar/calendar?' + query.join('&')")
+    && source.includes('wx.redirectTo({ url: this._target, fail:')
+    && !/\b(?:callFunction|request|downloadFile|uploadFile|getApp|setInterval)\s*\(/.test(source);
+}
 const rawNetworkExempt = new Set([
   // 鸿蒙旧版运行时的微信登录必须使用最小原生回调链，避免通用请求层的
   // Promise、会话恢复和响应副作用阻塞登录页。该例外只允许认证入口使用。
@@ -56,6 +70,10 @@ function add(rule, file, message) {
 for (const page of pages) {
   const relativeFile = page + '.js';
   const source = fs.readFileSync(path.join(miniRoot, relativeFile), 'utf8');
+  if (calendarRedirects.has(page)) {
+    if (!isCalendarRedirect(source)) add('invalid-calendar-redirect', relativeFile, '旧日程入口只能跳转到受组织生命周期保护的日程主页面，不得发业务请求');
+    continue;
+  }
   if (!lifecycleExempt.has(page)) {
     let lifecycleSource = source;
     const behavior = behaviorLifecycle.get(page);
@@ -135,6 +153,12 @@ function hasVisibleInternalIdentifier(source) {
 
 if (process.argv.includes('--self-test')) {
   const assert = require('node:assert/strict');
+  const redirect = fs.readFileSync(path.join(miniRoot, 'subpackages/workspace/pages/calendarEdit/calendarEdit.js'), 'utf8');
+  assert.equal(isCalendarRedirect(redirect), true);
+  assert.equal(isCalendarRedirect(redirect + "\nrequire('../../../../utils/api');"), false);
+  assert.equal(isCalendarRedirect(redirect + '\nwx.request({});'), false);
+  assert.equal(isCalendarRedirect(redirect.replace('wx.redirectTo', 'wx.navigateTo')), false);
+  assert.equal(isCalendarRedirect(redirect.replace('/pages/calendar/calendar?', '/pages/calendarEdit/calendarEdit?')), false);
   const component = fs.readFileSync(path.join(miniRoot, 'components/assignment-nature-editor/assignment-nature-editor.js'), 'utf8');
   assert.equal(hasEventDrivenLifecycle(component), true);
   for (const fragment of ['session.invalidateRequests(this)', 'session.isRequestCurrent(this,', "eventBus.on('auth:selectionChanged', this._changed)", "eventBus.off('org:changed', this._changed)", 'hide() { this.stop(); }', 'detached() { this.stop(); }']) {

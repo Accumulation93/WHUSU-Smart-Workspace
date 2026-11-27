@@ -35,9 +35,12 @@ assert.ok(venueMetaBlock[1].includes('class="venue-tag window-deadline"'), '截�
 assert.match(bookingStyles, /\.venue-meta\s*\{[\s\S]*?flex-wrap:\s*nowrap;/, '可用场地气泡行不得自动换行');
 assert.match(bookingStyles, /\.venue-tag\.window-open\s*\{[\s\S]*?background:/, '开放提交必须使用彩色气泡');
 assert.match(bookingStyles, /\.venue-tag\.window-deadline\s*\{[\s\S]*?background:/, '截止提交必须使用彩色气泡');
-assert.strictEqual(bookingLocale.submissionOpenUnlimited, '不限制最早提交时间');
-assert.strictEqual(bookingLocale.submissionDeadlineAtStart, '请在借用开始前提交申请');
-assert.strictEqual(bookingLocale.submissionOpenDays(7), '最早可在借用日期前 7 天提交申请');
-assert.strictEqual(bookingLocale.submissionDeadlineDays(2), '请在借用日期前 2 天提交申请');
+assert.strictEqual(bookingLocale.submissionOpenUnlimited, '提前申请不限时长');
+assert.strictEqual(bookingLocale.submissionDeadlineAtStart, '申请截止到借用开始前');
+assert.strictEqual(bookingLocale.submissionOpenDays(7), '至多提前 7 日申请');
+assert.strictEqual(bookingLocale.submissionDeadlineDays(2), '至少提前 2 日申请');
+assert.strictEqual(bookingLocale.submissionDeadlineDays(0), bookingLocale.submissionDeadlineAtStart);
+assert.strictEqual(bookingLocale.submissionOpenDuration(bookingLocale.durationHoursMinutes(2, 30)), '至多提前 2 小时 30 分钟申请');
+assert.strictEqual(bookingLocale.submissionDeadlineDuration(bookingLocale.durationMinutes(30)), '至少提前 30 分钟申请');
 
 console.log('场地借用规则与审批流程显示回归测试通过');
