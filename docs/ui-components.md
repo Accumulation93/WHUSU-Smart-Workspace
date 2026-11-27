@@ -143,6 +143,18 @@ Pad 横屏主按钮与页签 `12px`、紧凑控件 `11px`。页面级 WXSS 不�
 
 ## 组件边界
 
+### 只读人员名单（2026-11-27）
+
+小程序使用 `components/readonly-person-table/readonly-person-table`，网页使用 `ReadonlyPersonTable.vue`。组件统一显示姓名、工作角色两列；手机姓名列占 28%，Pad 竖屏与横屏使用受控宽度。长姓名和多岗位自然换行，由宿主页面或弹窗正文负责滚动，组件不创建嵌套滚动。
+
+- 输入 `people`，每条保留一行；不按姓名或自然人自行去重。同一人的不同业务岗位记录必须保持独立。
+- 姓名查看继续交给 `person-link` / `PersonLink`，只传服务端明确提供的 `personReference`、`assignmentId`、`personId` 或 `hrId`；禁止把其他业务编号猜作人员编号。
+- 工作角色使用 `positions` 数组，每项支持完整 `label` 或结构化 `identityCategory`、`department`、`workGroup`。宿主负责字段映射，不拆解展示字符串猜测岗位结构。
+- `positionNotice` 用于历史缺失或失效说明；历史缺失时不能用当前岗位补齐。小程序也支持 `historicalAssignmentUnavailable` 配合宿主提供的 `historicalPositionText`。
+- 空态由宿主提供 `emptyText`，加载失败或权限未知时不渲染空表格。不得把读取失败显示为零人。
+- 适用参会名单、推优指定名单及汇总、待评分人员、权限变更影响名单、印章授权名单。排名、成绩、进度及通讯录等含专属业务列的表格保留原结构；人员选择与可移除的已选卡片仍使用原有选择组件。
+- 小程序分包副本由 `scripts/sync-shared-modules.js --write` 生成，禁止单独修改副本。两端表头复用既有语言资源，不在组件内新增文字常量。
+
 签名板、白板和文件定位的坐标硬契约见 [docs/ui-kit.md](ui-kit.md) 的“签名板与文件定位坐标硬契约”；独立签署页面按用户要求使用连续 Canvas 2D；普通弹窗不得使用该例外。`subpackages/workspace/pages/home/home.wxss` 是指向主包共享样式的兼容桥接文件，不是共享样式源。
 
 - 共享组件只负责结构、视觉和交互契约，不读取具体业务接口。

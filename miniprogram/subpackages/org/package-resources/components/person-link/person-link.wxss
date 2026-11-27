@@ -1,0 +1,3 @@
+:host { display: inline; }
+.person-link { color: #2563eb; text-decoration: underline; text-decoration-color: #93c5fd; }
+.person-link-pressed { opacity: 0.72; }

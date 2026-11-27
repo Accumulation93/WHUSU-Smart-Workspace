@@ -31,7 +31,7 @@
       </template>
       <p v-if="notice" class="notice-line" role="alert">{{ notice }}</p>
       <div v-if="!publicView && image" class="identity-card-actions">
-        <button type="button" class="btn btn-secondary" @click="showOriginal">{{ copy.originalImage }}</button>
+        <button type="button" class="btn btn-primary" @click="showOriginal">{{ copy.originalImage }}</button>
         <button type="button" class="btn btn-secondary" :disabled="loading || qrLoading || policySaving" @click="load">{{ copy.refresh }}</button>
       </div>
       <button v-else type="button" class="btn btn-secondary" :disabled="loading || qrLoading || policySaving" @click="load">{{ publicView ? (valid ? copy.refreshVerification : copy.retry) : copy.refresh }}</button>
@@ -185,9 +185,9 @@ async function load() {
     valid.value = result.valid; card.value = presentCard(result.card); loading.value = false;
     if (!result.valid) { notice.value = publicView.value ? copy.verificationUnavailable : copy.personalUnavailable; return; }
     checkedAtText.value = result.checkedAt ? formatDetailTime(result.checkedAt) : '';
-    currentTimeText.value = formatDetailTime(Date.now());
+    currentTimeText.value = formatCurrentTime();
     clockTimer = setInterval(() => {
-      if (current()) currentTimeText.value = formatDetailTime(Date.now());
+      if (current()) currentTimeText.value = formatCurrentTime();
     }, 1000);
     if (publicView.value) return;
     if (result.codeDisabledByPolicy === true) { notice.value = copy.codeDisabledByPolicy; return; }
@@ -200,6 +200,10 @@ async function load() {
     miniProgramImage.value = generated.image; verificationImage.value = verification; card.value = presentCard(generated.card);
   } catch (error) { if (current()) notice.value = errorText(error, qrLoading.value ? copy.qrFailure : copy.failure); }
   finally { if (current()) { loading.value = false; qrLoading.value = false; } }
+}
+function formatCurrentTime() {
+  const now = Date.now();
+  return formatDetailTime(now) + ':' + String(new Date(now).getUTCSeconds()).padStart(2, '0');
 }
 function visibility() { if (document.hidden) { clear(); clearPolicy(); } else load(); }
 document.addEventListener('visibilitychange', visibility);

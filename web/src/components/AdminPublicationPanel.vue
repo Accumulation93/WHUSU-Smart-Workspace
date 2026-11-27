@@ -36,7 +36,7 @@
           <div v-if="!publicationLoadFailed && !loading" class="card-actions"><button v-if="canUpdate" class="btn-quiet" :disabled="busy" @click="edit(kind.key,rule)">{{ ui.copy_e040ae3016 }}</button><button v-if="canDelete" class="btn-quiet btn-quiet-danger" :disabled="busy" @click="remove(kind.key,[rule.id])">{{ ui.copy_acc985cabc }}</button></div>
         </article>
       </section>
-      <section class="card stack"><div class="panel-head"><strong class="section-title">{{ ui.copy_17a784c758 }}</strong><button v-if="canExport" class="btn-quiet" :disabled="busy || loading" @click="exportSummary">{{ ui.copy_37b2d47dd4 }}</button></div><article v-for="(group,index) in summary" :key="group.clauseId || index" class="list-row stack"><strong>{{ group.granteeDepartment }} · {{ group.granteeIdentity }} · {{ group.targetIdentity }}</strong><span v-for="person in group.members" :key="person.assignmentId || person.id">{{ person.name }} · {{ [person.identity,person.department,person.workGroup].filter(Boolean).join(' · ') }}</span></article></section>
+      <section class="card stack"><div class="panel-head"><strong class="section-title">{{ ui.copy_17a784c758 }}</strong><button v-if="canExport" class="btn-quiet" :disabled="busy || loading" @click="exportSummary">{{ ui.copy_37b2d47dd4 }}</button></div><article v-for="(group,index) in summaryGroups" :key="group.clauseId || index" class="list-row stack"><strong>{{ group.granteeDepartment }} · {{ group.granteeIdentity }} · {{ group.targetIdentity }}</strong><ReadonlyPersonTable :people="group.people" :empty-text="homeCopy.text.noDesignatedMember" /></article></section>
     </template>
     <form v-if="form" ref="editor" class="card stack" @submit.prevent="saveRule">
       <strong>{{ kinds.find(kind=>kind.key===form.kind).label }}</strong>
@@ -64,6 +64,7 @@
 <script setup>
 import { computed, ref, reactive, nextTick, watch, onBeforeUnmount } from 'vue';
 import PersonnelPicker from './PersonnelPicker.vue';
+import ReadonlyPersonTable from './ReadonlyPersonTable.vue';
 import { useAdminCapability, useAdminAuthorizationAccess } from '@/runtime/adminCapabilities.js';
 import { callApi, requireSuccess, errorText } from '@/runtime/api.js';
 import { confirmAction, showToast } from '@/runtime/notify.js';
@@ -90,6 +91,11 @@ const canCreate = computed(() => createCapability.value && (!enforced.value || s
 const canExport = computed(() => exportCapability.value && (!enforced.value
   || (exportOnly.value ? selectedActivity.value?.canExport === true : recordAccess.value?.export === true)));
 const activities=ref([]),activityId=ref(''),publication=ref(null),published=ref(false),loading=ref(false),busy=ref(false),notice=ref(''),departments=ref([]),identities=ref([]),summary=ref([]),designations=ref([]),candidates=ref([]),form=ref(null),editor=ref(null),picker=ref(null);
+const summaryGroups = computed(() => summary.value.map(group => ({ ...group, people: (group.members || []).map(person => ({
+  name: person.name, assignmentId: person.targetAssignmentId || person.assignmentId, hrId: person.targetHrId, personId: person.personId,
+  positionNotice: person.historicalAssignmentUnavailable ? ui.historicalAssignmentUnavailable : '',
+  positions: [{ identityCategory: person.identity, department: person.department, workGroup: person.workGroup }]
+})) })));
 const selectedActivity = computed(() => activities.value.find(activity => activity.id === activityId.value));
 const exportOnly = computed(() => enforced.value && selectedActivity.value?.canOpen !== true
   && selectedActivity.value?.canExport === true);

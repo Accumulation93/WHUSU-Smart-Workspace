@@ -11,7 +11,7 @@ function loadPage(relative, respond) {
   const notices = [];
   const calls = [];
   vm.runInNewContext(fs.readFileSync(filename, 'utf8'), {
-    Page(value) { definition = value; }, console,
+    Page(value) { definition = value; }, Component(value) { definition = { data: value.data, ...value.methods }; }, console,
     require(name) {
       if (name.includes('locales/')) return require(path.resolve(path.dirname(filename), name));
       if (name.endsWith('/calendarView')) return require(path.resolve(path.dirname(filename), name));
@@ -41,7 +41,7 @@ function loadPage(relative, respond) {
 
 async function main() {
   for (const canEdit of [false, true]) {
-    const loaded = loadPage('miniprogram/subpackages/workspace/pages/calendarEdit/calendarEdit.js', async input => {
+    const loaded = loadPage('miniprogram/subpackages/workspace/components/calendar-editor/calendar-editor.js', async input => {
       if (input.name === 'getCalendarConfiguration') return { status: 'success', timezoneOffset: 480 };
       return { status: 'success', canEdit, targets: [{ type: 'self' }], version: 1 };
     });
@@ -50,7 +50,8 @@ async function main() {
     page._options = { sourceKind: 'venue_booking', sourceId: 'booking' };
     await page.load();
     assert.equal(page.data.loading, false);
-    assert.equal(page.data.failed, !canEdit);
+    assert.equal(page.data.failed, false);
+    assert.equal(page.data.readonly, !canEdit);
     if (!canEdit) {
       assert.ok(page.data.notice);
       await page.save();

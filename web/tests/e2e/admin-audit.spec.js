@@ -7,6 +7,7 @@ import stampCopy from '../../src/locales/zh-CN/shared/stampAuthorization.js';
 import copy from '../../src/locales/zh-CN/index.js';
 import governance from '../../src/locales/zh-CN/shared/adminGovernance.js';
 import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
+import homeCopy from '../../src/locales/zh-CN/shared/home.js';
 import conditions from '../../src/locales/zh-CN/shared/auditConditions.js';
 async function setup(page){
   await mockApi(page,{activeContextId:'ctx-admin'});
@@ -215,4 +216,27 @@ test('步骤提供五种动作并保存签名或盖章，移除驳回续审设�
   expect(state.calls.filter(row=>row.name==='saveAuditFlowTemplate').at(-1).body.steps[0].actionType).toBe('either');
   await page.locator('.audit-row').filter({hasText:'New Flow'}).locator('summary').click();
   await expect(page.getByText(text.either,{exact:true})).toBeVisible();
+});
+
+
+test('stamp assigned people share the roster table and keep inactive assignments visible', async ({ page }, info) => {
+  const state = await setup(page);
+  state.stamps = [{ id: 'stamp', name: 'Shared stamp', assignedPeople: [
+    { name: 'Same member', assignmentId: 'job-a', assignmentLabel: 'Role A · Department A', available: true },
+    { name: 'Same member', assignmentId: 'job-b', assignmentLabel: 'Role B · Department B', available: false }
+  ] }, { id: 'empty', name: 'Empty stamp', assignedPeople: [] }, { id: 'restricted', name: 'Restricted stamp' }];
+  await open(page, 'auditStamps');
+  const row = page.locator('.stamp-row').filter({ hasText: 'Shared stamp' });
+  const table = row.locator('.readonly-person-table');
+  await expect(table.getByRole('columnheader')).toHaveText([homeCopy.text.name, homeCopy.text.regularPosition]);
+  await expect(table.locator('tbody tr')).toHaveCount(2);
+  await expect(table.getByText('Same member', { exact: true })).toHaveCount(2);
+  await expect(table.locator('tbody tr').nth(1)).toContainText('Role B · Department B');
+  await expect(table.locator('tbody tr').nth(1)).toContainText(stampCopy.inactive);
+  await expect(table.locator('tbody tr').nth(0)).not.toContainText(stampCopy.inactive);
+  await expect(page.locator('.stamp-row').filter({ hasText: 'Empty stamp' })).toContainText(stampCopy.empty);
+  await expect(page.locator('.stamp-row').filter({ hasText: 'Restricted stamp' })).not.toContainText(stampCopy.empty);
+  expect(await table.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+  await table.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath('stamp-assigned-table.png'), fullPage: true, animations: 'disabled' });
 });

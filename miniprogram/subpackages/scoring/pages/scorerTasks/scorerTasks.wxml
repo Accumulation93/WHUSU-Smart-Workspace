@@ -98,23 +98,7 @@
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y>
         <view class="ui-dialog-scroll-content">
         <view class="popup-loading-overlay" wx:if="{{pendingPopupLoading}}"><app-loading text="{{localeCopy.copy_8dfeae7ced}}" /></view>
-        <view class="popup-table ui-data-grid--complex" wx:else>
-          <view class="popup-table-head ui-data-row ui-data-row--header">
-            <view class="popup-col popup-col-name ui-data-cell ui-data-cell--primary">{{localeCopy.copy_12cd162fda}}</view>
-            <view class="popup-col popup-col-dept ui-data-cell">{{localeCopy.copy_937ade982a}}</view>
-          </view>
-          <view class="popup-table-row ui-data-row" wx:for="{{pendingPopupList}}" wx:key="targetId">
-            <view class="popup-col popup-col-name ui-data-cell ui-data-cell--primary">
-              <text class="ui-data-cell-label">{{localeCopy.copy_12cd162fda}}</text>
-              <view class="ui-data-cell-content"><view class="task-name"><person-link name="{{item.targetName}}" assignment-id="{{item.assignmentId || item.targetAssignmentId}}" /></view></view>
-            </view>
-            <view class="popup-col popup-col-dept ui-data-cell">
-              <text class="ui-data-cell-label">{{localeCopy.copy_937ade982a}}</text>
-              <view class="ui-data-cell-content"><view class="task-meta">{{item.targetDepartment}}</view><view class="task-meta">{{item.targetIdentity}} / {{item.targetWorkGroup}}</view></view>
-            </view>
-          </view>
-          <view class="empty-inline" wx:if="{{!pendingPopupList.length}}">{{localeCopy.copy_d0de4ea38f}}</view>
-        </view>
+        <readonly-person-table wx:else people="{{pendingPopupList}}" historical-position-text="{{localeCopy.historicalAssignmentUnavailable}}" empty-text="{{localeCopy.copy_d0de4ea38f}}" />
         </view>
       </scroll-view>
     </view>

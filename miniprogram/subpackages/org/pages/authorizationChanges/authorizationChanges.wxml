@@ -47,7 +47,7 @@
       </view>
       <view wx:else class="authorization-label">{{deletingDelegation ? ui.delegationWillBeRemoved : ui.ruleWillBeRemoved}}</view>
       </view>
-      <view wx:for="{{item.roles}}" wx:for-item="person" wx:key="key" class="authorization-details"><view>{{person.name}}</view><view class="permission-admin-meta">{{person.assignmentLabel}}</view></view>
+      <readonly-person-table wx:if="{{item.roles.length}}" people="{{item.roles}}" />
     </view>
   </block>
   <view wx:if="{{!deleting && versions.length}}" class="permission-card">

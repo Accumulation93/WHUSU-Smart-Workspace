@@ -301,6 +301,22 @@
       },
       {
         "type": "file",
+        "value": "components/readonly-person-table/readonly-person-table.js"
+      },
+      {
+        "type": "file",
+        "value": "components/readonly-person-table/readonly-person-table.json"
+      },
+      {
+        "type": "file",
+        "value": "components/readonly-person-table/readonly-person-table.wxml"
+      },
+      {
+        "type": "file",
+        "value": "components/readonly-person-table/readonly-person-table.wxss"
+      },
+      {
+        "type": "file",
         "value": "locales/runtime.js"
       },
       {

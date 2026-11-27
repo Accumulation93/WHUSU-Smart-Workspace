@@ -36,7 +36,7 @@
       </block>
       <view wx:if="{{notice}}" class="identity-card-label">{{notice}}</view>
       <view wx:if="{{!publicView && image}}" class="identity-card-actions">
-        <button class="secondary-btn identity-card-refresh ui-motion-button" bindtap="showOriginal" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.originalImage}}</button>
+        <button class="primary-btn identity-card-refresh ui-motion-button" bindtap="showOriginal" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.originalImage}}</button>
         <button class="secondary-btn identity-card-refresh ui-motion-button" disabled="{{loading || qrLoading || policySaving}}" bindtap="load" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.refresh}}</button>
       </view>
       <button wx:else class="secondary-btn identity-card-refresh ui-motion-button" disabled="{{loading || qrLoading || policySaving}}" bindtap="load" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{publicView ? (valid ? copy.refreshVerification : copy.retry) : copy.refresh}}</button>

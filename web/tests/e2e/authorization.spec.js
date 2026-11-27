@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { mockApi } from './fixtures.js';
 import ui from '../../src/locales/zh-CN/shared/authorization.js';
+import homeCopy from '../../src/locales/zh-CN/shared/home.js';
 import presentation from '../../src/shared/authorizationPresentation.js';
 
 const capability = { key: 'venue.bookings.read', resourceType: 'venue.bookings', action: 'read', scopes: ['organization', 'self', 'records', 'assignmentScope'], fields: [] };
@@ -1045,4 +1046,35 @@ test('deleting a prohibition names the rule and shows the permission expansion w
   await expect(page).toHaveURL(/\/admin\/authorization$/);
   await page.getByRole('button', { name: ui.advancedRules, exact: true }).click();
   await expect(page.getByText(ui.noRules, { exact: true })).toBeVisible();
+});
+
+
+test('permission changes reuse shared people rows without interpreting legacy subjects as people', async ({ page }, info) => {
+  const { state } = await setup(page);
+  const policy = { effect: 'allow', enabled: true, subjects: [{ kind: 'assignments', ids: ['job-a'] }], capabilities: [capability.key], scopes: [{ kind: 'organization' }], fields: null };
+  state.rules = [{ id: 'rule-a', name: 'Affected role', version: 1, policy }];
+  const references = [];
+  await page.route('**/api/resolvePersonLinks', route => {
+    references.push(...route.request().postDataJSON().references);
+    return route.fulfill({ json: { status: 'success', links: [{ ref: 'assignment:job-a', target: { kind: 'hr', hrId: 'member-a' } }] } });
+  });
+  await page.route('**/api/previewAuthorizationRuleDeletion', route => route.fulfill({ json: { status: 'success', revision: 1, peopleCount: 2, roleCount: 3,
+    rules: [{ ...state.rules[0], impact: { before: policy, roles: [
+      { ...assignment, role: 'user', subjectId: 'job-a' },
+      { ...assignment, assignmentId: 'job-b', role: 'user', subjectId: 'job-b', departmentName: 'Department B' },
+      { role: 'admin', name: 'Historical subject', subjectId: 'legacy-admin-id' }
+    ] } }] } }));
+  await page.goto('/web/admin/authorization/changes?kind=delete&id=rule-a');
+  const table = page.locator('.readonly-person-table');
+  await expect(table.getByRole('columnheader')).toHaveText([homeCopy.text.name, homeCopy.text.regularPosition]);
+  await expect(table.locator('tbody tr')).toHaveCount(3);
+  await expect(table.getByText(assignment.name, { exact: true })).toHaveCount(2);
+  await expect(table.locator('tbody tr').nth(2)).toContainText(ui.allocation.unknownRecipient);
+  await expect(table.locator('tbody tr').nth(2).getByRole('link')).toHaveCount(0);
+  await expect(table.getByRole('link')).toHaveCount(1);
+  expect(references).toEqual(expect.arrayContaining([{ kind: 'assignment', id: 'job-a' }, { kind: 'assignment', id: 'job-b' }]));
+  expect(references.some(item => item.kind === 'person' || item.id === 'legacy-admin-id')).toBe(false);
+  expect(await table.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+  await table.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath('permission-changes-table.png'), fullPage: true, animations: 'disabled' });
 });

@@ -3,6 +3,7 @@
   "navigationStyle": "custom",
   "onReachBottomDistance": 120,
   "usingComponents": {
+    "readonly-person-table": "/subpackages/workspace/package-resources/components/readonly-person-table/readonly-person-table",
     "admin-workbench": "/subpackages/workspace/package-resources/subpackages/scoring/pages/admin/adminWorkbench",
     "contact-directory": "/subpackages/workspace/package-resources/components/contact-directory/contact-directory",
     "ui-icon": "/components/ui-icon/ui-icon",

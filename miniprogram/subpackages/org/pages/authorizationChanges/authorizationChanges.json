@@ -1,1 +1,7 @@
-{ "navigationStyle": "custom", "usingComponents": { "ui-navbar": "/components/ui-navbar/ui-navbar" } }
+{
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "ui-navbar": "/components/ui-navbar/ui-navbar",
+    "readonly-person-table": "/subpackages/org/package-resources/components/readonly-person-table/readonly-person-table"
+  }
+}

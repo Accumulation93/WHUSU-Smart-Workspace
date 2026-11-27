@@ -9,6 +9,11 @@ const eventBus = require('../../../../utils/eventBus');
 const { outputFile } = require('../../package-resources/utils/fileIO');
 const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 const { formatDetailTime } = require('../../../../utils/dateTime');
+// 身份卡当前时钟是秒级展示的唯一例外，历史核验时间仍使用分钟格式。
+function formatCurrentTime() {
+  const now = Date.now();
+  return formatDetailTime(now) + ':' + ('0' + new Date(now).getUTCSeconds()).slice(-2);
+}
 function presentCard(value) {
   if (!value) return null;
   const facts = value.positionFacts || {};
@@ -129,9 +134,9 @@ Page({
       if (result.status !== 'success') throw createResultError(result, copy.failure);
       this.setData({ loading: false, valid: result.valid, card: presentCard(result.card), notice: result.valid ? '' : this._token ? copy.verificationUnavailable : copy.personalUnavailable });
       if (result.valid) {
-        this.setData({ currentTimeText: formatDetailTime(Date.now()), checkedAtText: result.checkedAt ? formatDetailTime(result.checkedAt) : '' });
+        this.setData({ currentTimeText: formatCurrentTime(), checkedAtText: result.checkedAt ? formatDetailTime(result.checkedAt) : '' });
         this._clockTimer = setInterval(() => {
-          if (current()) this.setData({ currentTimeText: formatDetailTime(Date.now()) });
+          if (current()) this.setData({ currentTimeText: formatCurrentTime() });
         }, 1000);
       }
       if (this._token || !result.valid) return;

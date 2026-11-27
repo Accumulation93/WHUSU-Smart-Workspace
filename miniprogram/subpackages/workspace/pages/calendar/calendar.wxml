@@ -1,24 +1,77 @@
+<page-meta page-style="--ui-navbar-height: {{navTopPx}}px; {{panelDialog || detailOptions ? 'overflow: hidden;' : ''}}" />
 <ui-navbar title="{{navigationTitle}}" />
 <view class="page calendar-page" style="min-height: calc(100vh - {{navTopPx}}px)">
   <workspace-hero app-name="{{common.brandName}}" page-name="{{copy.title}}" />
+  <view class="tabs workspace-secondary-tabs calendar-primary-tabs">
+    <button class="secondary-btn tab ui-motion-chip {{activeTab === 'calendar' ? 'tab-active' : ''}}" disabled="{{editorOptions || panelLocked}}" data-tab="calendar" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.title}}</button>
+    <button wx:if="{{metadata.permissions.rules}}" class="secondary-btn tab ui-motion-chip {{activeTab === 'rules' ? 'tab-active' : ''}}" disabled="{{editorOptions || panelLocked}}" data-tab="rules" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.ruleManage}}</button>
+    <button class="secondary-btn tab ui-motion-chip {{activeTab === 'system' ? 'tab-active' : ''}}" disabled="{{editorOptions || panelLocked}}" data-tab="system" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.systemCalendar}}</button>
+  </view>
+  <app-loading wx:if="{{loading}}" text="{{copy.loading}}" />
+  <view wx:if="{{notice}}" class="card calendar-stack"><text>{{notice}}</text><button class="ui-motion-button secondary-btn" bindtap="load" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.retry}}</button></view>
+  <calendar-rules wx:if="{{activeTab === 'rules' && metadata.permissions.rules}}" options="{{rulesOptions}}" bindentryconsumed="consumeRulesEntry" bindstatechange="panelState" binddialogchange="panelDialog" />
+  <calendar-system wx:if="{{activeTab === 'system'}}" bindstatechange="panelState" binddialogchange="panelDialog" />
+  <calendar-editor wx:if="{{editorOptions}}" options="{{editorOptions}}" bindcancel="closeEditor" bindsaved="closeEditor" binddialogchange="panelDialog" />
+  <block wx:if="{{activeTab === 'calendar' && !editorOptions}}">
   <view class="section-control-card calendar-stack">
-    <view class="calendar-actions {{metadata.permissions.rules ? 'calendar-actions--with-rules' : ''}}">
+    <view class="calendar-panel-heading">
+      <view class="section-title">{{copy.title}}</view>
       <button class="ui-motion-button primary-btn" disabled="{{loading}}" bindtap="create" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.create}}</button>
-      <button class="ui-motion-button secondary-btn" bindtap="system" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.systemCalendar}}</button>
-      <button wx:if="{{metadata.permissions.rules}}" class="ui-motion-button secondary-btn" bindtap="rules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.ruleManage}}</button>
     </view>
     <view class="tabs"><view wx:for="{{modes}}" wx:key="*this" class="ui-motion-chip tab {{mode === item ? 'tab-active' : ''}}" data-mode="{{item}}" bindtap="setMode" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy[item]}}</view></view>
     <view class="ui-inline-control-row"><button class="ui-motion-button secondary-btn ui-inline-control" data-amount="-1" bindtap="navigate" aria-label="{{copy.previous}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">‹</button><picker mode="date" value="{{selected}}" bindchange="dateChange"><view class="picker-display ui-inline-control">{{selected}}</view></picker><button class="ui-motion-button secondary-btn ui-inline-control" data-amount="1" bindtap="navigate" aria-label="{{copy.next}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">›</button><button class="ui-motion-button secondary-btn ui-inline-control" bindtap="today" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.today}}</button></view>
     <view class="ui-list-filter ui-list-filter-stack">
       <view class="ui-list-filter-search"><ui-icon name="search" sizeRole="context-trailing" /><input class="ui-list-filter-input" value="{{query}}" placeholder="{{copy.search}}" bindinput="search" /></view>
       <list-filter-row range="{{sourceLabels}}" value="{{sourceIndex}}" bindchange="setSource" />
+      <view wx:if="{{metadata.permissions.manage}}" class="calendar-stack">
+        <view class="field-label">{{copy.viewingRange}}</view>
+        <list-filter-row range="{{[copy.ownScheduleScope, copy.readableScheduleScope]}}" value="{{managed ? 1 : 0}}" bindchange="setManaged" />
+      </view>
     </view>
-    <view wx:if="{{metadata.permissions.manage}}" class="calendar-between"><text>{{copy.manage}}</text><switch color="#2563eb" checked="{{managed}}" bindchange="setManaged" /></view>
   </view>
-  <app-loading wx:if="{{loading}}" text="{{copy.loading}}" />
-  <view wx:if="{{notice}}" class="card calendar-stack"><text>{{notice}}</text><button class="ui-motion-button secondary-btn" bindtap="load" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.retry}}</button></view>
-  <view wx:if="{{mode === 'month'}}" class="card calendar-grid"><view wx:for="{{copy.weekdays}}" wx:key="*this" class="calendar-weekday">{{item}}</view><view wx:for="{{days}}" wx:key="date" class="ui-motion-card calendar-date {{item.selected ? 'calendar-selected' : ''}} {{item.today ? 'calendar-today' : ''}} {{item.outside ? 'calendar-outside' : ''}}" data-date="{{item.date}}" bindtap="selectDay" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><text>{{item.label}}</text><text wx:if="{{item.items.length}}" class="calendar-count">{{item.items.length}}</text></view></view>
-  <block wx:if="{{mode === 'week' || mode === 'day'}}"><scroll-view scroll-x="{{mode === 'week'}}" enhanced="{{true}}"><view class="calendar-week-columns {{mode === 'week' ? 'calendar-week-columns-wide' : ''}}"><view wx:for="{{days}}" wx:key="date" wx:for-item="day" class="card calendar-stack calendar-day-column"><view class="section-title">{{day.date}}</view><view class="calendar-note">{{copy.allDay}}</view><view wx:for="{{day.allDayItems}}" wx:key="key" class="calendar-event ui-motion-card" data-id="{{item.id}}" data-date="{{item.occurrenceDate}}" bindtap="open" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">{{item.title}}</view><view wx:for="{{day.hours}}" wx:for-item="hour" wx:key="label" class="calendar-hour"><view class="calendar-note">{{hour.label}}</view><view wx:for="{{hour.items}}" wx:key="key" class="calendar-event ui-motion-card" data-id="{{item.id}}" data-date="{{item.occurrenceDate}}" bindtap="open" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><view class="calendar-name">{{item.title}}</view><view class="calendar-note">{{item.timeText}}</view><text wx:if="{{item.conflict}}" class="chip chip-orange">{{copy.conflictHint}}</text></view></view></view></view></scroll-view></block>
-  <block wx:else><view class="section-control-card"><view class="section-title">{{selected}}</view></view><view wx:for="{{visibleItems}}" wx:key="key" class="ui-motion-card card calendar-event" data-id="{{item.id}}" data-date="{{item.occurrenceDate}}" bindtap="open" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160"><text class="chip chip-sky">{{copy[item.sourceKind]}}</text><view class="calendar-name">{{item.title}}</view><view class="calendar-note">{{item.timeText}}</view><view>{{item.location}}</view></view><view wx:if="{{!visibleItems.length && !loading && !notice}}" class="card calendar-note">{{copy.empty}}</view></block>
+  <view wx:if="{{mode === 'month'}}" class="card calendar-grid">
+    <view wx:for="{{copy.weekdays}}" wx:key="*this" class="calendar-weekday">{{item}}</view>
+    <view wx:for="{{days}}" wx:key="date" class="ui-motion-card calendar-date {{item.selected ? 'calendar-selected' : ''}} {{item.today ? 'calendar-today' : ''}} {{item.outside ? 'calendar-outside' : ''}}" data-date="{{item.date}}" bindtap="selectDay" aria-role="button" aria-label="{{listReady ? item.accessibleLabel : item.date}}" aria-current="{{item.selected ? 'date' : 'false'}}" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
+      <view class="calendar-date-number">{{item.label}}</view>
+      <view class="calendar-date-marker"><view wx:if="{{listReady && item.items.length}}" class="calendar-date-dot"></view></view>
+    </view>
+  </view>
+  <block wx:if="{{mode === 'week' || mode === 'day'}}">
+    <scroll-view scroll-x="{{mode === 'week'}}" enhanced="{{true}}">
+      <view class="calendar-week-columns {{mode === 'week' ? 'calendar-week-columns-wide' : ''}}">
+        <view wx:for="{{days}}" wx:key="date" wx:for-item="day" class="card calendar-stack calendar-day-column">
+          <view class="section-title">{{day.date}}</view>
+          <view class="calendar-note">{{copy.allDay}}</view>
+          <view wx:for="{{day.allDayItems}}" wx:key="key" class="calendar-agenda-item calendar-agenda-item--compact ui-motion-card" data-id="{{item.id}}" data-date="{{item.occurrenceDate}}" bindtap="open" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
+            <view class="calendar-name">{{item.title}}</view>
+            <view class="calendar-note">{{item.timeText}}</view>
+            <view wx:if="{{item.location}}" class="calendar-note">{{item.location}}</view>
+            <view><text class="chip chip-sky">{{copy[item.sourceKind]}}</text></view>
+          </view>
+          <view wx:for="{{day.hours}}" wx:for-item="hour" wx:key="label" class="calendar-hour">
+            <view class="calendar-note">{{hour.label}}</view>
+            <view wx:for="{{hour.items}}" wx:key="key" class="calendar-agenda-item calendar-agenda-item--compact ui-motion-card" data-id="{{item.id}}" data-date="{{item.occurrenceDate}}" bindtap="open" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
+              <view class="calendar-name">{{item.title}}</view><view class="calendar-note">{{item.timeText}}</view>
+              <view wx:if="{{item.location}}" class="calendar-note">{{item.location}}</view>
+              <view><text class="chip chip-sky">{{copy[item.sourceKind]}}</text></view>
+              <view wx:if="{{item.conflict}}" class="calendar-note">{{copy.conflictHint}}</view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+  </block>
+  <block wx:else>
+    <view class="section-control-card calendar-panel-heading"><view class="section-title">{{resultsHeading}}</view><view wx:if="{{listReady}}" class="calendar-note">{{scheduleCount}}</view></view>
+    <view wx:for="{{visibleItems}}" wx:key="key" class="ui-motion-card card calendar-agenda-item" data-id="{{item.id}}" data-date="{{item.occurrenceDate}}" bindtap="open" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
+      <view class="calendar-agenda-heading"><view class="calendar-name">{{item.title}}</view><ui-icon name="chevron-right" sizeRole="context-trailing" /></view>
+      <view class="calendar-agenda-time">{{item.timeText}}</view>
+      <view wx:if="{{item.location}}" class="calendar-note">{{item.location}}</view>
+      <view><text class="chip chip-sky">{{copy[item.sourceKind]}}</text></view>
+    </view>
+    <view wx:if="{{!visibleItems.length && listReady}}" class="card calendar-note">{{copy.empty}}</view>
+  </block>
+  </block>
 </view>
+<calendar-detail id="calendar-detail" wx:if="{{detailOptions}}" options="{{detailOptions}}" bindclose="closeDetail" bindchanged="detailChanged" bindedit="editDetail" />
 <app-toast />

@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {mockApi} from './fixtures.js';
+import homeCopy from '../../src/locales/zh-CN/shared/home.js';
 import ui from '../../src/locales/zh-CN/shared/generated/subpackages/venue/pages/venueBooking/venueBooking.js';
 import copy from '../../src/locales/zh-CN/shared/calendar.js';
 import venueCopy from '../../src/locales/zh-CN/shared/generated/subpackages/venue/pages/venueManage/venueManage.js';
@@ -21,7 +22,7 @@ async function openActivity(page,participants,canEdit=true,status='success') {
 test('activity details and people remain compact, readable and editable',async({page},info)=>{
   const dialog=await openActivity(page,[{name:'\u5f20\u540c\u5b66',positions:[{identityCategory:'\u6210\u5458',department:'\u529e\u516c\u5ba4',workGroup:''}]},{name:'\u674e\u540c\u5b66',positions:[]}]);
   await page.screenshot({path:info.outputPath('compact-activity.png'),animations:'disabled'});
-  await expect(dialog.locator('.calendar-participant')).toHaveCount(0);
+  await expect(dialog.locator('.readonly-person-table tbody tr')).toHaveCount(0);
   const action=dialog.getByRole('button',{name:copy.editParticipants,exact:true});
   const geometry=await action.evaluate(el=>{const r=el.getBoundingClientRect(),p=el.parentElement.getBoundingClientRect(),peer=el.parentElement.querySelector('button').getBoundingClientRect();return {height:r.height,width:r.width,parent:p.width,center:Math.abs(r.y+r.height/2-peer.y-peer.height/2)};});
   expect(geometry.height).toBeGreaterThanOrEqual(36);expect(geometry.height).toBeLessThanOrEqual(48);expect(geometry.width).toBeLessThan(geometry.parent/2);expect(geometry.center).toBeLessThan(2);
@@ -29,9 +30,9 @@ test('activity details and people remain compact, readable and editable',async({
   await expect(dialog.locator('.activity-detail ui-icon, .activity-facts img, .activity-facts svg')).toHaveCount(0);
   await expect(dialog.locator('.activity-values')).toContainText(venueCopy.copy_13293d504a);
   await dialog.getByRole('button',{name:copy.participantsExpand,exact:true}).click();
-  const cards=await dialog.locator('.calendar-participant').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {top:r.top,height:r.height,width:r.width,scroll:n.scrollWidth};}));
+  const cards=await dialog.locator('.readonly-person-table tbody tr').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {top:r.top,height:r.height,width:r.width,scroll:n.scrollWidth};}));
   for(const card of cards){expect(card.height).toBeLessThan(95);expect(card.scroll).toBeLessThanOrEqual(card.width+1);}
-  if(page.viewportSize().width>=520)expect(Math.abs(cards[0].top-cards[1].top)).toBeLessThan(1);
+  expect(cards[1].top).toBeGreaterThanOrEqual(cards[0].top+cards[0].height-1);
   await expect(dialog.getByText(copy.noPosition,{exact:true})).toBeVisible();
   await action.click();await expect(page).toHaveURL(/calendar\/edit\?sourceKind=venue_activity&sourceId=activity/);
 });
@@ -55,7 +56,7 @@ test('long participant lists scroll without expanding controls or losing closing
   const participants=Array.from({length:30},(_,i)=>({name:'Participant '+i,positions:[{identityCategory:'Committee member',department:'Long department name for wrapping review',workGroup:'Public activity coordination team'}]}));
   const dialog=await openActivity(page,participants,false);
   await expect(dialog.getByRole('button',{name:copy.editParticipants,exact:true})).toHaveCount(0);
-  await expect(dialog.locator('.calendar-participant')).toHaveCount(0);
+  await expect(dialog.locator('.readonly-person-table tbody tr')).toHaveCount(0);
   await dialog.getByRole('button',{name:copy.participantsExpand,exact:true}).click();
   await dialog.getByText('Participant 29',{exact:true}).scrollIntoViewIfNeeded();
   await expect(dialog.getByText('Participant 29',{exact:true})).toBeVisible();
@@ -103,4 +104,29 @@ test('participant conditions keep compact actions and preserve selection after s
   expect(writes[0].targets[1].natureIds).toEqual(['staff']);
   await page.goto(url);await expect(page.locator('.calendar-condition-card').first().getByText(copy.participantPeopleSummary(1,'Member A'),{exact:true})).toBeVisible();
   await expect(page.locator('.calendar-condition-toolbar')).toHaveCount(0);
+});
+
+
+test('booking detail reuses the same person table and preserves separate role groups',async({page},info)=>{
+  await mockApi(page);
+  await page.clock.setFixedTime(new Date('2035-01-01T00:00:00Z'));
+  await page.route('**/api/listVenuesForBooking',route=>route.fulfill({json:{status:'success',venues:[{id:'venue',name:'Room A',approvalType:'direct'}]}}));
+  await page.route('**/api/getVenueSchedule',route=>route.fulfill({json:{status:'success',dailySchedules:[{date:'2035-01-01',openSlots:[],activitySlots:[],bookedSlots:[{id:'booking',title:'Booked meeting',status:'approved',timeStart:'09:00',timeEnd:'10:00',fullTimeStart:'2035-01-01 09:00',fullTimeEnd:'2035-01-01 10:00',visibility:'details'}]}]}}));
+  const people=[{name:'Same name',positions:[{identityCategory:'First role',department:'First department',workGroup:'First group'},{identityCategory:'Second role',department:'Second department',workGroup:'Second group'}]},{name:'Same name',positions:[]}];
+  const reads=[];
+  await page.route('**/api/getCalendarParticipants',route=>{reads.push(route.request().postDataJSON());return route.fulfill({json:{status:'success',canEdit:false,participants:people}});});
+  await page.goto('/web/venue/bookings');
+  await page.getByRole('button',{name:ui.copy_391b522838,exact:true}).click();
+  await page.getByRole('button',{name:'Booked meeting',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:ui.copy_40d594ac66,exact:true});
+  await dialog.getByRole('button',{name:copy.participantsExpand,exact:true}).click();
+  const table=dialog.locator('.readonly-person-table');
+  await expect(table.getByRole('columnheader')).toHaveText([homeCopy.text.name,homeCopy.text.regularPosition]);
+  await expect(table.locator('tbody tr')).toHaveCount(2);
+  await expect(table.getByText('Same name',{exact:true})).toHaveCount(2);
+  await expect(table.locator('tbody tr').first().locator('.readonly-person-position')).toHaveCount(2);
+  await expect(table.getByText(copy.noPosition,{exact:true})).toBeVisible();
+  expect(reads[0]).toMatchObject({sourceKind:'venue_booking',sourceId:'booking'});
+  expect(await table.evaluate(node=>node.scrollWidth<=node.clientWidth+1)).toBe(true);
+  await page.screenshot({path:info.outputPath('booking-readonly-table.png')});
 });

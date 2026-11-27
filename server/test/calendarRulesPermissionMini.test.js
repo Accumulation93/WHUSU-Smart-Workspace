@@ -7,16 +7,16 @@ const { test } = require('node:test');
 const vm = require('node:vm');
 
 test('calendar rule controls keep read, update, and delete permissions separate', async () => {
-  const filename = path.resolve(__dirname, '../../miniprogram/subpackages/workspace/pages/calendarRules/calendarRules.js');
+  const filename = path.resolve(__dirname, '../../miniprogram/subpackages/workspace/components/calendar-rules/calendar-rules.js');
   const requests = [];
-  const session = { beginRequest: () => ({}), isRequestCurrent: () => true };
+  const session = { beginRequest: () => ({}), isRequestCurrent: () => true, getSnapshot: () => ({ contextId: 'calendar-rule-context' }) };
   let definition;
   const fixture = { status: 'success', canCreate: false, rules: [
     { id: 'read', version: 1, name: 'Read rule', enabled: true, canUpdate: false, canDelete: false },
     { id: 'write', version: 1, name: 'Edit rule', enabled: true, canUpdate: true, canDelete: true }
   ].map(rule => ({ ...rule, audience: [], targets: [], actions: ['assign'] })) };
   vm.runInNewContext(readFileSync(filename, 'utf8'), {
-    Page: value => { definition = value; },
+    Component: value => { definition = value; },
     require(request) {
       if (request.endsWith('/orgSession')) return session;
       if (request.endsWith('/api')) return { callFunction: async options => {
@@ -26,7 +26,7 @@ test('calendar rule controls keep read, update, and delete permissions separate'
       return require(path.resolve(path.dirname(filename), request));
     }
   }, { filename });
-  const page = { ...definition, _visible: true, data: { ...definition.data },
+  const page = { ...definition.methods, _visible: true, data: { ...definition.data },
     setData(values) { Object.assign(this.data, values); } };
   const event = id => ({ currentTarget: { dataset: { id } } });
   await page.load();

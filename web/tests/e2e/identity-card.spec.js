@@ -62,6 +62,9 @@ test('hero opens identity card while work-role button keeps its action', async (
   const original = await page.getByRole('button', { name: copy.originalImage, exact: true }).boundingBox();
   const refresh = await page.getByRole('button', { name: copy.refresh, exact: true }).boundingBox();
   expect(original?.y).toBe(refresh?.y);
+  expect(original?.height).toBe(refresh?.height);
+  await expect(page.getByRole('button', { name: copy.originalImage, exact: true })).toHaveCSS('color', 'rgb(255, 255, 255)');
+  await expect(page.getByRole('button', { name: copy.refresh, exact: true })).toHaveCSS('color', 'rgb(15, 23, 42)');
   await page.evaluate(()=>window.scrollTo(0,0));
   await page.screenshot({path:info.outputPath('identity-card.png'),fullPage:true,animations:'disabled'});
   const geometry = await page.evaluate(() => ({hero:document.querySelector('.workspace-hero').getBoundingClientRect().bottom, body:document.querySelector('.identity-card').getBoundingClientRect().top, overflow:document.documentElement.scrollWidth > innerWidth}));
@@ -119,9 +122,11 @@ test('admin identity retains dark hero and clock advances without network pollin
   await page.route('**/api/createMyIdentityCardCode',r=>r.fulfill({json:{status:'success',valid:true,card,image,verificationImage}}));
   await page.goto('/web/identity-card');
   await expect(page.locator('.workspace-hero-admin')).toBeVisible();
-  await expect(page.locator('.identity-time-value')).toHaveText('2026-11-10 16:00');
-  await page.clock.fastForward(60000);
-  await expect(page.locator('.identity-time-value')).toHaveText('2026-11-10 16:01');
+  await expect(page.locator('.identity-time-value')).toHaveText('2026-11-10 16:00:00');
+  await page.clock.fastForward(1000);
+  await expect(page.locator('.identity-time-value')).toHaveText('2026-11-10 16:00:01');
+  await page.clock.fastForward(59000);
+  await expect(page.locator('.identity-time-value')).toHaveText('2026-11-10 16:01:00');
   expect(reads).toBe(1);
 });
 
@@ -175,9 +180,11 @@ test('public identity exposes structured position cards and a local clock withou
   await expect(page.locator('.identity-field')).toHaveCount(4);
   for (const value of ['Department A','Coordinator','Group A']) await expect(page.locator('.identity-field').getByText(value,{exact:true})).toBeVisible();
   const clock=page.locator('.identity-live-time .identity-time-value');
-  await expect(clock).toHaveText('2026-11-10 16:00');
-  await page.clock.fastForward(60000);
-  await expect(clock).toHaveText('2026-11-10 16:01');
+  await expect(clock).toHaveText('2026-11-10 16:00:00');
+  await page.clock.fastForward(1000);
+  await expect(clock).toHaveText('2026-11-10 16:00:01');
+  await page.clock.fastForward(59000);
+  await expect(clock).toHaveText('2026-11-10 16:01:00');
   await expect(page.locator('.identity-time:not(.identity-live-time) .identity-time-value')).toHaveText('2026-11-10 16:00');
   expect(reads).toBe(1);
 });

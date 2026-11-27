@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "person-link": "/subpackages/venue/package-resources/components/person-link/person-link"
+  }
+}

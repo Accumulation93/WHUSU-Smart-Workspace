@@ -87,7 +87,7 @@ test('first result page and merit are usable before the next result batch return
     await expect(page.locator('.publication-stat strong').first()).toHaveText('20');
     await expect.poll(() => secondRequested).toBe(true);
     await page.getByRole('tab', { name: home.meritList, exact: true }).click();
-    await expect(page.locator('.merit-member')).toHaveCount(1);
+    await expect(page.locator('.merit-group .readonly-person-table tbody tr')).toHaveCount(1);
     await page.getByRole('tab', { name: home.results, exact: true }).click();
     await page.getByRole('button', { name: calendarCopy.next, exact: true }).click();
     await expect(page.locator('.result-member strong')).toHaveCount(0);
@@ -124,7 +124,7 @@ test('merit picker preserves business rejection, submits assignment IDs, reads s
   await expect(dialog.locator('.personnel-option').last()).toHaveAttribute('aria-pressed', 'true');
   await dialog.getByRole('button', { name: pickerCopy.confirm, exact: true }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page.locator('.merit-member')).toContainText('Department B');
+  await expect(page.locator('.merit-group .readonly-person-table tbody tr')).toContainText('Department B');
   await page.getByRole('button', { name: home.edit, exact: true }).click();
   await dialog.locator('.personnel-option').last().click();
   await dialog.getByRole('button', { name: pickerCopy.confirm, exact: true }).click();
@@ -144,12 +144,12 @@ test('successful save followed by failed read blocks edits and retries without a
   await page.getByRole('dialog').getByRole('button', { name: pickerCopy.confirm, exact: true }).click();
   await expect(page.getByRole('button', { name: home.edit, exact: true })).toBeDisabled();
   await expect(page.getByRole('status').getByText(award.savedNotRefreshed)).toBeVisible();
-  await expect(page.locator('.merit-member')).toContainText('Department A');
+  await expect(page.locator('.merit-group .readonly-person-table tbody tr')).toContainText('Department A');
   await expect(page.getByRole('button', { name: home.reloadProfile, exact: true })).toBeEnabled();
   failRead = false;
   await page.getByRole('button', { name: home.reloadProfile, exact: true }).click();
   await expect(page.getByRole('button', { name: home.edit, exact: true })).toBeEnabled();
-  await expect(page.locator('.merit-member')).toContainText('Department B');
+  await expect(page.locator('.merit-group .readonly-person-table tbody tr')).toContainText('Department B');
   expect(writes).toBe(1);
 });
 
@@ -179,7 +179,7 @@ test('legacy over-quota roster retains all 14 records and edits only the chosen 
   const groups = page.locator('.merit-group');
   const first = groups.first();
   await expect(groups).toHaveCount(2);
-  await expect(page.locator('.merit-member')).toHaveCount(14);
+  await expect(page.locator('.merit-group .readonly-person-table tbody tr')).toHaveCount(14);
   await expect(page.locator('.merit-saved-stat strong')).toHaveText('14');
   await expect(first.getByText(award.savedOverCount.replace('{extra}', '3'))).toBeVisible();
   await expect(first.getByText(homeCopy.format.exactQuota(8))).toBeVisible();
@@ -199,7 +199,7 @@ test('legacy over-quota roster retains all 14 records and edits only the chosen 
   for (let index = 0; index < 3; index++) await options.nth(index).click();
   await confirm.click();
   await expect(page.locator('.toast-layer').getByText(award.saveSuccess)).toBeVisible();
-  await expect(page.locator('.merit-member')).toHaveCount(11);
+  await expect(page.locator('.merit-group .readonly-person-table tbody tr')).toHaveCount(11);
   expect(writes).toBe(1);
   expect(ratingReads).toBe(1);
 });
@@ -228,7 +228,7 @@ test('a dropped save response preserves the selection and reloads the authoritat
   await dialog.getByRole('button', { name: home.reloadProfile, exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.locator('.toast-layer').getByText(award.saveSuccess)).toBeVisible();
-  await expect(page.locator('.merit-member')).toContainText('Department B');
+  await expect(page.locator('.merit-group .readonly-person-table tbody tr')).toContainText('Department B');
   expect(writes).toBe(1);
 });
 test('revoked permissions remove tabs, while a temporary independent read failure keeps retry visible', async ({ page }) => {
@@ -261,4 +261,22 @@ test('saving blocks cancel, selection, tab and route changes until authoritative
   await expect(page).toHaveURL(/scoring\/tasks$/);
   release();
   await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+
+test('designated merit roster uses shared rows and keeps same name assignments separate',async({page},info)=>{
+  await setup(page);
+  await page.route('**/api/getPublicMeritList',route=>route.fulfill({json:meritResponse(['assignment-a','assignment-b'])}));
+  await page.goto('/web/scoring/tasks');
+  await page.getByRole('tab',{name:home.meritList,exact:true}).click();
+  const table=page.locator('.merit-group .readonly-person-table');
+  await expect(table.getByRole('columnheader')).toHaveText([home.name,home.regularPosition]);
+  await expect(table.locator('tbody tr')).toHaveCount(2);
+  await expect(table.getByText('Member A',{exact:true})).toHaveCount(2);
+  await expect(table.locator('tbody tr').nth(0)).toContainText('Department A');
+  await expect(table.locator('tbody tr').nth(1)).toContainText('Department B');
+  expect(await table.evaluate(node=>node.scrollWidth<=node.clientWidth+1)).toBe(true);
+  await table.scrollIntoViewIfNeeded();
+  await expect(table).toHaveCSS('opacity','1');
+  await page.screenshot({path:info.outputPath('merit-readonly-table.png'),fullPage:true,animations:'disabled'});
 });

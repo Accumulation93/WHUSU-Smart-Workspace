@@ -2,6 +2,7 @@
   "navigationBarTitleText": "",
   "navigationStyle": "custom",
   "usingComponents": {
+    "readonly-person-table": "/subpackages/scoring/package-resources/components/readonly-person-table/readonly-person-table",
     "ui-icon": "/components/ui-icon/ui-icon",
     "list-filter-row": "/subpackages/scoring/package-resources/components/list-filter-row/list-filter-row",
     "ui-navbar": "/components/ui-navbar/ui-navbar",

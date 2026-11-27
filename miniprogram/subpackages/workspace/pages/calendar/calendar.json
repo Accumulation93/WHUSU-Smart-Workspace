@@ -1,6 +1,10 @@
 {
   "navigationStyle": "custom",
   "usingComponents": {
+    "calendar-detail": "/subpackages/workspace/components/calendar-detail/calendar-detail",
+    "calendar-rules": "/subpackages/workspace/components/calendar-rules/calendar-rules",
+    "calendar-system": "/subpackages/workspace/components/calendar-system/calendar-system",
+    "calendar-editor": "/subpackages/workspace/components/calendar-editor/calendar-editor",
     "list-filter-row": "/subpackages/workspace/package-resources/components/list-filter-row/list-filter-row",
     "ui-icon": "/components/ui-icon/ui-icon",
     "ui-navbar": "/components/ui-navbar/ui-navbar"

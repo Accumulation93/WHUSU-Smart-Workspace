@@ -1,23 +1,19 @@
 'use strict';
-const {getNavigationBarMetrics}=require('../../../../utils/navigationBarMetrics');
-const copy=require('../../../../locales/zh-CN/calendar');
-const common=require('../../../../locales/zh-CN/common');
-const {callFunction}=require('../../../../utils/api');
-const orgSession=require('../../../../utils/orgSession');
+const copy = require('../../../../locales/zh-CN/calendar');
+const common = require('../../../../locales/zh-CN/common');
+const { getNavigationBarMetrics } = require('../../../../utils/navigationBarMetrics');
 Page({
-  data:{copy,common,navTopPx:0,navigationTitle:copy.systemCalendar+' - '+common.brandName,busy:false,notice:'',subscription:null,confirmation:false,action:'create'},
-  onLoad:function(){this.setData({navTopPx:getNavigationBarMetrics().totalHeight});},
-  onResize:function(){this.setData({navTopPx:getNavigationBarMetrics().totalHeight});},
-  onShow:function(){const contextChange=orgSession.consume(this);if(contextChange.changed)orgSession.invalidateRequests(this);this._visible=true;},
-  onHide:function(){this._visible=false;orgSession.invalidateRequests(this);this.setData({subscription:null,confirmation:false,busy:false,notice:''});},
-  onUnload:function(){this._visible=false;orgSession.invalidateRequests(this);},
-  ask:function(e){if(!this.data.busy)this.setData({confirmation:true,action:e.currentTarget.dataset.action});},
-  close:function(){if(!this.data.busy)this.setData({confirmation:false});},
-  noop:function(){},
-  async execute(){
-    if(this.data.busy)return;const action=this.data.action,request=orgSession.beginRequest(this,'subscription');this.setData({busy:true,notice:''});
-    try{const result=await callFunction({name:'manageCalendarSubscription',data:{action}});if(!this._visible||!orgSession.isRequestCurrent(this,request))return;if(result.status!=='success')throw new Error(result.message||copy.operationFailed);this.setData({busy:false,confirmation:false,subscription:action==='revoke'?null:result,notice:action==='revoke'?copy.subscriptionRevoked:copy.subscriptionCreated});}
-    catch(error){if(this._visible&&orgSession.isRequestCurrent(this,request))this.setData({busy:false,notice:error.message||copy.operationFailed});}
+  data: { copy, common, navTopPx: 0, navigationTitle: copy.title + ' - ' + common.brandName, failed: false },
+  onLoad: function(options) {
+    this.setData({ navTopPx: getNavigationBarMetrics().totalHeight });
+    const fields = ['id', 'date', 'selected', 'mode', 'sourceKind', 'sourceId', 'copyKind', 'copyId'];
+    const query = ['area=system'];
+    fields.forEach(key => { if (options && options[key]) query.push(key + '=' + encodeURIComponent(options[key])); });
+    this._target = '/subpackages/workspace/pages/calendar/calendar?' + query.join('&');
+    this.retry();
   },
-  copy:function(e){const item=this.data.subscription,key=e.currentTarget.dataset.key;if(item&&['url','server','username','password'].includes(key))wx.setClipboardData({data:item[key]});}
+  retry: function() {
+    this.setData({ failed: false });
+    wx.redirectTo({ url: this._target, fail: () => this.setData({ failed: true }) });
+  }
 });

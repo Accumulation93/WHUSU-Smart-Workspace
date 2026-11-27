@@ -1,18 +1,16 @@
 <template>
   <section v-if="sourceId" class="calendar-participants">
-    <header class="calendar-participants-head"><h3 class="calendar-participants-title">{{ copy.participants }} <span v-if="result">{{ result.participants.length }}</span></h3></header>
+    <header class="calendar-participants-head"><h3 class="calendar-participants-title">{{ result ? copy.participantsCount.replace('{count}',String(result.participants.length)) : copy.participants }}</h3></header>
     <div v-if="result" class="card-actions"><button v-if="result.participants.length" class="btn btn-secondary calendar-participants-action" :aria-expanded="expanded" @click="expanded=!expanded">{{ expanded ? copy.participantsCollapse : copy.participantsExpand }}</button><button v-if="result.canEdit" class="btn btn-secondary calendar-participants-action" @click="edit">{{ copy.editParticipants }}</button></div>
     <AppLoading v-if="loading" :text="copy.participantsLoading" />
     <div v-if="notice" class="calendar-participants-head"><p class="notice-line">{{ notice }}</p><button v-if="failed" class="btn btn-secondary calendar-participants-action" @click="load">{{ copy.retry }}</button></div>
-    <template v-if="result">
-      <p v-if="!result.participants.length" class="muted">{{ copy.noParticipants }}</p>
-      <div v-if="expanded" class="calendar-participants-grid"><article v-for="(person,index) in result.participants" :key="index" class="list-row calendar-participant"><strong><PersonLink :name="person.name" :reference="person.personReference" /></strong><span v-for="(position,i) in person.positions" :key="i" class="calendar-participant-position">{{ [position.identityCategory,position.department,position.workGroup].filter(Boolean).join(' · ') }}</span><span v-if="!person.positions.length" class="calendar-participant-position">{{ copy.noPosition }}</span></article></div>
-    </template>
+    <ReadonlyPersonTable v-if="result && (expanded || !result.participants.length)" :people="result.participants" :empty-text="copy.noParticipants" :position-empty-text="copy.noPosition" />
   </section>
 </template>
 <script setup>
 import {onBeforeUnmount,ref,watch} from 'vue';
 import {useRouter} from 'vue-router';
+import ReadonlyPersonTable from './ReadonlyPersonTable.vue';
 import {callApi} from '@/runtime/api.js';
 import {session} from '@/runtime/session.js';
 import copy from '@/locales/zh-CN/shared/calendar.js';
@@ -29,9 +27,4 @@ document.addEventListener('visibilitychange',load);onBeforeUnmount(()=>{disposed
 .calendar-participants-title { font-size:var(--ui-type-emphasis);line-height:1.5; }
 .calendar-participants-title span { font-size:var(--ui-type-meta);color:var(--ui-text-muted);font-weight:500; }
 .calendar-participants-action { flex:none;width:auto;min-width:0;min-height:var(--ui-control-height);height:auto;margin:0;padding:var(--ui-compact-padding-y) var(--ui-compact-padding-x);font-size:var(--ui-type-meta);border-radius:var(--ui-compact-radius); }
-.calendar-participants-grid { display:grid;grid-template-columns:minmax(0,1fr);gap:var(--ui-field-gap); }
-.calendar-participant { display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);align-items:start;gap:var(--ui-label-gap) var(--ui-field-gap);min-width:0; }
-.calendar-participant strong { min-width:0;overflow-wrap:anywhere; }
-.calendar-participant-position { grid-column:2;color:var(--ui-text-muted);font-size:var(--ui-type-meta);line-height:1.6;overflow-wrap:anywhere; }
-@media (min-width:520px) { .calendar-participants-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 </style>

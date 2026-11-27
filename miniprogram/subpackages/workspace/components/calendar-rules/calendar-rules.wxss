@@ -1,0 +1,15 @@
+@import "../../pages/calendar/calendar.wxss";
+
+.calendar-rule-selection {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--ui-inline-gap);
+  box-sizing: border-box;
+  min-height: var(--ui-field-control-height);
+  padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x);
+  border: 1rpx solid transparent;
+  border-radius: var(--ui-compact-radius);
+}
+
+.calendar-rule-selection .calendar-name { min-width: 0; }
+.calendar-rule-selection .chip { flex: none; }

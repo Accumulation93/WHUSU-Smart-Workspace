@@ -83,11 +83,7 @@
         <div class="row row-wrap merit-group-facts">
           <span class="muted">{{ group.savedCount }}</span><span v-if="group.overCount" class="merit-group-over">{{ group.overCount }}</span>
         </div>
-        <div v-for="member in group.members" :key="member.id" class="list-row person-summary-row merit-member">
-          <div class="info-head"><strong><PersonLink :name="member.name" :assignment-id="member.targetAssignmentId || member.assignmentId" :hr-id="member.targetHrId" /></strong><span class="chip chip-blue">{{ member.identity }}</span></div>
-          <span class="muted">{{ [member.department, member.workGroup].filter(Boolean).join(' · ') }}</span>
-        </div>
-        <p v-if="!group.members.length" class="empty-state">{{ home.noDesignatedMember }}</p>
+        <ReadonlyPersonTable :people="group.people" :empty-text="home.noDesignatedMember" :position-empty-text="calendarCopy.noPosition" />
       </section>
     </template>
   </div>
@@ -108,6 +104,7 @@ import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, reacti
 import { onBeforeRouteLeave } from 'vue-router';
 import PersonnelPicker from './PersonnelPicker.vue';
 import ScoringResultRow from './ScoringResultRow.vue';
+import ReadonlyPersonTable from './ReadonlyPersonTable.vue';
 import homeCopy from '@/locales/zh-CN/shared/home.js';
 import publicationCopy from '@/locales/zh-CN/shared/scoringPublication.js';
 import calendarCopy from '@/locales/zh-CN/shared/calendar.js';
@@ -197,7 +194,9 @@ const publicationStats = computed(() => {
   if (stats && !Object.values(filters).some(Boolean)) return { count: stats.count, max: stats.maxScore, average: stats.avgScore };
   return { count: filteredMembers.value.length, ...scoreStats.value };
 });
-const meritGroups = computed(() => publicationView.awardGroups(merit.value || {}, homeCopy, award));
+const meritGroups = computed(() => publicationView.awardGroups(merit.value || {}, homeCopy, award).map(group => ({ ...group,
+  people: group.members.map(member => ({ name: member.name, assignmentId: member.targetAssignmentId || member.assignmentId, hrId: member.targetHrId,
+    positions: [{ identityCategory: member.identity, department: member.department, workGroup: member.workGroup }] })) })));
 const meritSummary = computed(() => publicationView.awardSummary(meritGroups.value, merit.value?.meritList || [], homeCopy));
 function clearFilters() { for (const key of Object.keys(filters)) filters[key] = ''; }
 function toggleFilter(key, value) { filters[key] = filters[key] === value ? '' : value; }

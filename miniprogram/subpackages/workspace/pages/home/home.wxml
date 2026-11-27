@@ -293,18 +293,7 @@
           <text>{{item.savedCount}}</text>
           <text class="merit-rule-facts-over" wx:if="{{item.overCount}}">{{item.overCount}}</text>
         </view>
-        <scroll-view class="target-scroll" scroll-y wx:if="{{item.members.length}}">
-          <view class="target-card" wx:for="{{item.members}}" wx:key="id" wx:for-item="m">
-            <view class="target-main">
-              <view class="target-name"><person-link name="{{m.name}}" assignment-id="{{m.targetAssignmentId || m.assignmentId}}" hr-id="{{m.targetHrId}}" /></view>
-              <view class="target-tags">
-                <view class="target-identity">{{m.identity}}</view>
-              </view>
-            </view>
-            <view class="target-meta">{{m.department}}{{m.workGroup ? ' · ' + m.workGroup : ''}}</view>
-          </view>
-        </scroll-view>
-        <view class="target-state" wx:else>{{copy.noDesignatedMember}}</view>
+        <readonly-person-table people="{{item.members}}" empty-text="{{copy.noDesignatedMember}}" />
       </view>
     </view>
   </view>

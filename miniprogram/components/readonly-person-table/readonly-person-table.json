@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "person-link": "/components/person-link/person-link"
+  }
+}

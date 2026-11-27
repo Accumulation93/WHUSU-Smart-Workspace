@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "person-link": "/subpackages/workspace/package-resources/components/person-link/person-link"
+  }
+}

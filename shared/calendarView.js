@@ -37,6 +37,25 @@ function edit(detail,offset) {
   return Object.assign(blank(dateText(start)),detail.form,{id:detail.id,version:detail.version,occurrenceDate:detail.occurrenceDate,
     visibility:detail.visibility,targets:detail.targets,startDate:dateText(start),endDate:dateText(end),startTime:clock(start),endTime:clock(end),scope:'instance'});
 }
+function cloneDraft(value) { return JSON.parse(JSON.stringify(value)); }
+function draftUi(draft) {
+  return {endMode:draft.recurrence.until ? 'until' : draft.recurrence.count ? 'count' : 'none',reminder:draft.reminders && draft.reminders.length ? draft.reminders[0] : -1};
+}
+function createScopeDrafts(detail,offset) {
+  const occurrence=cloneDraft(edit(detail,offset));
+  if(detail.seriesForm && detail.seriesForm.recurrence) occurrence.recurrence=cloneDraft(detail.seriesForm.recurrence);
+  const series=Object.assign(cloneDraft(occurrence),cloneDraft(detail.seriesForm || detail.form || {}),{scope:'series'});
+  return {occurrence:{draft:occurrence,ui:draftUi(occurrence)},series:{draft:series,ui:draftUi(series)}};
+}
+function switchScopeDraft(drafts,currentDraft,nextScope,currentUi) {
+  if (!['instance','following','series'].includes(nextScope)) throw new Error('invalid_calendar_scope');
+  const next=cloneDraft(drafts),currentKey=currentDraft.scope==='series' ? 'series' : 'occurrence',nextKey=nextScope==='series' ? 'series' : 'occurrence';
+  next[currentKey]={draft:cloneDraft(currentDraft),ui:cloneDraft(currentUi || draftUi(currentDraft))};
+  const entry=cloneDraft(next[nextKey]);
+  entry.draft.scope=nextScope;
+  next[nextKey]=cloneDraft(entry);
+  return {drafts:next,draft:entry.draft,ui:entry.ui};
+}
 function timeline(day,offset) {
   const start=date(day.date).getTime()-offset*60000;
   const timed=day.items.filter(item=>!item.allDay).map(item=>Object.assign({},item,{
@@ -88,4 +107,4 @@ function participantSourceSummary(clause, metadata, copy, relations) {
   });
   return lines.length ? lines : [copy.participantScopeEmpty];
 }
-module.exports = { addDays, period, move, days, blank, edit, timeline, timeText, participantSourceSummary };
+module.exports = { addDays, period, move, days, blank, edit, createScopeDrafts, switchScopeDraft, timeline, timeText, participantSourceSummary };

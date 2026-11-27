@@ -1,0 +1,44 @@
+<viewport-portal wx:if="{{options}}">
+  <view class="ui-overlay">
+    <view class="ui-overlay-blocker popup-mask-blocker" catchtouchmove="noop" bindtap="dismiss"></view>
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-shell--grid">
+      <view class="popup-header ui-dialog-header"><view class="popup-title">{{confirmation ? (action === 'leave' ? copy.leave : copy.cancelEvent) : copy.title}}</view></view>
+      <scroll-view class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-scroll--natural" scroll-y="{{true}}" enhanced="{{true}}" nested-scroll-enabled="{{true}}">
+        <view class="ui-dialog-content ui-dialog-scroll-content">
+          <view class="calendar-stack">
+            <block wx:if="{{confirmation}}">
+              <view class="calendar-name">{{detail.title}}</view>
+              <view>{{action === 'leave' ? copy.leaveConfirm : copy.cancelConfirm}}</view>
+              <view class="calendar-stack"><view class="field-label">{{copy.scope}}</view><picker range="{{scopeLabels}}" value="{{scopeIndex}}" disabled="{{busy}}" bindchange="scope"><view class="picker-display">{{scopeLabels[scopeIndex]}}</view></picker></view>
+            </block>
+            <block wx:else>
+              <app-loading wx:if="{{loading}}" text="{{copy.loading}}" />
+              <block wx:if="{{detail}}">
+                <view><text class="chip chip-sky">{{copy[detail.sourceKind]}}</text></view>
+                <view class="calendar-name">{{detail.title}}</view><view>{{detail.timeText}}</view>
+                <view wx:if="{{detail.location}}">{{detail.location}}</view><view wx:if="{{detail.description}}">{{detail.description}}</view>
+                <view class="calendar-participants-section">
+                  <view class="calendar-participants-heading"><view class="section-title">{{detail.participantsTitle}}</view><button wx:if="{{detail.participants.length}}" class="secondary-btn ui-motion-button calendar-roster-toggle" bindtap="toggleParticipants" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{participantsExpanded ? copy.participantsCollapse : copy.participantsExpand}}</button></view>
+                  <view wx:if="{{!detail.participants.length}}" class="calendar-note">{{copy.noParticipants}}</view>
+                  <readonly-person-table wx:if="{{participantsExpanded}}" people="{{detail.participants}}" empty-text="{{copy.noParticipants}}" />
+                </view>
+                <view wx:if="{{canAdd}}" class="calendar-stack"><button class="ui-motion-button secondary-btn" bindtap="addPhone" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.addOnce}}</button><view class="calendar-note">{{copy.onceHint}}</view></view>
+              </block>
+            </block>
+            <view wx:if="{{notice}}">{{notice}}</view>
+            <button wx:if="{{!confirmation && !detail && !loading}}" class="secondary-btn ui-motion-button" bindtap="load" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.retry}}</button>
+          </view>
+        </view>
+      </scroll-view>
+      <view class="ui-dialog-footer calendar-detail-actions">
+        <block wx:if="{{confirmation}}"><button class="secondary-btn ui-motion-button calendar-detail-action" disabled="{{busy}}" bindtap="cancel" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.cancel}}</button><button class="danger-btn ui-motion-button calendar-detail-action" disabled="{{busy}}" bindtap="execute" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160"><app-loading wx:if="{{busy}}" compact text="{{copy.saving}}" /><text wx:else>{{action === 'leave' ? copy.confirmLeave : copy.confirmedCancel}}</text></button></block>
+        <block wx:else>
+          <button wx:if="{{detail.canUpdate}}" class="primary-btn ui-motion-button calendar-detail-action" bindtap="edit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.edit}}</button>
+          <button wx:if="{{detail.canCancel}}" class="danger-btn ui-motion-button calendar-detail-action" data-action="cancel" bindtap="confirm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.cancelEvent}}</button>
+          <button wx:if="{{detail.attending && detail.visibility !== 'private'}}" class="secondary-btn ui-motion-button calendar-detail-action" data-action="leave" bindtap="confirm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.leave}}</button>
+          <button class="secondary-btn ui-motion-button calendar-detail-action" bindtap="close" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.close}}</button>
+        </block>
+      </view>
+    </view>
+  </view>
+</viewport-portal>

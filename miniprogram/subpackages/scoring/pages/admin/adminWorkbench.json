@@ -1,6 +1,7 @@
 {
   "component": true,
   "usingComponents": {
+    "readonly-person-table": "/components/readonly-person-table/readonly-person-table",
     "list-filter-row": "/components/list-filter-row/list-filter-row",
     "identity-manager": "/subpackages/scoring/pages/admin/components/identityManager/identityManager",
     "assignment-nature-editor": "/components/assignment-nature-editor/assignment-nature-editor",

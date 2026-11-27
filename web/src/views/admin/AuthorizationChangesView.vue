@@ -21,9 +21,7 @@
         <details v-if="rule.before"><summary>{{ ui.beforeChange }}</summary><AuthorizationPolicySummary :policy="rule.before" :directory="directory" :catalog="state.catalog" /></details>
         <details v-if="rule.after"><summary>{{ ui.afterChange }}</summary><AuthorizationPolicySummary :policy="rule.after" :directory="directory" :catalog="state.catalog" /></details>
         <span v-else class="chip chip-orange">{{ deletingDelegation ? ui.delegationWillBeRemoved : ui.ruleWillBeRemoved }}</span>
-        <div v-for="person in rule.roles" :key="person.role + ':' + person.subjectId" class="stack-tight">
-          <strong>{{ person.name }}</strong><span class="muted">{{ person.role === 'admin' ? ui.adminGrants : presentation.assignmentLabel(person) }}</span>
-        </div>
+        <ReadonlyPersonTable v-if="rule.roles?.length" :people="rolePeople(rule.roles)" />
       </article>
     </template>
       <section v-if="!deleting && versions.length" class="card stack">
@@ -49,6 +47,7 @@ import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import WorkspaceHero from '@/components/WorkspaceHero.vue';
 import AppLoading from '@/components/AppLoading.vue';
 import AuthorizationPolicySummary from '@/components/AuthorizationPolicySummary.vue';
+import ReadonlyPersonTable from '@/components/ReadonlyPersonTable.vue';
 import ui from '@/locales/zh-CN/shared/authorization.js';
 import presentation from '@/shared/authorizationPresentation.js';
 import { callApi, requireSuccess, errorText, createLocalError } from '@/runtime/api.js';
@@ -79,6 +78,13 @@ let payload = null;
 const ruleChanges = computed(() => (result.value?.rules || []).map(rule => deleting.value
   ? { id: rule.id, name: rule.name, before: rule.impact.before, after: null, roles: rule.impact.roles }
   : { ...rule, roles: result.value.roles.filter(person => person.ruleIds.includes(rule.id)) }));
+function rolePeople(roles) {
+  return roles.map(person => ({ name: person.name,
+    assignmentId: person.role === 'user' ? person.subjectId : undefined,
+    positionNotice: person.role === 'admin' ? ui.allocation.unknownRecipient : '',
+    positions: person.role === 'admin' ? [] : [{ label: presentation.assignmentLabel(person) }]
+  }));
+}
 function capabilityText(key) { return presentation.capabilityLabel(key, state.value.catalog, ui); }
 function clear() { generation++; result.value = null; versions.value = []; blockedDraft.value = []; payload = null; directory.value = { assignments: [], adminGrants: [] }; state.value = { catalog: [], mode: '' }; notice.value = ''; }
 async function load() {

@@ -110,7 +110,10 @@ Page({
       return { id: rule.id, name: rule.name,
         before: before ? presentation.policySections(before, this._directory, this._state.catalog, ui) : null,
         after: after ? presentation.policySections(after, this._directory, this._state.catalog, ui) : null,
-        roles: roles.map(item => ({ key: item.role + ':' + item.subjectId, name: item.name, assignmentLabel: item.role === 'admin' ? ui.adminGrants : presentation.assignmentLabel(item) })) };
+        roles: roles.map(item => ({ key: item.role + ':' + item.subjectId, name: item.name,
+          personId: item.personId || '', assignmentId: item.role === 'user' ? item.subjectId : '',
+          positionNotice: item.role === 'admin' ? ui.allocation.unknownRecipient : '',
+          positions: item.role === 'admin' ? [] : [{ label: presentation.assignmentLabel(item) }] })) };
     });
     this.setData({ ready: true, schemeBlocked: false, blockedOperations: [], unified: this._state.unifiedIdentity === true, previewOnly: this._state.mode === 'shadow', impactText: ui.impactCount(result.peopleCount, result.roleCount), cards, labels: this.labels(result.capabilities) });
   },

@@ -8,7 +8,7 @@
     <p v-if="notice || actionNotice" class="notice-line">{{ notice || actionNotice }} <button v-if="notice" class="btn-quiet" :disabled="busy || loading" @click="load">{{ text.retry }}</button></p>
     <div class="stamp-actions"><button class="btn btn-secondary" :disabled="busy || state.pending" @click="reset">{{ copy.common.cancel }}</button><button class="btn btn-primary" :disabled="blocked" @click="save">{{ native.copy_2278d2da18 }}</button></div>
   </section>
-  <section class="card stack"><span class="section-title">{{ native.copy_8ef1f4695c }}</span><p v-if="loading"><AppLoading :text="copy.common.loading" /></p><p v-else-if="!notice && !rows.length">{{ native.copy_0596fc0dc8 }}</p><div v-for="row in rows" :key="row.id" class="list-row stamp-row"><strong>{{ row.name }}</strong><img v-if="row.imageData" :src="row.imageData" :alt="row.name" class="stamp-preview" /><span v-for="grant in row.assignedPeople" :key="grant.assignmentId" class="muted">{{ grant.name }} · {{ grant.assignmentLabel }}<span v-if="grant.available===false"> · {{ stamps.inactive }}</span></span><div class="card-actions"><button class="btn-quiet" :disabled="blocked" v-if="canUpdateRecord" @click="edit(row)">{{ native.copy_e040ae3016 }}</button><button class="btn-quiet" :disabled="blocked" v-if="canEditGrants(row)" @click="openGrants(row)">{{ stamps.configure }}</button><button class="btn-quiet btn-quiet-danger" :disabled="blocked" v-if="canDeleteRecord" @click="remove(row)">{{ native.copy_acc985cabc }}</button></div></div></section>
+  <section class="card stack"><span class="section-title">{{ native.copy_8ef1f4695c }}</span><p v-if="loading"><AppLoading :text="copy.common.loading" /></p><p v-else-if="!notice && !rows.length">{{ native.copy_0596fc0dc8 }}</p><div v-for="row in rows" :key="row.id" class="list-row stamp-row"><strong>{{ row.name }}</strong><img v-if="row.imageData" :src="row.imageData" :alt="row.name" class="stamp-preview" /><ReadonlyPersonTable v-if="Array.isArray(row.assignedPeople)" :people="grantPeople(row.assignedPeople)" :empty-text="stamps.empty" /><div class="card-actions"><button class="btn-quiet" :disabled="blocked" v-if="canUpdateRecord" @click="edit(row)">{{ native.copy_e040ae3016 }}</button><button class="btn-quiet" :disabled="blocked" v-if="canEditGrants(row)" @click="openGrants(row)">{{ stamps.configure }}</button><button class="btn-quiet btn-quiet-danger" :disabled="blocked" v-if="canDeleteRecord" @click="remove(row)">{{ native.copy_acc985cabc }}</button></div></div></section>
   <PersonnelPicker v-if="grantTarget && canEditGrants(grantTarget)" :title="stamps.title" :options="candidates" :value="grantTarget.assignedPeople.filter(item=>item.available!==false)" :busy="busy" @cancel="grantTarget=null" @confirm="saveGrants"><p>{{ stamps.editorContext(grantTarget.name) }}</p><p v-if="grantTarget.assignedPeople.some(item=>item.available===false)" class="notice-line">{{ stamps.invalidRemoved }}</p><p v-if="actionNotice" class="notice-line">{{ actionNotice }}</p></PersonnelPicker>
 </template>
 <script setup>
@@ -20,6 +20,7 @@ const canWriteRecord = useAdminCapability('audit.stamps', () => props.state.form
 const canReadCandidates = useAdminCapability('audit.stamps', 'audit.stampCandidates.read');
 import { computed, nextTick, ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import PersonnelPicker from './PersonnelPicker.vue';
+import ReadonlyPersonTable from './ReadonlyPersonTable.vue';
 import copy from '@/locales/zh-CN/index.js';
 import native from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/admin.js';
 import messages from '@/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/modules/auditBehavior.js';
@@ -33,6 +34,12 @@ const rows=ref([]),candidates=ref([]),grantTarget=ref(null),loading=ref(true),bu
 const editor=ref(null);
 const requests=auditRequests();let alive=true,sequence=0;
 const blocked=computed(()=>props.disabled||loading.value||busy.value||!!notice.value||props.state.pending);
+function grantPeople(grants) {
+  return grants.map(grant => ({ name: grant.name, assignmentId: grant.assignmentId,
+    positionNotice: grant.available === false ? [grant.assignmentLabel, stamps.inactive].filter(Boolean).join(' · ') : '',
+    positions: [{ label: grant.assignmentLabel }]
+  }));
+}
 function canEditGrants(row) {
   return canUpdateRecord.value && canReadCandidates.value && Array.isArray(row?.assignedPeople);
 }

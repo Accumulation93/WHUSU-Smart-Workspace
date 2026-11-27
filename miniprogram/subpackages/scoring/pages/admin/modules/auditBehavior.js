@@ -1333,6 +1333,11 @@ module.exports = Behavior({
         if (res.status === 'success') {
           this.setData({ stamps: (res.stamps || []).map(stamp => Object.assign({}, stamp, {
             hasAssignedPeople: Array.isArray(stamp.assignedPeople),
+            assignedPeopleRows: (stamp.assignedPeople || []).map(person => ({
+              name: person.name, assignmentId: person.assignmentId,
+              positionNotice: person.available === false ? [person.assignmentLabel, stampCopy.inactive].filter(Boolean).join(' · ') : '',
+              positions: [{ label: person.assignmentLabel }]
+            })),
             authorizationText: Array.isArray(stamp.assignedPeople) ? stampCopy.count(stamp.assignedPeople.filter(person => person.available).length) : ''
           })), stampLoadError: '' });
         } else {

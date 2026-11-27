@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "readonly-person-table": "/subpackages/workspace/package-resources/components/readonly-person-table/readonly-person-table"
+  }
+}

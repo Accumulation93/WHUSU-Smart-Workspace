@@ -2,6 +2,6 @@
   "component": true,
   "usingComponents": {
     "app-loading": "/components/app-loading/app-loading",
-    "person-link": "/subpackages/venue/package-resources/components/person-link/person-link"
+    "readonly-person-table": "/subpackages/venue/package-resources/components/readonly-person-table/readonly-person-table"
   }
 }

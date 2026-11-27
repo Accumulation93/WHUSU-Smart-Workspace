@@ -1,0 +1,18 @@
+<view wx:if="{{rows.length}}" class="readonly-person-table">
+  <view class="readonly-person-table-head"><view>{{copy.name}}</view><view>{{copy.workRole}}</view></view>
+  <view wx:for="{{rows}}" wx:key="key" class="readonly-person-table-row">
+    <view class="readonly-person-table-name"><person-link name="{{item.name}}" reference="{{item.personReference}}" assignment-id="{{item.assignmentId}}" hr-id="{{item.hrId}}" person-id="{{item.personId}}" /></view>
+    <view class="readonly-person-table-roles">
+      <view wx:if="{{item.positionNotice}}" class="readonly-person-table-note">{{item.positionNotice}}</view>
+      <block wx:else>
+        <view wx:for="{{item.positions}}" wx:for-item="position" wx:key="index" class="readonly-person-table-position">
+          <view wx:if="{{position.label}}" class="readonly-person-table-role">{{position.label}}</view>
+          <view wx:if="{{position.identityCategory}}" class="readonly-person-table-role">{{position.identityCategory}}</view>
+          <view wx:if="{{position.context}}" class="readonly-person-table-note">{{position.context}}</view>
+        </view>
+        <view wx:if="{{!item.positions.length}}" class="readonly-person-table-note">{{copy.noWorkRole}}</view>
+      </block>
+    </view>
+  </view>
+</view>
+<view wx:else class="readonly-person-table-empty">{{emptyText || copy.empty}}</view>

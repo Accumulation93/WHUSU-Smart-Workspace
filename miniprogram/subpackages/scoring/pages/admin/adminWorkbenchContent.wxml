@@ -2467,23 +2467,7 @@
           </view>
           <!-- Expanded member list -->
           <view class="merit-group-body" wx:if="{{expandedMeritSummaryClauseId === group.clauseId}}">
-            <view class="merit-member-card" wx:for="{{group.members}}" wx:key="id" wx:for-item="m" style="animation: glassFadeUp 0.28s {{0.04 * index}}s ease both;">
-              <view class="merit-member-accent" style="background: {{gradeBandWxs.getColor(group.targetIdentity)}};"></view>
-              <view class="merit-member-body">
-                <view class="merit-member-row">
-                  <view class="merit-member-name"><person-link name="{{m.name}}" assignment-id="{{m.targetAssignmentId || m.assignmentId}}" hr-id="{{m.targetHrId}}" /></view>
-                </view>
-                <view class="merit-member-tags">
-                  <view class="merit-tag merit-tag-ident" wx:if="{{m.historicalAssignmentUnavailable}}">{{localeCopy.historicalAssignmentUnavailable}}</view>
-                  <block wx:else>
-                    <view class="merit-tag merit-tag-ident">{{m.identity}}</view>
-                    <view class="merit-tag merit-tag-dept" wx:if="{{m.department}}">{{m.department}}</view>
-                    <view class="merit-tag merit-tag-wg" wx:if="{{m.workGroup}}">{{m.workGroup}}</view>
-                  </block>
-                </view>
-              </view>
-            </view>
-            <view class="empty-inline" wx:if="{{!group.members.length}}">{{localeCopy.copy_e1c977eb9b}}</view>
+            <readonly-person-table people="{{group.members}}" historical-position-text="{{localeCopy.historicalAssignmentUnavailable}}" empty-text="{{localeCopy.copy_e1c977eb9b}}" />
           </view>
         </view>
       </view>
@@ -2869,6 +2853,7 @@
               <view class="list-name">{{item.name}}</view>
               <image wx:if="{{item.imageData}}" src="{{item.imageData}}" mode="widthFix" class="audit-stamp-preview audit-stamp-preview--small" />
               <view wx:if="{{item.hasAssignedPeople}}" class="list-meta">{{item.assignedPeople.length ? item.authorizationText : stampCopy.empty}}</view>
+              <readonly-person-table wx:if="{{item.hasAssignedPeople && item.assignedPeopleRows.length}}" people="{{item.assignedPeopleRows}}" />
               <view wx:if="{{item.hasAssignedPeople && item.assignedIdentities.length && !item.assignedPeople.length}}" class="list-meta">{{stampCopy.legacy}}</view>
             </view>
             <view class="card-actions">

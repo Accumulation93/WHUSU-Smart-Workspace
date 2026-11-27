@@ -37,6 +37,8 @@ import {session} from '@/runtime/session.js';
 import {useCopiedConfigurationEditor} from '@/runtime/copiedConfigurationEditor.js';
 import {confirmAction} from '@/runtime/notify.js';
 const metadata=ref({rules:[],people:[],departments:[],identities:[],workGroups:[]}),selected=ref([]),draft=ref(null),deletion=ref(null),busy=ref(false),loading=ref(false),notice=ref(''),saved=ref(false);
+const emit=defineEmits(['statechange']);
+watch([draft,busy],()=>emit('statechange',Boolean(draft.value)||busy.value),{immediate:true});
 const editor=ref(null);
 const canCreate = computed(() => metadata.value.status === 'success' && metadata.value.canCreate !== false);
 const ruleAllows = (id, action) => metadata.value.rules.some(rule => rule.id === id && rule[action] !== false);
@@ -60,10 +62,11 @@ async function batch(action,rules) {
   if (busy.value || loading.value || !rules.length || !rules.every(rule => ruleAllows(rule.id, capability))) return;
   busy.value=true;notice.value='';const own=generation;try{requireSuccess(await callApi('batchCalendarRules',{action,rules:rules.map(rule=>({id:rule.id,version:rule.version}))}));if(own!==generation)return;deletion.value=null;await load();}catch(error){if(own===generation)notice.value=errorText(error,copy.operationFailed);}finally{busy.value=false;}
 }
-function visibility(){generation++;metadata.value={rules:[],people:[],departments:[],identities:[],workGroups:[]};draft.value=null;deletion.value=null;if(!document.hidden)load();}
+function visibility(){deletion.value=null;if(!document.hidden&&!busy.value)load();}
+function contextChanged(){generation++;metadata.value={rules:[],people:[],departments:[],identities:[],workGroups:[]};draft.value=null;deletion.value=null;if(!document.hidden)load();}
 document.addEventListener('visibilitychange',visibility);
 useCopiedConfigurationEditor({kind:()=> 'calendar.rules',rows:computed(()=>metadata.value.rules),blocked:()=>busy.value||loading.value,
   ready:()=>!loading.value&&!notice.value,edit,notice});
-watch(()=>session.context,visibility,{immediate:true});
+watch(()=>session.context,contextChanged,{immediate:true});
 onBeforeUnmount(()=>{disposed=true;generation++;document.removeEventListener('visibilitychange',visibility);});
 </script>

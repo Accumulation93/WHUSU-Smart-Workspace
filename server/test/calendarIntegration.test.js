@@ -4,6 +4,22 @@ const fs=require('node:fs');
 const path=require('node:path');
 const crypto=require('node:crypto');
 const mysql=require('mysql2/promise');
+const vm=require('node:vm');
+function calendarEditor(post) {
+  const filename=path.resolve(__dirname,'../../miniprogram/subpackages/workspace/components/calendar-editor/calendar-editor.js');
+  let definition;
+  vm.runInNewContext(fs.readFileSync(filename,'utf8'),{
+    Component(value){definition=value;},
+    require(request){
+      if(request.endsWith('/api'))return {callFunction:async input=>(await post(input.name,input.data)).json()};
+      if(request.endsWith('/navigationBarMetrics'))return {getNavigationBarMetrics:()=>({totalHeight:64})};
+      if(request.endsWith('/orgSession'))return {beginRequest:()=>1,isRequestCurrent:()=>true,getSnapshot:()=>({contextId:'test-context'})};
+      return require(path.resolve(path.dirname(filename),request));
+    }
+  },{filename});
+  return Object.assign({},definition.methods,{data:JSON.parse(JSON.stringify(definition.data)),_visible:true,
+    triggerEvent(){},setData(patch){for(const [key,value] of Object.entries(patch)){const parts=key.split('.');let target=this.data;while(parts.length>1)target=target[parts.shift()];target[parts[0]]=value;}}});
+}
 async function main() {
   const host=process.env.DEPLOY_TEST_DB_HOST || '127.0.0.1',port=Number(process.env.DEPLOY_TEST_DB_PORT || 3362);
   const database='calendar_test_'+process.pid+'_'+Date.now(),username='cal_'+process.pid,password=crypto.randomBytes(24).toString('hex');
@@ -192,6 +208,38 @@ async function main() {
     assert.equal(saved.status,'success');
     const readback=await (await post('getCalendar',{...window,detailId:saved.id,occurrenceDate:input.startDate})).json();
     assert.equal(readback.items.find(item=>item.id===saved.id).title,'浏览器参数保存回读');
+    for(const scope of ['instance','following']){
+      const created=await (await post('saveCalendarEvent',{...input,title:'范围切换保存回读',clientRequestId:'scope-drafts-'+scope})).json();
+      assert.equal(created.status,'success');
+      const editor=calendarEditor(post);
+      editor.initialize({id:created.id,date:'2026-11-03'});
+      await editor.load();
+      assert.equal(editor.data.failed,false,editor.data.notice);
+      assert.equal(editor.data.draft.startDate,'2026-11-03');
+      editor.scope({detail:{value:'2'}});
+      assert.equal(editor.data.draft.startDate,'2026-11-02');
+      editor.frequency({detail:{value:'2'}});
+      editor.allDay({detail:{value:true}});
+      editor.endMode({detail:{value:'0'}});
+      editor.scope({detail:{value:scope==='instance'?'0':'1'}});
+      assert.equal(editor.data.draft.startDate,'2026-11-03');
+      assert.equal(editor.data.draft.recurrence.frequency,'daily');
+      assert.equal(editor.data.draft.allDay,false);
+      editor.field({currentTarget:{dataset:{field:'title'}},detail:{value:'当前范围已修改'}});
+      await editor.save();
+      assert.equal(editor.data.saved,true,editor.data.notice);
+      const result=await (await post('getCalendar',{...window,detailId:created.id,occurrenceDate:'2026-11-03'})).json();
+      assert.equal(result.status,'success');
+      const rows=result.items.filter(item=>item.id===created.id);
+      assert.equal(rows.length,3);
+      assert.equal(rows.find(item=>item.occurrenceDate==='2026-11-02').title,'范围切换保存回读');
+      assert.equal(rows.find(item=>item.occurrenceDate==='2026-11-03').title,'当前范围已修改');
+      assert.equal(rows.find(item=>item.occurrenceDate==='2026-11-03').startAt,'2026-11-03T01:00:00.000Z');
+      assert.equal(rows.find(item=>item.occurrenceDate==='2026-11-04').title,scope==='following'?'当前范围已修改':'范围切换保存回读');
+      const persisted=(await root.query('SELECT spec_json FROM calendar_events WHERE id=?',[created.id]))[0][0].spec_json;
+      assert.equal(persisted.recurrence.frequency,'daily');
+      assert.equal(persisted.recurrence.count,3);
+    }
     const denied=await (await post('saveCalendarEvent',{...input,visibility:'organization',targets:[{type:'people',personIds:['b']}]})).json();
     assert.equal(denied.status,'calendar_forbidden');
     app.use('/venue',(req,res,next)=>require('../src/utils/orgContext').orgStorage.run('org',next));
@@ -343,7 +391,7 @@ async function main() {
     assert.equal((await settingsRevoked.json()).revoked,true);
     const revokedFeed=await fetch('http://127.0.0.1:'+server.address().port+'/api/calendarFeed',{headers:{Authorization:accessHeader}});
     assert.equal(revokedFeed.status,401);
-    console.log('PASS 日程及场地动作隔离数据库：创建岗位保存回读、管理员无岗位、取消保留审批人、提前结束及审计同事务回滚');
+    console.log('PASS 日程及场地动作隔离数据库：创建岗位保存回读、真实小程序范围切换后本次及以后保存回读、管理员无岗位、取消保留审批人、提前结束及审计同事务回滚');
   } finally {
     Date.now=realNow;
     if(server)await new Promise(resolve=>server.close(resolve));

@@ -8,6 +8,7 @@ import hrTemplateCopy from '../../src/locales/zh-CN/shared/hrTemplateSave.js';
 import migrationUi from '../../src/locales/zh-CN/shared/hrProfileMigration.js';
 import personnelCopy from '../../src/locales/zh-CN/shared/adminPersonnel.js';
 import publicationCopy from '../../src/locales/zh-CN/shared/generated/subpackages/scoring/pages/admin/modules/publicationBehavior.js';
+import homeCopy from '../../src/locales/zh-CN/shared/home.js';
 import feedback from '../../src/locales/zh-CN/shared/requestFeedback.js';
 
 async function grant(page, capabilities) {
@@ -400,4 +401,26 @@ test('personnel readers load the profile directory without account governance pe
   await page.goto('/web/admin?subApp=hr');
   await expect(page.getByText('Profile directory member', { exact: true })).toBeVisible();
   expect(governanceReads).toBe(0);
+});
+
+
+test('publication summary uses shared rows and preserves unknown historical roles', async ({ page }, info) => {
+  await grant(page, ['scoring.publications.read']);
+  await page.route('**/api/listScorePublicationActivities', route => route.fulfill({ json: { status: 'success', currentActivityId: 'activity', list: [{ id: 'activity', name: 'Activity', canOpen: true }] } }));
+  await page.route('**/api/getResultPublication', route => route.fulfill({ json: { status: 'success', publication: { id: 'publication', activityId: 'activity' }, access: {}, viewRules: [], meritRules: [] } }));
+  await page.route('**/api/getMeritListSummary', route => route.fulfill({ json: { status: 'success', groups: [{ clauseId: 'group', granteeDepartment: 'Department', granteeIdentity: 'Role', targetIdentity: 'Target', members: [
+    { name: 'Same member', targetAssignmentId: 'job-a', identity: 'Role A', department: 'Department A', workGroup: 'Group A' },
+    { name: 'Same member', targetAssignmentId: 'job-b', identity: 'Role B', department: 'Department B' },
+    { name: 'Historical member', targetHrId: 'member-c', historicalAssignmentUnavailable: true, identity: 'Current role must not replace history' }
+  ] }] } }));
+  await page.goto('/web/admin?subApp=scoring&tab=publications');
+  const table = page.locator('.readonly-person-table');
+  await expect(table.getByRole('columnheader')).toHaveText([homeCopy.text.name, homeCopy.text.regularPosition]);
+  await expect(table.locator('tbody tr')).toHaveCount(3);
+  await expect(table.getByText('Same member', { exact: true })).toHaveCount(2);
+  await expect(table.locator('tbody tr').nth(2)).toContainText(adminUi.historicalAssignmentUnavailable);
+  await expect(table).not.toContainText('Current role must not replace history');
+  expect(await table.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+  await table.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath('publication-summary-table.png'), fullPage: true, animations: 'disabled' });
 });

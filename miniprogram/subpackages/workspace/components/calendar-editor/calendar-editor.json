@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "calendar-conditions": "/subpackages/workspace/package-resources/components/calendar-conditions/calendar-conditions"
+  }
+}
