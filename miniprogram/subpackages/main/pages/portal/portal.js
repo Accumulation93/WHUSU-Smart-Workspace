@@ -71,7 +71,7 @@ const PORTAL_CARDS_ADMIN = [
   { key: 'system', label: copy.cards.system, iconName: 'settings', url: '/subpackages/scoring/pages/admin/admin?subApp=system', disabled: false },
   { key: 'audit', label: copy.cards.audit, iconName: 'file', url: '/subpackages/scoring/pages/admin/admin?subApp=audit', disabled: false },
   { key: 'venue', label: copy.cards.venueManage, iconName: 'venue', url: '/subpackages/venue/pages/venueManage/venueManage', disabled: false },
-  { key: 'permissions', label: copy.cards.permissions, iconName: 'permission-key', url: '/subpackages/org/pages/authorization/authorization', disabled: false }
+  { key: 'permissions', label: copy.cards.permissions, iconName: 'permission-lock', url: '/subpackages/org/pages/authorization/authorization', disabled: false }
 ];
 
 function unifiedPortalCards(access) {

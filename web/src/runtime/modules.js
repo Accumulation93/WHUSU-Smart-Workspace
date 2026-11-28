@@ -117,7 +117,7 @@ export const ADMIN_CARDS = Object.freeze([
   {
     key: 'permissions',
     label: copy.portal.permissions,
-    iconName: 'permission-key',
+    iconName: 'permission-lock',
     status: READY,
     route: { name: 'authorization' }
   }
