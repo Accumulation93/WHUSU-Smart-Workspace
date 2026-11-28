@@ -12,7 +12,8 @@ const { formatDetailTime } = require('../../../../utils/dateTime');
 // 身份卡当前时钟是秒级展示的唯一例外，历史核验时间仍使用分钟格式。
 function formatCurrentTime() {
   const now = Date.now();
-  return formatDetailTime(now) + ':' + ('0' + new Date(now).getUTCSeconds()).slice(-2);
+  const currentTimeText = formatDetailTime(now) + ':' + ('0' + new Date(now).getUTCSeconds()).slice(-2);
+  return { currentTimeText, currentDateText: currentTimeText.slice(0, 10), currentClockText: currentTimeText.slice(11) };
 }
 function presentCard(value) {
   if (!value) return null;
@@ -55,7 +56,7 @@ Page({
     orgSession.invalidateRequests(this);
     (this._imagePaths || []).filter(filePath => filePath !== this._retainedImagePath).forEach(filePath => wx.getFileSystemManager().unlink({ filePath, fail: function() {} }));
     this._imagePaths = (this._imagePaths || []).filter(filePath => filePath === this._retainedImagePath);
-    this.setData({ card: null, image: '', verificationImage: '', miniProgramImage: '', codeMode: 'verification', notice: '', valid: false, loading: false, qrLoading: false, currentTimeText: '', checkedAtText: '', heroTone: orgSession.getSnapshot().role === 'admin' ? 'admin' : 'blue' });
+    this.setData({ card: null, image: '', verificationImage: '', miniProgramImage: '', codeMode: 'verification', notice: '', valid: false, loading: false, qrLoading: false, currentTimeText: '', currentDateText: '', currentClockText: '', checkedAtText: '', heroTone: orgSession.getSnapshot().role === 'admin' ? 'admin' : 'blue' });
     this._savedPolicy = null;
     this.setData({ policyAllowed: false, policy: null, canUpdatePolicy: false, policyLoading: false, policySaving: false, policyDirty: false, policyNotice: '' });
   },
@@ -134,9 +135,9 @@ Page({
       if (result.status !== 'success') throw createResultError(result, copy.failure);
       this.setData({ loading: false, valid: result.valid, card: presentCard(result.card), notice: result.valid ? '' : this._token ? copy.verificationUnavailable : copy.personalUnavailable });
       if (result.valid) {
-        this.setData({ currentTimeText: formatCurrentTime(), checkedAtText: result.checkedAt ? formatDetailTime(result.checkedAt) : '' });
+        this.setData(Object.assign(formatCurrentTime(), { checkedAtText: result.checkedAt ? formatDetailTime(result.checkedAt) : '' }));
         this._clockTimer = setInterval(() => {
-          if (current()) this.setData({ currentTimeText: formatCurrentTime() });
+          if (current()) this.setData(formatCurrentTime());
         }, 1000);
       }
       if (this._token || !result.valid) return;

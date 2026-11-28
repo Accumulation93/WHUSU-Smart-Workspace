@@ -13,13 +13,13 @@
       <AppLoading v-if="loading" :text="copy.loading" />
       <template v-if="card && (!publicView || (valid && !loading))">
         <span v-if="!publicView && card.state" class="chip chip-green identity-own-status">{{ card.state }}</span>
-        <div v-if="!publicView" class="identity-time"><UiIcon name="clock" size-role="context-trailing" /><div><span class="muted">{{ copy.currentTime }}</span><div class="identity-time-value">{{ currentTimeText }}</div></div></div>
+        <div v-if="!publicView" class="identity-live-time" role="timer" :aria-label="copy.currentTime" aria-live="off"><div class="identity-clock-date">{{ currentDateText }}</div><div class="identity-time-value">{{ currentClockText }}</div></div>
         <div class="identity-fields"><div class="identity-field identity-organization-field"><span class="muted">{{ copy.organization }}</span><strong class="break-all">{{ card.organization }}</strong></div>
         <div v-if="publicView && card.department" class="identity-field"><span class="muted">{{ copy.department }}</span><strong class="break-all">{{ card.department }}</strong></div>
         <div v-if="publicView && card.identityCategory" class="identity-field"><span class="muted">{{ copy.identityCategory }}</span><strong class="break-all">{{ card.identityCategory }}</strong></div>
         <div v-if="publicView && card.workGroup" class="identity-field"><span class="muted">{{ copy.functionGroup }}</span><strong class="break-all">{{ card.workGroup }}</strong></div>
         <div v-if="!publicView || !card.hasPositionDetails" class="identity-field"><span class="muted">{{ copy.position }}</span><strong class="break-all">{{ card.position }}</strong></div></div>
-        <div v-if="publicView" class="identity-time identity-live-time"><UiIcon name="clock" tone="primary" size-role="context-trailing" /><div><span class="muted">{{ copy.currentTime }}</span><div class="identity-time-value">{{ currentTimeText }}</div></div></div>
+        <div v-if="publicView" class="identity-live-time" role="timer" :aria-label="copy.currentTime" aria-live="off"><div class="identity-clock-date">{{ currentDateText }}</div><div class="identity-time-value">{{ currentClockText }}</div></div>
         <div v-if="publicView && checkedAtText" class="identity-time"><UiIcon name="clock" tone="muted" size-role="context-trailing" /><div><span class="muted">{{ copy.checkedAt }}</span><div class="identity-time-value">{{ checkedAtText }}</div></div></div>
         <div v-if="!publicView" class="stack identity-code">
           <div class="row row-between row-wrap identity-code-heading"><strong>{{ copy.liveCheck }}</strong><span v-if="image" class="muted">{{ copy.expiryHint }}</span></div>
@@ -87,6 +87,8 @@ const viewerOrganization = computed(() => session.context?.organizationName || s
 const card = ref(null), miniProgramImage = ref(''), verificationImage = ref(''), codeMode = ref('verification'), valid = ref(false), notice = ref(''), loading = ref(false), qrLoading = ref(false);
 const image = computed(() => codeMode.value === 'verification' ? verificationImage.value : miniProgramImage.value);
 const currentTimeText = ref(''), checkedAtText = ref('');
+const currentDateText = computed(() => currentTimeText.value.slice(0, 10));
+const currentClockText = computed(() => currentTimeText.value.slice(11));
 const policyAllowed = ref(false), policy = ref(null), canUpdatePolicy = ref(false), policyLoading = ref(false), policySaving = ref(false), policyNotice = ref('');
 let savedPolicy = null;
 const policyDirty = computed(() => policy.value && savedPolicy && (policy.value.issueEnabled !== savedPolicy.issueEnabled
@@ -219,6 +221,7 @@ onBeforeUnmount(() => { disposed = true; clear(); clearPolicy(); document.remove
 .identity-result { display: inline-flex; align-self: flex-start; align-items: center; gap: var(--ui-field-gap); padding: var(--ui-label-gap) var(--ui-field-gap); border-radius: var(--ui-compact-radius); background: var(--ui-chip-green-bg); color: var(--ui-chip-green-text); font-size: var(--ui-type-body); }
 .identity-fields { display: grid; gap: var(--ui-field-gap); }
 .identity-field { display: flex; flex-direction: column; gap: var(--ui-label-gap); min-width: 0; padding: var(--ui-field-gap); border-radius: var(--ui-field-radius); border: 1px solid var(--ui-line-blue); background: var(--ui-field-bg); }
+.identity-field > strong { font-size: var(--ui-type-value); line-height: 1.6; }
 .identity-time { display: flex; align-items: center; gap: var(--ui-field-gap); padding-bottom: var(--ui-field-gap); border-bottom: 1px dashed var(--ui-chip-blue-border); }
 .identity-time-value { color: var(--ui-blue-800); font-size: var(--ui-type-emphasis); line-height: 1.6; font-weight: 700; font-variant-numeric: tabular-nums; }
 .identity-own-status { align-self: flex-start; }
@@ -244,5 +247,7 @@ onBeforeUnmount(() => { disposed = true; clear(); clearPolicy(); document.remove
 .identity-verification .identity-field { padding: var(--ui-field-gap); border: 1px solid var(--ui-line-blue); border-radius: var(--ui-field-radius); background: var(--ui-field-bg); }
 .identity-verification .identity-time { border-bottom: 0; border-top: 1px solid var(--ui-line-blue); padding: var(--ui-field-gap) 0 0; align-items: flex-start; }
 .identity-verification .identity-time-value { color: var(--ui-text-muted); font-size: var(--ui-type-meta); font-weight: 400; overflow-wrap: anywhere; }
-.identity-verification .identity-live-time .identity-time-value { color: var(--ui-text); font-size: var(--ui-type-emphasis); font-weight: 700; }
+.identity-live-time { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--ui-label-gap); padding: var(--ui-field-gap) 0; text-align: center; font-variant-numeric: tabular-nums; }
+.identity-clock-date { color: var(--ui-text-body); font-size: var(--ui-type-value); font-weight: 600; line-height: 1.5; }
+.identity-card .identity-live-time .identity-time-value { color: var(--ui-blue-800); font-size: var(--ui-type-page); font-weight: 750; line-height: 1.3; white-space: nowrap; }
 </style>

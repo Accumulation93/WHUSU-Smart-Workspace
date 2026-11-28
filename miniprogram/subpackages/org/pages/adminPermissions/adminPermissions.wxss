@@ -89,7 +89,7 @@ page {
   font-weight: 680;
 }
 .permission-secondary {
-  color: #2563eb;
+  color: var(--ui-secondary-text, #1e293b);
   background: linear-gradient(135deg, rgba(255,255,255,.96), rgba(235,243,255,.88));
   border: 1rpx solid rgba(191,219,254,.8);
   box-shadow: 0 10rpx 22rpx rgba(37,99,235,.07);

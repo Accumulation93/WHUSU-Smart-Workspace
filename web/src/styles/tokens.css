@@ -101,6 +101,7 @@
   --ui-compact-primary-bg: linear-gradient(135deg, #2563eb 0%, #3b82f6 45%, #60a5fa 100%);
   --ui-compact-primary-shadow: 0 4px 9px rgba(37, 99, 235, 0.22);
   --ui-text: #0f172a;
+  --ui-secondary-text: #1e293b;
   --ui-text-body: #334155;
   --ui-text-muted: #64748b;
   --ui-text-soft: #94a3b8;

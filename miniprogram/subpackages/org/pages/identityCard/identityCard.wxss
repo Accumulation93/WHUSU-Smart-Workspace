@@ -15,6 +15,7 @@
 .identity-policy-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--ui-field-gap, 16rpx); }
 .identity-card-fields { display: grid; grid-template-columns: 1fr; gap: 18rpx; }
 .identity-card-field { display: flex; flex-direction: column; gap: 6rpx; min-width: 0; padding: var(--ui-field-gap,16rpx); border-radius: var(--ui-field-radius); border: 1px solid rgba(147,197,253,.3); background: linear-gradient(135deg,rgba(255,255,255,.82),rgba(239,246,255,.5)); }
+.identity-card-field .identity-card-value { font-size: var(--ui-type-value); }
 .identity-card-status { display: flex; align-items: center; gap: 8rpx; margin-top: 10rpx; font-size: var(--ui-type-label); line-height: 1.5; }
 .identity-card-result { display: inline-flex; align-items: center; gap: 12rpx; margin-top: 20rpx; padding: 8rpx 16rpx; border-radius: var(--ui-compact-radius); background: linear-gradient(135deg,rgba(209,250,229,.98),rgba(224,242,254,.96)); font-size: var(--ui-type-body); color: #15803d; }
 .identity-time { display: flex; align-items: center; gap: var(--ui-field-gap,16rpx); padding-bottom: var(--ui-field-gap,16rpx); border-bottom: 1px dashed rgba(147,197,253,.64); }
@@ -26,7 +27,7 @@
 .identity-code-tab-active { color: #2563eb; border-color: #3b82f6; background: linear-gradient(135deg,#dbeafe,#eff6ff); }
 .identity-qr-image { width: 480rpx; height: 480rpx; max-width: 100%; flex: none; }
 .identity-card .identity-card-refresh { flex: none; height: auto; min-height: var(--ui-control-height); width: 100%; margin: 0; padding: var(--ui-control-padding-y) var(--ui-control-padding-x); border-radius: var(--ui-control-radius); font-size: var(--ui-type-control); display: flex; align-items: center; justify-content: center; text-align: center; line-height: var(--ui-line-control); box-sizing: border-box; }
-.identity-card .identity-card-refresh.secondary-btn { color: #1e293b; background: linear-gradient(135deg, rgba(255,255,255,.96), rgba(246,249,255,.88)); border-color: rgba(219,229,241,.96); box-shadow: 0 10rpx 22rpx rgba(15,23,42,.05), inset 0 1rpx 0 rgba(255,255,255,.84); }
+.identity-card .identity-card-refresh.secondary-btn { color: var(--ui-secondary-text, #1e293b); background: linear-gradient(135deg, rgba(255,255,255,.96), rgba(246,249,255,.88)); border-color: rgba(219,229,241,.96); box-shadow: 0 10rpx 22rpx rgba(15,23,42,.05), inset 0 1rpx 0 rgba(255,255,255,.84); }
 @media (min-width: 520px) { .identity-card { max-width: 540px; margin: 0 auto; } .identity-card-heading { gap: 12px; } .identity-card-name { margin-top: 20px; } .identity-result-icon { padding: 8px; } .identity-own-status { padding: 3px 7px; } .identity-card-fields { gap: 14px; } .identity-card-field { gap: 4px; } .identity-card-status { gap: 6px; margin-top: 8px; } .identity-card-result { gap: 10px; margin-top: 14px; } .identity-card-code { gap: 12px; padding-top: 18px; } .identity-code-heading { gap: 10px; } .identity-code-tabs { gap: 8px; } .identity-code-tab { min-height: 40px; padding: 8px 12px; } .identity-qr-image { width: 256px; height: 256px; } }
 @media (min-width: 900px) { .identity-card { max-width: 560px; } }
 
@@ -45,4 +46,6 @@
 .identity-verification .identity-card-field { box-shadow: 0 4px 12px rgba(37,99,235,.06),inset 0 1px 0 rgba(255,255,255,.8); backdrop-filter: blur(12px); }
 .identity-verification .identity-time { border-bottom: 0; border-top: 1px solid rgba(147,197,253,.3); padding: var(--ui-field-gap) 0 0; align-items: flex-start; }
 .identity-verification .identity-time-value { font-size: var(--ui-type-meta); color: #64748b; font-weight: 400; overflow-wrap: anywhere; }
-.identity-verification .identity-live-time .identity-time-value { color: #0f172a; font-size: var(--ui-type-emphasis); font-weight: 700; }
+.identity-live-time { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--ui-label-gap); padding: var(--ui-field-gap) 0; text-align: center; font-variant-numeric: tabular-nums; }
+.identity-clock-date { color: var(--ui-text-body); font-size: var(--ui-type-value); font-weight: 600; line-height: 1.5; }
+.identity-card .identity-live-time .identity-time-value { color: #2563eb; font-size: var(--ui-type-page); font-weight: 750; line-height: 1.3; white-space: nowrap; }

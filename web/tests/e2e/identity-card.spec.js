@@ -64,12 +64,22 @@ test('hero opens identity card while work-role button keeps its action', async (
   expect(original?.y).toBe(refresh?.y);
   expect(original?.height).toBe(refresh?.height);
   await expect(page.getByRole('button', { name: copy.originalImage, exact: true })).toHaveCSS('color', 'rgb(255, 255, 255)');
-  await expect(page.getByRole('button', { name: copy.refresh, exact: true })).toHaveCSS('color', 'rgb(15, 23, 42)');
+  await expect(page.getByRole('button', { name: copy.refresh, exact: true })).toHaveCSS('color', 'rgb(30, 41, 59)');
   await page.evaluate(()=>window.scrollTo(0,0));
   await page.screenshot({path:info.outputPath('identity-card.png'),fullPage:true,animations:'disabled'});
   const geometry = await page.evaluate(() => ({hero:document.querySelector('.workspace-hero').getBoundingClientRect().bottom, body:document.querySelector('.identity-card').getBoundingClientRect().top, overflow:document.documentElement.scrollWidth > innerWidth}));
   expect(geometry.body - geometry.hero).toBeGreaterThanOrEqual(8);
   expect(geometry.overflow).toBe(false);
+  const clock = page.getByRole('timer', { name: copy.currentTime });
+  await expect(page.getByText(copy.currentTime, { exact: true })).toHaveCount(0);
+  await expect(clock).toHaveCSS('text-align', 'center');
+  const metrics = await clock.evaluate(el => {
+    const value = el.querySelector('.identity-time-value');
+    const rect = el.getBoundingClientRect(), time = value.getBoundingClientRect();
+    return { center: Math.abs(rect.x + rect.width / 2 - time.x - time.width / 2), font: parseFloat(getComputedStyle(value).fontSize) };
+  });
+  expect(metrics.center).toBeLessThan(1);
+  expect(metrics.font).toBeGreaterThanOrEqual(24);
   await page.locator('.workspace-context-card').click();
   await expect(page).toHaveURL(/work-role/);
 });
@@ -122,11 +132,12 @@ test('admin identity retains dark hero and clock advances without network pollin
   await page.route('**/api/createMyIdentityCardCode',r=>r.fulfill({json:{status:'success',valid:true,card,image,verificationImage}}));
   await page.goto('/web/identity-card');
   await expect(page.locator('.workspace-hero-admin')).toBeVisible();
-  await expect(page.locator('.identity-time-value')).toHaveText('2026-11-10 16:00:00');
+  await expect(page.locator('.identity-clock-date')).toHaveText('2026-11-10');
+  await expect(page.locator('.identity-time-value')).toHaveText('16:00:00');
   await page.clock.fastForward(1000);
-  await expect(page.locator('.identity-time-value')).toHaveText('2026-11-10 16:00:01');
+  await expect(page.locator('.identity-time-value')).toHaveText('16:00:01');
   await page.clock.fastForward(59000);
-  await expect(page.locator('.identity-time-value')).toHaveText('2026-11-10 16:01:00');
+  await expect(page.locator('.identity-time-value')).toHaveText('16:01:00');
   expect(reads).toBe(1);
 });
 
@@ -171,7 +182,7 @@ test('a disabled code policy keeps basic identity without starting code generati
   expect(issued).toBe(0);
 });
 
-test('public identity exposes structured position cards and a local clock without revalidation', async ({page}) => {
+test('public identity exposes structured position cards and a local clock without revalidation', async ({page}, info) => {
   await page.clock.install({ time: new Date('2026-11-10T08:00:00Z') });
   await mockApi(page,{authenticated:false});
   let reads=0;
@@ -179,12 +190,22 @@ test('public identity exposes structured position cards and a local clock withou
   await page.goto('/web/identity-card/verify?token='+'a'.repeat(32));
   await expect(page.locator('.identity-field')).toHaveCount(4);
   for (const value of ['Department A','Coordinator','Group A']) await expect(page.locator('.identity-field').getByText(value,{exact:true})).toBeVisible();
+  for (const field of await page.locator('.identity-field').all()) {
+    const metrics = await field.evaluate(element => {
+      const label = element.querySelector('.muted'), value = element.querySelector('strong');
+      return { label: parseFloat(getComputedStyle(label).fontSize), value: parseFloat(getComputedStyle(value).fontSize), overflow: element.scrollWidth > element.clientWidth };
+    });
+    expect(metrics.value).toBeGreaterThan(metrics.label);
+    expect(metrics.overflow).toBe(false);
+  }
+  await page.screenshot({path:info.outputPath('identity-structured-fields.png'),fullPage:true,animations:'disabled'});
   const clock=page.locator('.identity-live-time .identity-time-value');
-  await expect(clock).toHaveText('2026-11-10 16:00:00');
+  await expect(page.locator('.identity-clock-date')).toHaveText('2026-11-10');
+  await expect(clock).toHaveText('16:00:00');
   await page.clock.fastForward(1000);
-  await expect(clock).toHaveText('2026-11-10 16:00:01');
+  await expect(clock).toHaveText('16:00:01');
   await page.clock.fastForward(59000);
-  await expect(clock).toHaveText('2026-11-10 16:01:00');
+  await expect(clock).toHaveText('16:01:00');
   await expect(page.locator('.identity-time:not(.identity-live-time) .identity-time-value')).toHaveText('2026-11-10 16:00');
   expect(reads).toBe(1);
 });

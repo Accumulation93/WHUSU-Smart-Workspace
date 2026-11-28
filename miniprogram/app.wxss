@@ -19,6 +19,7 @@ page,
   --ui-blue-500: #3b82f6;
   --ui-blue-400: #60a5fa;
   --ui-text: #0f172a;
+  --ui-secondary-text: #1e293b;
   --ui-text-body: #334155;
   --ui-text-muted: #64748b;
   --ui-text-soft: #94a3b8;
@@ -577,7 +578,7 @@ page .picker-value {
 .secondary-btn,
 .dialog-btn,
 .sigpad-btn-secondary {
-  color: #2457a7;
+  color: var(--ui-secondary-text, #1e293b);
   background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(239,246,255,0.86));
   border-color: rgba(147,197,253,0.70);
   box-shadow:
