@@ -251,7 +251,7 @@ const cards = computed(() => {
     result.push(cardsForRole('admin').find(card => card.key === 'permissions'));
   }
   if (canOpenConfigurationCopy(portalAccess.value)) result.push({ key: 'organizationCopy',
-    label: authorizationCopy.configurationCopy.title, iconName: 'file', status: 'ready', route: { name: 'organizationCopy' } });
+    label: authorizationCopy.configurationCopy.title, iconName: 'org-transfer', status: 'ready', route: { name: 'organizationCopy' } });
   return result;
 });
 async function loadPortalAccess() {

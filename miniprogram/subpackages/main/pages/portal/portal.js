@@ -50,28 +50,28 @@ function isPartialBulkResult(result) {
 
 const PORTAL_CARDS_USER = [
   { key: 'calendar', label: calendarCopy.title, iconName: 'calendar', url: '/subpackages/workspace/pages/calendar/calendar', disabled: false },
-  { key: 'identityCard', label: identityCardCopy.title, iconName: 'shield', url: '/subpackages/org/pages/identityCard/identityCard', disabled: false },
+  { key: 'identityCard', label: identityCardCopy.title, iconName: 'id-card', url: '/subpackages/org/pages/identityCard/identityCard', disabled: false },
   { key: 'scan', label: copy.cards.scan, iconName: 'scan', url: '', action: 'scan', disabled: false },
   { key: 'messages', label: copy.cards.messages, iconName: 'bell', url: '/subpackages/message/pages/messageCenter/messageCenter', disabled: false },
-  { key: 'identitySwitch', label: copy.cards.workContextSwitch, iconName: 'user', url: '/subpackages/org/pages/identitySwitch/identitySwitch', disabled: false },
+  { key: 'identitySwitch', label: copy.cards.workContextSwitch, iconName: 'role-switch', url: '/subpackages/org/pages/identitySwitch/identitySwitch', disabled: false },
   { key: 'scoring', label: copy.cards.scoring, iconName: 'grid', url: '/subpackages/workspace/pages/home/home?subApp=scoring', disabled: false },
-  { key: 'hr', label: copy.cards.hr, iconName: 'user', url: '/subpackages/workspace/pages/home/home?subApp=hr', disabled: false },
+  { key: 'hr', label: copy.cards.hr, iconName: 'personnel', url: '/subpackages/workspace/pages/home/home?subApp=hr', disabled: false },
   { key: 'audit', label: copy.cards.audit, iconName: 'file', url: '/subpackages/workspace/pages/home/home?subApp=audit', disabled: false },
   { key: 'venue', label: copy.cards.venueBooking, iconName: 'venue', url: '/subpackages/venue/pages/venueBooking/venueBooking', disabled: false }
 ];
 
 const PORTAL_CARDS_ADMIN = [
   { key: 'calendar', label: calendarCopy.title, iconName: 'calendar', url: '/subpackages/workspace/pages/calendar/calendar', disabled: false },
-  { key: 'identityCard', label: identityCardCopy.title, iconName: 'shield', url: '/subpackages/org/pages/identityCard/identityCard', disabled: false },
+  { key: 'identityCard', label: identityCardCopy.title, iconName: 'id-card', url: '/subpackages/org/pages/identityCard/identityCard', disabled: false },
   { key: 'scan', label: copy.cards.scan, iconName: 'scan', url: '', action: 'scan', disabled: false },
   { key: 'messages', label: copy.cards.messages, iconName: 'bell', url: '/subpackages/message/pages/messageCenter/messageCenter', disabled: false },
-  { key: 'identitySwitch', label: copy.cards.workContextSwitch, iconName: 'user', url: '/subpackages/org/pages/identitySwitch/identitySwitch', disabled: false },
+  { key: 'identitySwitch', label: copy.cards.workContextSwitch, iconName: 'role-switch', url: '/subpackages/org/pages/identitySwitch/identitySwitch', disabled: false },
   { key: 'scoring', label: copy.cards.scoring, iconName: 'grid', url: '/subpackages/scoring/pages/admin/admin?subApp=scoring', disabled: false },
-  { key: 'hr', label: copy.cards.hr, iconName: 'user', url: '/subpackages/scoring/pages/admin/admin?subApp=hr', disabled: false },
-  { key: 'system', label: copy.cards.system, iconName: 'shield', url: '/subpackages/scoring/pages/admin/admin?subApp=system', disabled: false },
+  { key: 'hr', label: copy.cards.hr, iconName: 'personnel', url: '/subpackages/scoring/pages/admin/admin?subApp=hr', disabled: false },
+  { key: 'system', label: copy.cards.system, iconName: 'settings', url: '/subpackages/scoring/pages/admin/admin?subApp=system', disabled: false },
   { key: 'audit', label: copy.cards.audit, iconName: 'file', url: '/subpackages/scoring/pages/admin/admin?subApp=audit', disabled: false },
   { key: 'venue', label: copy.cards.venueManage, iconName: 'venue', url: '/subpackages/venue/pages/venueManage/venueManage', disabled: false },
-  { key: 'permissions', label: copy.cards.permissions, iconName: 'shield', url: '/subpackages/org/pages/authorization/authorization', disabled: false }
+  { key: 'permissions', label: copy.cards.permissions, iconName: 'permission-key', url: '/subpackages/org/pages/authorization/authorization', disabled: false }
 ];
 
 function unifiedPortalCards(access) {
@@ -409,7 +409,7 @@ Page({
       portalCards.push(PORTAL_CARDS_ADMIN.find(card => card.key === 'permissions'));
     }
     if (this._copyEntryAllowed) portalCards.push({ key: 'organizationCopy', label: authorizationCopy.configurationCopy.title,
-      iconName: 'file', url: '/subpackages/org/pages/organizationCopy/organizationCopy', disabled: false });
+      iconName: 'org-transfer', url: '/subpackages/org/pages/organizationCopy/organizationCopy', disabled: false });
 
     this.setData({
       activeRole,

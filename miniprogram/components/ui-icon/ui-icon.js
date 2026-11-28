@@ -3,7 +3,8 @@
 const ICON_NAMES = [
   'bell', 'calendar', 'check', 'chevron-left', 'chevron-right', 'clock', 'edit', 'file',
   'grid', 'home', 'list', 'logout', 'plus', 'search', 'shield', 'signature', 'toast-check',
-  'scan', 'toast-info', 'toast-x', 'trash', 'user', 'venue', 'x', 'phone', 'copy', 'filter'
+  'scan', 'toast-info', 'toast-x', 'trash', 'user', 'venue', 'x', 'phone', 'copy', 'filter',
+  'id-card', 'permission-key', 'role-switch', 'personnel', 'org-transfer', 'settings'
 ];
 
 Component({

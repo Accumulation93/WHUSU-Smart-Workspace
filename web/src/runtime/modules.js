@@ -24,7 +24,7 @@ export const USER_CARDS = Object.freeze([
   {
     key: 'workRole',
     label: copy.portal.workContextSwitch,
-    iconName: 'user',
+    iconName: 'role-switch',
     status: READY,
     route: { name: 'workRole' }
   },
@@ -38,7 +38,7 @@ export const USER_CARDS = Object.freeze([
   {
     key: 'hr',
     label: copy.portal.hr,
-    iconName: 'list',
+    iconName: 'personnel',
     status: READY,
     route: { name: 'hrProfile' }
   },
@@ -63,13 +63,13 @@ export const USER_CARDS = Object.freeze([
     status: READY,
     route: { name: 'venueBookings' }
   },
-  { key: 'identityCard', label: identityCardCopy.title, iconName: 'shield', status: READY, route: { name: 'identityCard' } },
+  { key: 'identityCard', label: identityCardCopy.title, iconName: 'id-card', status: READY, route: { name: 'identityCard' } },
   { key: 'calendar', label: calendarCopy.title, iconName: 'calendar', status: READY, route: { name: 'calendar' } }
 ]);
 
 export const ADMIN_CARDS = Object.freeze([
   { key: 'calendar', label: calendarCopy.title, iconName: 'calendar', status: READY, route: { name: 'calendar' } },
-  { key: 'identityCard', label: identityCardCopy.title, iconName: 'shield', status: READY, route: { name: 'identityCard' } },
+  { key: 'identityCard', label: identityCardCopy.title, iconName: 'id-card', status: READY, route: { name: 'identityCard' } },
   USER_CARDS[0],
   USER_CARDS[1],
   {
@@ -82,14 +82,14 @@ export const ADMIN_CARDS = Object.freeze([
   {
     key: 'hr',
     label: copy.portal.hr,
-    iconName: 'list',
+    iconName: 'personnel',
     status: READY,
     route: { name: 'adminConsole', query: { subApp: 'hr' } }
   },
   {
     key: 'system',
     label: copy.portal.system,
-    iconName: 'shield',
+    iconName: 'settings',
     status: READY,
     route: { name: 'adminConsole', query: { subApp: 'system' } }
   },
@@ -110,14 +110,14 @@ export const ADMIN_CARDS = Object.freeze([
   {
     key: 'venueManage',
     label: copy.portal.venueManage,
-    iconName: 'calendar',
+    iconName: 'venue',
     status: READY,
     route: { name: 'venueManage' }
   },
   {
     key: 'permissions',
     label: copy.portal.permissions,
-    iconName: 'shield',
+    iconName: 'permission-key',
     status: READY,
     route: { name: 'authorization' }
   }
@@ -143,7 +143,7 @@ export function cardsForContext(role, identityModel, access) {
   });
   if (canOpenAuthorization(access)) cards.push(ADMIN_CARDS.find(card => card.key === 'permissions'));
   if (canOpenConfigurationCopy(access)) cards.push({ key: 'organizationCopy',
-    label: authorizationCopy.configurationCopy.title, iconName: 'file', status: READY, route: { name: 'organizationCopy' } });
+    label: authorizationCopy.configurationCopy.title, iconName: 'org-transfer', status: READY, route: { name: 'organizationCopy' } });
   return cards;
 }
 
